@@ -9,3 +9,13 @@ os.environ.setdefault(
     "DATABASE_URL",
     "postgresql+asyncpg://placeholder:placeholder@localhost:5432/placeholder",
 )
+
+# Test-only Ed25519 keypair, generated for this test suite alone — never
+# used to sign anything outside pytest. Same reasoning as DATABASE_URL
+# above: app.core.config needs a syntactically valid value at import time.
+os.environ.setdefault(
+    "JWT_PRIVATE_KEY",
+    "-----BEGIN PRIVATE KEY-----\\n"
+    "MC4CAQAwBQYDK2VwBCIEID/GKNrturQBs0PHh7CXec7DpXPr7cflxZx4A0dYQZw2\\n"
+    "-----END PRIVATE KEY-----\\n",
+)

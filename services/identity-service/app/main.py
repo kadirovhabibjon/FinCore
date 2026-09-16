@@ -5,6 +5,8 @@ from fastapi import FastAPI, HTTPException, status
 from fincore_common import CorrelationIdMiddleware, configure_logging, register_error_handlers
 
 from app.api.v1.auth import router as auth_router
+from app.api.v1.users import router as users_router
+from app.api.well_known import router as well_known_router
 from app.core.config import settings
 from app.db import session as db_session
 
@@ -26,6 +28,8 @@ app = FastAPI(
 app.add_middleware(CorrelationIdMiddleware)
 register_error_handlers(app)
 app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(well_known_router)
 
 
 @app.get("/health")
