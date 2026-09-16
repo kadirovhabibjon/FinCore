@@ -21,3 +21,12 @@ class InvalidCredentialsError(DomainError):
 
     status_code = status.HTTP_401_UNAUTHORIZED
     title = "Invalid Credentials"
+
+
+class InvalidTokenError(DomainError):
+    """Missing, malformed, expired, or wrong-signature bearer token —
+    also covers a token whose subject no longer maps to an active user.
+    """
+
+    status_code = status.HTTP_401_UNAUTHORIZED
+    title = "Invalid Token"

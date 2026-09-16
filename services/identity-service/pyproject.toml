@@ -13,6 +13,8 @@ dependencies = [
     "pydantic-settings>=2.4",
     "email-validator>=2.2",
     "argon2-cffi>=23.1",
+    "pyjwt>=2.9",
+    "cryptography>=43.0",
 ]
 # fincore-common is not listed here: it is installed separately as an
 # editable local package (see services/identity-service/README dev setup),
