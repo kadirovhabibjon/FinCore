@@ -52,3 +52,33 @@ class WalletNotFoundError(DomainError):
 
     status_code = status.HTTP_404_NOT_FOUND
     title = "Wallet Not Found"
+
+
+class InvalidAccountKindError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Invalid Account Kind"
+
+
+class PostingNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Posting Not Found"
+
+
+class HoldNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Hold Not Found"
+
+
+class HoldNotActiveError(DomainError):
+    status_code = status.HTTP_409_CONFLICT
+    title = "Hold Not Active"
+
+
+class HoldExpiredError(DomainError):
+    status_code = status.HTTP_409_CONFLICT
+    title = "Hold Expired"
+
+
+class CaptureExceedsHoldError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Capture Exceeds Hold"
