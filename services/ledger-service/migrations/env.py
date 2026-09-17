@@ -11,7 +11,7 @@ from app.db.base import Base
 
 # Import every ORM model module here so Base.metadata is fully populated
 # before autogenerate compares it against the database.
-from app.domain import account  # noqa: F401
+from app.domain import account, balance, posting  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
