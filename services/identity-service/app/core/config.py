@@ -17,5 +17,10 @@ class Settings(BaseServiceSettings):
     jwt_key_id: str = "identity-2026-09"
     jwt_access_token_ttl_seconds: int = 900
 
+    # 30 days — long-lived by design (that's the point of a refresh
+    # token), which is exactly why it's rotated on every use and never
+    # stored as anything but a hash.
+    refresh_token_ttl_seconds: int = 60 * 60 * 24 * 30
+
 
 settings = Settings()
