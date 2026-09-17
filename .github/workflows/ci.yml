@@ -1,0 +1,74 @@
+name: CI
+
+# One job per service (Section 26: "per changed service"). With a single
+# service so far this always runs both jobs; once more services exist,
+# this expands to path-filtered jobs (or a matrix) so an unrelated
+# service's change doesn't pay for a full pipeline run it didn't touch.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  fincore-common:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: libs/fincore-common
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (mypy)
+        run: mypy src
+
+      - name: Test
+        run: pytest -v
+
+  identity-service:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/identity-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install fincore-common
+        run: pip install -e ../../libs/fincore-common
+
+      - name: Install identity-service
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (mypy)
+        run: mypy app
+
+      - name: Test (unit + integration — real PostgreSQL via testcontainers)
+        # DATABASE_URL / JWT_PRIVATE_KEY: no env vars needed here.
+        # tests/conftest.py sets syntactically-valid placeholders so
+        # import-time settings loading succeeds; integration tests point
+        # at a real testcontainer explicitly instead.
+        #
+        # tests/integration/test_migrations.py is part of this run and
+        # covers Section 26's "migration checks (upgrade from empty DB +
+        # downgrade sanity)" — no separate step needed for that.
+        run: pytest -v
+
+      - name: Build Docker image
+        working-directory: .
+        run: docker build -f services/identity-service/Dockerfile -t fincore-identity-service:ci .
