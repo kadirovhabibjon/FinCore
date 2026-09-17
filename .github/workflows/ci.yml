@@ -1,9 +1,10 @@
 name: CI
 
-# One job per service (Section 26: "per changed service"). With a single
-# service so far this always runs both jobs; once more services exist,
-# this expands to path-filtered jobs (or a matrix) so an unrelated
-# service's change doesn't pay for a full pipeline run it didn't touch.
+# One job per package (Section 26: "per changed service"). All jobs
+# still run on every push/PR regardless of what changed; path filtering
+# (or a matrix) so an unrelated service's change doesn't pay for a full
+# pipeline run it didn't touch is future work once this gets noticeably
+# slow, not before.
 on:
   push:
     branches: [main]
@@ -72,3 +73,38 @@ jobs:
       - name: Build Docker image
         working-directory: .
         run: docker build -f services/identity-service/Dockerfile -t fincore-identity-service:ci .
+
+  ledger-service:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/ledger-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install fincore-common
+        run: pip install -e ../../libs/fincore-common
+
+      - name: Install ledger-service
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (mypy)
+        run: mypy app
+
+      - name: Test (unit + integration — real PostgreSQL via testcontainers)
+        # DATABASE_URL / IDENTITY_SERVICE_JWKS_URL / INTERNAL_SERVICE_TOKEN:
+        # no env vars needed here, same reasoning as identity-service —
+        # tests/conftest.py sets placeholders, integration tests point at
+        # a real testcontainer and a fake in-process JWKS endpoint.
+        run: pytest -v
+
+      - name: Build Docker image
+        working-directory: .
+        run: docker build -f services/ledger-service/Dockerfile -t fincore-ledger-service:ci .
