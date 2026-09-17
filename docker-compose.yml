@@ -37,11 +37,35 @@ services:
     ports:
       - "8091:8000"
 
+  ledger-service:
+    build:
+      context: .
+      dockerfile: services/ledger-service/Dockerfile
+    env_file:
+      - services/ledger-service/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ledger:ledger@postgres:5432/ledger_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "8092:8000"
+
   gateway:
     build:
       context: ./gateway/nginx
     depends_on:
       identity-service:
+        condition: service_healthy
+      ledger-service:
         condition: service_healthy
     ports:
       - "8180:80"
