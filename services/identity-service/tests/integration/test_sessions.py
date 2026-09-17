@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
@@ -40,7 +40,7 @@ async def test_start_session_issues_a_usable_refresh_token() -> None:
         issued = await start_session(session, user.id)
 
     assert issued.user_id == user.id
-    assert issued.expires_at > datetime.now(timezone.utc)
+    assert issued.expires_at > datetime.now(UTC)
 
 
 async def test_rotate_refresh_token_issues_a_new_token_and_invalidates_the_old_one() -> None:
@@ -115,7 +115,7 @@ async def test_rotate_refresh_token_rejects_an_expired_token() -> None:
             )
         )
         stored = result.scalar_one()
-        stored.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        stored.expires_at = datetime.now(UTC) - timedelta(seconds=1)
         await session.commit()
 
     async with db_session.async_session_factory() as session:

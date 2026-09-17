@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -12,7 +12,7 @@ ALGORITHM = "EdDSA"
 
 
 def create_access_token(user_id: UUID, roles: list[str]) -> tuple[str, datetime]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires_at = now + timedelta(seconds=settings.jwt_access_token_ttl_seconds)
 
     payload = {

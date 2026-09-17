@@ -23,4 +23,8 @@ class Settings(BaseServiceSettings):
     refresh_token_ttl_seconds: int = 60 * 60 * 24 * 30
 
 
-settings = Settings()
+# Required fields (database_url, jwt_private_key) have no defaults on
+# purpose — pydantic-settings fills them from the environment/.env at
+# runtime, which mypy's static call-signature check can't see. This is
+# the documented pydantic-settings pattern for that mismatch.
+settings = Settings()  # type: ignore[call-arg]

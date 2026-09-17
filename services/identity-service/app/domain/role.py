@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 
-class RoleName(str, enum.Enum):
+class RoleName(enum.StrEnum):
     """The fixed set of role names FinCore ships with (spec Section 5).
 
     Roles themselves are still a real table (not just this enum): Section

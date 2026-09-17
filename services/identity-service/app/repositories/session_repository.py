@@ -33,4 +33,7 @@ class SessionRepository:
             .where(RefreshToken.id == refresh_token_id, RefreshToken.used_at.is_(None))
             .values(used_at=func.now())
         )
-        return result.rowcount == 1
+        # `.rowcount` is on CursorResult, not the abstract Result[Any] that
+        # execute()'s type stub returns — it's always a CursorResult here
+        # at runtime because this is an UPDATE, not a plain SELECT.
+        return result.rowcount == 1  # type: ignore[attr-defined]

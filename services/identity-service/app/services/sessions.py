@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession as DbSession
@@ -50,12 +50,12 @@ async def rotate_refresh_token(db: DbSession, presented_token: str) -> IssuedRef
     if session is None or session.revoked_at is not None:
         raise InvalidTokenError("session revoked")
 
-    if stored.expires_at < datetime.now(timezone.utc):
+    if stored.expires_at < datetime.now(UTC):
         raise InvalidTokenError("refresh token expired")
 
     claimed = await repository.mark_used_if_unused(stored.id)
     if not claimed:
-        session.revoked_at = datetime.now(timezone.utc)
+        session.revoked_at = datetime.now(UTC)
         await db.commit()
         raise InvalidTokenError("refresh token reuse detected")
 
@@ -75,7 +75,7 @@ async def revoke_session_by_refresh_token(db: DbSession, presented_token: str) -
 
     session = await repository.get_session(stored.session_id)
     if session is not None and session.revoked_at is None:
-        session.revoked_at = datetime.now(timezone.utc)
+        session.revoked_at = datetime.now(UTC)
         await db.commit()
 
 
@@ -83,7 +83,7 @@ async def _issue_refresh_token(
     db: DbSession, session_id: UUID, user_id: UUID
 ) -> IssuedRefreshToken:
     plaintext = generate_refresh_token()
-    expires_at = datetime.now(timezone.utc) + timedelta(
+    expires_at = datetime.now(UTC) + timedelta(
         seconds=settings.refresh_token_ttl_seconds
     )
 
