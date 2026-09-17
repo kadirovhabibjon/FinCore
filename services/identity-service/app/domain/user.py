@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 
-class UserStatus(str, enum.Enum):
+class UserStatus(enum.StrEnum):
     ACTIVE = "ACTIVE"
     BLOCKED = "BLOCKED"
     SUSPENDED = "SUSPENDED"

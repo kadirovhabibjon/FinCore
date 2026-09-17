@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -85,7 +85,7 @@ async def logout(
 def _token_response(
     access_token: str, access_expires_at: datetime, refresh_token: str
 ) -> TokenResponse:
-    expires_in = int((access_expires_at - datetime.now(timezone.utc)).total_seconds())
+    expires_in = int((access_expires_at - datetime.now(UTC)).total_seconds())
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,

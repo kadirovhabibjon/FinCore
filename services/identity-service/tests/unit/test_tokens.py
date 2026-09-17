@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import jwt
@@ -30,7 +30,7 @@ def test_decode_access_token_rejects_a_tampered_token() -> None:
 
 
 def test_decode_access_token_rejects_an_expired_token() -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expired_payload = {
         "sub": str(uuid4()),
         "iss": settings.jwt_issuer,
@@ -47,7 +47,7 @@ def test_decode_access_token_rejects_an_expired_token() -> None:
 
 
 def test_decode_access_token_rejects_wrong_issuer() -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": str(uuid4()),
         "iss": "someone-else",

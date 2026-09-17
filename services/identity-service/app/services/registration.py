@@ -60,7 +60,9 @@ async def register_user(session: AsyncSession, data: RegistrationData) -> User:
     return user
 
 
-def _duplicate_error_for(exc: IntegrityError) -> EmailAlreadyRegisteredError | PhoneAlreadyRegisteredError:
+def _duplicate_error_for(
+    exc: IntegrityError,
+) -> EmailAlreadyRegisteredError | PhoneAlreadyRegisteredError:
     constraint = getattr(exc.orig, "constraint_name", None) or str(exc.orig)
     if "email" in constraint:
         return EmailAlreadyRegisteredError()
