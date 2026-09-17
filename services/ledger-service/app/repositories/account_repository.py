@@ -73,3 +73,13 @@ class AccountRepository:
             .offset(offset)
         )
         return list(result.scalars().all())
+
+    async def get_system_account(self, kind: AccountKind, currency: str) -> LedgerAccount | None:
+        result = await self._session.execute(
+            select(LedgerAccount).where(
+                LedgerAccount.kind == kind,
+                LedgerAccount.currency == currency,
+                LedgerAccount.owner_user_id.is_(None),
+            )
+        )
+        return result.scalar_one_or_none()
