@@ -13,7 +13,7 @@ from app.db.base import Base
 # before autogenerate compares it against the database. Forgetting an
 # import here is the classic way to get an autogenerate migration that
 # silently omits a table.
-from app.domain import role, user  # noqa: F401
+from app.domain import role, session, user  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
