@@ -2,11 +2,13 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from fincore_common import CorrelationIdMiddleware, configure_logging, register_error_handlers
 
 from app.core.config import settings
 from app.db import session as db_session
+from app.services.idempotency import IdempotentReplayResponse
 
 configure_logging(service_name=settings.service_name, level=settings.log_level)
 logger = logging.getLogger(__name__)
@@ -25,6 +27,17 @@ app = FastAPI(
 )
 app.add_middleware(CorrelationIdMiddleware)
 register_error_handlers(app)
+
+
+@app.exception_handler(IdempotentReplayResponse)
+async def _handle_idempotent_replay(
+    request: Request, exc: IdempotentReplayResponse
+) -> JSONResponse:
+    """Not an error path: returns the exact response an earlier request
+    with this same Idempotency-Key already produced, instead of
+    re-running the business logic (spec Section 9.1).
+    """
+    return JSONResponse(status_code=exc.status_code, content=exc.body)
 
 
 @app.get("/health")
