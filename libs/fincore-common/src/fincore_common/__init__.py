@@ -9,6 +9,15 @@ from .correlation import (
 )
 from .errors import DomainError, ProblemDetail, register_error_handlers
 from .logging import JSONFormatter, configure_logging
+from .money import (
+    SUPPORTED_CURRENCIES,
+    InvalidAmountError,
+    UnsupportedCurrencyError,
+    decimal_to_minor,
+    minor_to_decimal,
+    minor_unit_exponent,
+    parse_decimal_string,
+)
 
 __all__ = [
     "BaseServiceSettings",
@@ -23,4 +32,11 @@ __all__ = [
     "register_error_handlers",
     "JSONFormatter",
     "configure_logging",
+    "SUPPORTED_CURRENCIES",
+    "InvalidAmountError",
+    "UnsupportedCurrencyError",
+    "decimal_to_minor",
+    "minor_to_decimal",
+    "minor_unit_exponent",
+    "parse_decimal_string",
 ]
