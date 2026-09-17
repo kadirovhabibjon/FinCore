@@ -4,8 +4,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.account import LedgerAccount
+from app.domain.account import AccountKind, LedgerAccount
 from app.domain.balance import AccountBalance
+from app.domain.posting import LedgerEntry
 
 
 class AccountRepository:
@@ -45,3 +46,30 @@ class AccountRepository:
             if balance is not None:
                 locked[account_id] = balance
         return locked
+
+    async def get_wallets_for_user(self, user_id: UUID) -> list[LedgerAccount]:
+        result = await self._session.execute(
+            select(LedgerAccount).where(
+                LedgerAccount.owner_user_id == user_id,
+                LedgerAccount.kind == AccountKind.USER_WALLET,
+            )
+        )
+        return list(result.scalars().all())
+
+    async def get_wallet_by_id(self, wallet_id: UUID) -> LedgerAccount | None:
+        account = await self._session.get(LedgerAccount, wallet_id)
+        if account is not None and account.kind != AccountKind.USER_WALLET:
+            return None
+        return account
+
+    async def get_entries_for_account(
+        self, account_id: UUID, *, limit: int = 50, offset: int = 0
+    ) -> list[LedgerEntry]:
+        result = await self._session.execute(
+            select(LedgerEntry)
+            .where(LedgerEntry.account_id == account_id)
+            .order_by(LedgerEntry.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.scalars().all())

@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, status
 from fincore_common import CorrelationIdMiddleware, configure_logging, register_error_handlers
 
+from app.api.v1.wallets import router as wallets_router
 from app.core.config import settings
 from app.db import session as db_session
 
@@ -25,6 +26,7 @@ app = FastAPI(
 )
 app.add_middleware(CorrelationIdMiddleware)
 register_error_handlers(app)
+app.include_router(wallets_router)
 
 
 @app.get("/health")

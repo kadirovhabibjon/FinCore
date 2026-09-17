@@ -1,3 +1,9 @@
+from .auth import (
+    InvalidInternalTokenError,
+    InvalidTokenError,
+    JWTVerifier,
+    require_internal_token,
+)
 from .config import BaseServiceSettings
 from .correlation import (
     HEADER_NAME,
@@ -20,6 +26,10 @@ from .money import (
 )
 
 __all__ = [
+    "InvalidInternalTokenError",
+    "InvalidTokenError",
+    "JWTVerifier",
+    "require_internal_token",
     "BaseServiceSettings",
     "HEADER_NAME",
     "CorrelationIdMiddleware",
