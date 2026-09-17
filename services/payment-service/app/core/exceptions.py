@@ -14,3 +14,33 @@ class IdempotencyKeyConflictError(DomainError):
 
     status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
     title = "Idempotency Key Conflict"
+
+
+class InvalidAmountError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Invalid Amount"
+
+
+class SameWalletTransferError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Same Wallet Transfer"
+
+
+class CurrencyMismatchError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Currency Mismatch"
+
+
+class WalletNotFoundError(DomainError):
+    """Also covers "exists but isn't yours" — same anti-enumeration
+    reasoning used throughout this project (e.g. ledger-service's own
+    WalletNotFoundError, identity-service's InvalidCredentialsError).
+    """
+
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Wallet Not Found"
+
+
+class TransferNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Transfer Not Found"

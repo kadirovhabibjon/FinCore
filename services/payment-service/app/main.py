@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from fincore_common import CorrelationIdMiddleware, configure_logging, register_error_handlers
 
+from app.api.v1.transfers import router as transfers_router
 from app.core.config import settings
 from app.db import session as db_session
 from app.services.idempotency import IdempotentReplayResponse
@@ -38,6 +39,9 @@ async def _handle_idempotent_replay(
     re-running the business logic (spec Section 9.1).
     """
     return JSONResponse(status_code=exc.status_code, content=exc.body)
+
+
+app.include_router(transfers_router)
 
 
 @app.get("/health")
