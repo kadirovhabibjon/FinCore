@@ -9,3 +9,7 @@ os.environ.setdefault(
     "DATABASE_URL",
     "postgresql+asyncpg://placeholder:placeholder@localhost:5432/placeholder",
 )
+os.environ.setdefault(
+    "IDENTITY_SERVICE_JWKS_URL", "http://placeholder/.well-known/jwks.json"
+)
+os.environ.setdefault("INTERNAL_SERVICE_TOKEN", "test-only-internal-token")

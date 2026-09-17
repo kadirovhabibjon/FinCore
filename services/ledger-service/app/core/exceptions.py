@@ -31,3 +31,24 @@ class InsufficientFundsError(DomainError):
 
     status_code = status.HTTP_409_CONFLICT
     title = "Insufficient Funds"
+
+
+class UnsupportedCurrencyError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Unsupported Currency"
+
+
+class WalletAlreadyExistsError(DomainError):
+    status_code = status.HTTP_409_CONFLICT
+    title = "Wallet Already Exists"
+
+
+class WalletNotFoundError(DomainError):
+    """Also used when a wallet exists but belongs to someone else — same
+    reasoning as identity-service's InvalidCredentialsError: distinguishing
+    "doesn't exist" from "not yours" would let a caller enumerate other
+    users' wallet ids.
+    """
+
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Wallet Not Found"
