@@ -108,3 +108,39 @@ jobs:
       - name: Build Docker image
         working-directory: .
         run: docker build -f services/ledger-service/Dockerfile -t fincore-ledger-service:ci .
+
+  payment-service:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/payment-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install fincore-common
+        run: pip install -e ../../libs/fincore-common
+
+      - name: Install payment-service
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (mypy)
+        run: mypy app
+
+      - name: Test (unit + integration — real PostgreSQL via testcontainers)
+        # Same reasoning as identity-service/ledger-service:
+        # tests/conftest.py sets placeholders for settings that would
+        # otherwise fail to load at import time; integration tests point
+        # at a real testcontainer and fake in-process ledger/fraud/JWKS
+        # endpoints explicitly instead.
+        run: pytest -v
+
+      - name: Build Docker image
+        working-directory: .
+        run: docker build -f services/payment-service/Dockerfile -t fincore-payment-service:ci .
