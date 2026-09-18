@@ -122,7 +122,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install fincore-common
-        run: pip install -e ../../libs/fincore-common
+        run: pip install -e "../../libs/fincore-common[kafka]"
 
       - name: Install payment-service
         run: pip install -e ".[dev]"

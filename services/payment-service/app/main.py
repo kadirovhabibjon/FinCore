@@ -10,9 +10,11 @@ from fincore_common import CorrelationIdMiddleware, configure_logging, register_
 
 from app.api.v1.transactions import router as transactions_router
 from app.api.v1.transfers import router as transfers_router
+from app.core import kafka as kafka_module
 from app.core.config import settings
 from app.db import session as db_session
 from app.services.idempotency import IdempotentReplayResponse
+from app.services.outbox import relay_outbox_events
 from app.services.recovery import resolve_stuck_transfers
 
 configure_logging(service_name=settings.service_name, level=settings.log_level)
@@ -38,13 +40,34 @@ async def _recovery_worker_loop() -> None:
             logger.exception("recovery worker iteration failed")
 
 
+async def _outbox_relay_loop() -> None:
+    """Runs `relay_outbox_events` on a fixed interval for the life of the
+    process (spec Section 14.1). Same failure handling as the recovery
+    worker: one bad iteration (Kafka unreachable) is logged and retried
+    next tick.
+    """
+    while True:
+        await asyncio.sleep(settings.outbox_relay_interval_seconds)
+        try:
+            async with db_session.async_session_factory() as session:
+                published = await relay_outbox_events(session, kafka_module.event_producer)
+            if published:
+                logger.info("outbox relay published %d event(s)", published)
+        except Exception:
+            logger.exception("outbox relay iteration failed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    worker_task = asyncio.create_task(_recovery_worker_loop())
+    await kafka_module.event_producer.start()
+    recovery_task = asyncio.create_task(_recovery_worker_loop())
+    outbox_task = asyncio.create_task(_outbox_relay_loop())
     yield
-    worker_task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await worker_task
+    for task in (recovery_task, outbox_task):
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    await kafka_module.event_producer.stop()
     await db_session.engine.dispose()
 
 
