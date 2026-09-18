@@ -10,12 +10,13 @@ tutorial. Every non-obvious decision is recorded as an [ADR](docs/adr/)
 rather than left implicit, and the full design rationale lives in
 [`docs/spec.md`](docs/spec.md).
 
-**Status: Phase 2 (Core Ledger) complete.** `identity-service` and
-`ledger-service` are built, tested, and run together via Docker Compose.
-Payments, fraud, notifications, webhooks, and audit are designed (see the
-ADRs and [`docs/context-map.md`](docs/context-map.md)) but not yet built.
-The table in [Roadmap](#roadmap) below tracks this precisely — nothing
-here is described as done unless it's tested and running.
+**Status: Phase 3 (Transfers & Distributed Consistency) complete.**
+`identity-service`, `ledger-service`, and `payment-service` are built,
+tested, and run together via Docker Compose, gateway included. Fraud
+(the real service), notifications, webhooks, and audit are designed (see
+the ADRs and [`docs/context-map.md`](docs/context-map.md)) but not yet
+built. The table in [Roadmap](#roadmap) below tracks this precisely —
+nothing here is described as done unless it's tested and running.
 
 ---
 
@@ -66,7 +67,7 @@ across a distributed transaction. The full reasoning is in
 |---|---|---|
 | `identity-service` ✅ | users, roles, sessions, refresh tokens | Different security/scaling profile from money movement |
 | `ledger-service` ✅ | ledger accounts, postings, entries, balances, holds | Core banking; accepts balanced postings only, knows nothing about *why* — this is what keeps it the most stable service in the system |
-| `payment-service` | transfers, payments, refunds, idempotency keys | Owns the saga; transfers/payments/refunds share the same orchestration machinery, so splitting them would duplicate it |
+| `payment-service` ✅ | transfers, payments, refunds, idempotency keys | Owns the saga; transfers/payments/refunds share the same orchestration machinery, so splitting them would duplicate it |
 | `fraud-service` | fraud checks, rules | Isolated so the rule engine can become an ML model later without touching payment logic |
 | `notification-service` / `webhook-service` / `audit-service` | their own event tables | Pure asynchronous event consumers — the natural boundary for "reacts, doesn't decide" |
 
@@ -141,14 +142,17 @@ for money (ADR-0002, spec Section 8).
   identity-service's JWKS endpoint (cached in memory, not fetched per
   request). No network call to identity-service on the hot path.
 * `POST /internal/v1/postings`, `GET /internal/v1/postings/{source_id}` —
-  the engine payment-service (Phase 3) will call to move money, and the
-  endpoint its recovery worker will use to resolve a timed-out call's
-  real outcome. Never routed through the gateway; requires the shared
-  `X-Internal-Token` header (Section 19 — mTLS is a later concern).
+  the endpoint `payment-service` calls to move money, and the one its
+  recovery worker uses to resolve a timed-out call's real outcome. Never
+  routed through the gateway; requires the shared `X-Internal-Token`
+  header (Section 19 — mTLS is a later concern).
 * `POST /internal/v1/holds`, `.../{id}/capture`, `.../{id}/release` — the
-  reserve → capture/release flow for merchant payments. A hold changes
-  only `held_minor`, no posting; only a capture moves real money, into
-  the currency's `MERCHANT_SETTLEMENT` account.
+  reserve → capture/release flow for merchant payments (not yet called by
+  anything — `payment-service` only does direct transfers so far; holds
+  are exercised today by ledger-service's own tests, and will back
+  Phase 5's payment-capture flow).
+* `GET /internal/v1/reconciliation` — triggers one reconciliation pass on
+  demand, on top of the background job described below.
 
 Every posting (transfer, deposit, payment capture — anything that moves
 money) goes through one function, `create_posting()`, which:
@@ -169,6 +173,16 @@ money) goes through one function, `create_posting()`, which:
 5. Inserts the posting + entries (both append-only) and applies the
    balance deltas, in one commit.
 
+A background **reconciliation job** (spec Section 8.4, ADR-0002) runs
+every `RECONCILIATION_INTERVAL_SECONDS` (default 300s) and independently
+re-derives every invariant the ledger promises — straight from the
+append-only entry log, never trusting the denormalized
+`account_balances` cache it exists to check: every posting balanced,
+each account's balance equal to the signed sum of its entries, no
+wallet's available balance negative, no duplicate posting per
+`source_id`. A violation is logged as an incident and never
+auto-corrected — reconciliation detects, it doesn't fix.
+
 **Database:**
 
 ```text
@@ -185,7 +199,67 @@ system account per kind per currency" simultaneously — a single
 constraint can't do both, because SQL treats every `NULL` `owner_user_id`
 as distinct.
 
-Every migration in both services is verified with a real
+### `payment-service`
+
+Transfers, idempotency, and the distributed transaction — spec Sections
+9, 10, and 20.
+
+* `POST /api/v1/transfers` — the flow runs in this exact order:
+  authorize (does the source wallet belong to the caller — relayed to
+  `ledger-service`'s own public wallet endpoint rather than duplicating
+  that check) → validate (same-wallet, currency match, amount) →
+  idempotency check → create the `Transfer` and run its saga.
+* `GET /api/v1/transfers/{id}` — owner-only; "doesn't exist" and "exists
+  but isn't yours" return the same `404`.
+* `GET /api/v1/transactions`, `GET /api/v1/transactions/{id}` — a
+  type-erased view over the caller's own business operations (`Transfer`
+  today; a future `Payment` would join the same list without changing
+  its shape).
+
+**The saga** (`app/services/transfers.py`), per spec Section 10.1:
+
+```text
+fraud BLOCK               → FAILED, ledger never called
+fraud REVIEW               → stays PENDING
+fraud service unreachable  → fail-open/fail-closed policy decides
+                              (amount ≤ threshold → ALLOW+flagged,
+                               amount > threshold → REVIEW)
+ledger posting succeeds     → COMPLETED
+ledger business rejection   → FAILED (e.g. insufficient funds)
+ledger unreachable/timeout  → stays PROCESSING — an unknown outcome is
+                               never reported as a failure, because the
+                               money may or may not have actually moved
+```
+
+Every status transition is an atomic `UPDATE ... WHERE status =
+:expected` (`TransferRepository.transition_status`) — the state machine
+is enforced by the database update itself, never assumed from
+in-memory state.
+
+**Public API idempotency** (`Idempotency-Key` header, spec Section 9.1):
+a SHA-256 fingerprint of method + path + canonicalized JSON body is
+stored alongside the key, so retrying the *same* request replays the
+original response verbatim, while reusing the key for a *different*
+request is rejected with `422`. The `UNIQUE(user_id, key)` constraint —
+not the pre-check — is what actually decides a race between two
+concurrent first-time requests carrying the same key.
+
+**The recovery worker** (`app/services/recovery.py`) runs in the
+background every `RECOVERY_WORKER_INTERVAL_SECONDS` (default 30s) and
+retries the ledger posting for any transfer that's been stuck
+`PROCESSING` for more than `RECOVERY_WORKER_STUCK_AFTER_SECONDS` (default
+60s). Retrying is safe: `ledger-service`'s posting endpoint is idempotent
+on `(source_service, source_id, type)`, so a retry of a posting that
+already succeeded just returns the existing one instead of moving money
+twice.
+
+**Database:**
+
+```text
+payment_db: idempotency_keys, transfers
+```
+
+Every migration in every service is verified with a real
 `upgrade → downgrade → upgrade` cycle before being committed. This caught
 two real bugs: PostgreSQL native enum types aren't dropped by
 `drop_table()` (identity-service's first migration originally left
@@ -210,28 +284,48 @@ openssl genpkey -algorithm ed25519
 cp services/ledger-service/.env.example services/ledger-service/.env
 # then edit INTERNAL_SERVICE_TOKEN in that .env to any random local value
 
+cp services/payment-service/.env.example services/payment-service/.env
+# then edit INTERNAL_SERVICE_TOKEN in that .env to the *same* value as
+# ledger-service's — cross-service internal auth is one shared secret
+
 docker compose up --build
 ```
 
 | Via gateway | Direct |
 |---|---|
-| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service) |
+| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service) |
 
 Swagger UI (FastAPI's auto-generated API docs):
-`http://localhost:8091/docs` and `http://localhost:8092/docs`.
+`http://localhost:8091/docs`, `http://localhost:8092/docs`, and
+`http://localhost:8093/docs`.
 
-`/internal/*` routes (postings, holds) are deliberately **not** reachable
-through the gateway (`8180`) — only directly against `ledger-service`
-(`8092`, or by its service name from inside the Docker network), matching
-Section 19. Verified: `curl -X POST localhost:8180/internal/v1/postings`
-returns `404`; the same path against `localhost:8092` reaches the route
-(and then rejects a missing/wrong `X-Internal-Token`).
+`/internal/*` routes (postings, holds, reconciliation) are deliberately
+**not** reachable through the gateway (`8180`) — only directly against
+`ledger-service` (`8092`, or by its service name from inside the Docker
+network), matching Section 19. Verified:
+`curl -X POST localhost:8180/internal/v1/postings` returns `404`; the
+same path against `localhost:8092` reaches the route (and then rejects a
+missing/wrong `X-Internal-Token`).
 
-> `docker-compose.yml`'s host ports (`8180`/`8091`/`8092`/`5440` instead
-> of the more usual `8080`/`8001`/`8002`/`5432`) were picked to avoid
-> clashing with other local projects on this dev machine — the internal
-> container ports are unaffected. Change the left side of each
-> `"host:container"` mapping in `docker-compose.yml` if these also
+`payment-service` has no wallet balance to fund a transfer with out of
+the box — there's no public deposit endpoint yet (Phase 5). To try a
+transfer end to end locally, credit a wallet directly via
+`ledger-service`'s internal API first:
+
+```bash
+curl -X POST localhost:8092/internal/v1/postings \
+  -H "X-Internal-Token: <your INTERNAL_SERVICE_TOKEN>" \
+  -H 'Content-Type: application/json' \
+  -d '{"source_service":"manual","source_id":"seed-1","type":"DEPOSIT","currency":"UZS",
+       "entries":[{"account_id":"<EXTERNAL_FUNDING account id for UZS>","direction":"DEBIT","amount_minor":10000000},
+                  {"account_id":"<your wallet id>","direction":"CREDIT","amount_minor":10000000}]}'
+```
+
+> `docker-compose.yml`'s host ports (`8180`/`8091`/`8092`/`8093`/`5440`
+> instead of the more usual `8080`/`8001`/`8002`/`8003`/`5432`) were
+> picked to avoid clashing with other local projects on this dev machine
+> — the internal container ports are unaffected. Change the left side of
+> each `"host:container"` mapping in `docker-compose.yml` if these also
 > collide with something on your machine.
 
 ### Running a service directly (faster edit/test loop)
@@ -275,6 +369,31 @@ docker run --rm -d --name fincore-ledger-dev \
 .venv/bin/uvicorn app.main:app --reload --port 8001
 ```
 
+`payment-service` needs both `identity-service` (JWKS) and
+`ledger-service` (postings, wallet ownership checks) running:
+
+```bash
+cd services/payment-service
+python3.12 -m venv .venv
+.venv/bin/pip install -e ../../libs/fincore-common
+.venv/bin/pip install -e ".[dev]"
+
+cp .env.example .env   # fill in DATABASE_URL, IDENTITY_SERVICE_JWKS_URL,
+                        # INTERNAL_SERVICE_TOKEN (must match ledger-service's),
+                        # LEDGER_SERVICE_BASE_URL, FRAUD_SERVICE_BASE_URL
+
+docker run --rm -d --name fincore-payment-dev \
+  -e POSTGRES_USER=payment -e POSTGRES_PASSWORD=payment -e POSTGRES_DB=payment_db \
+  -p 5434:5432 postgres:16-alpine
+
+.venv/bin/alembic upgrade head
+.venv/bin/uvicorn app.main:app --reload --port 8002
+```
+
+`FRAUD_SERVICE_BASE_URL` can point anywhere nothing answers — fraud-service
+doesn't exist yet (Phase 5), and pointing it at an unreachable host is
+exactly what exercises the fail-open/fail-closed policy end to end.
+
 ---
 
 ## Testing
@@ -282,7 +401,8 @@ docker run --rm -d --name fincore-ledger-dev \
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v      # 32 tests
 cd services/identity-service && .venv/bin/pytest -v # 52 tests
-cd services/ledger-service && .venv/bin/pytest -v   # 48 tests
+cd services/ledger-service && .venv/bin/pytest -v   # 53 tests
+cd services/payment-service && .venv/bin/pytest -v  # 54 tests
 ```
 
 Integration tests spin up a real PostgreSQL container via `testcontainers`
@@ -300,10 +420,15 @@ application code timing — decides the winner:
   trip-wire; both complete, neither deadlocks
 * `test_concurrent_capture_and_release_on_the_same_hold_resolve_to_exactly_one_outcome`
   (both in ledger-service)
+* `test_concurrent_requests_with_the_same_new_key_let_only_one_proceed`
+  — races two requests carrying the same `Idempotency-Key`, asserting
+  the `UNIQUE(user_id, key)` constraint, not a pre-check, decides which
+  one runs the business logic (payment-service)
 
 ```bash
 cd services/identity-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/ledger-service && .venv/bin/ruff check . && .venv/bin/mypy app
+cd services/payment-service && .venv/bin/ruff check . && .venv/bin/mypy app
 ```
 
 CI (`.github/workflows/ci.yml`) runs all of the above per package on every
@@ -333,7 +458,7 @@ Plus [`docs/glossary.md`](docs/glossary.md) (shared vocabulary),
 integration types), and
 [`docs/diagrams/transfer-saga.md`](docs/diagrams/transfer-saga.md) (the
 transfer saga sequence diagram, including its failure branches — designed
-ahead of `payment-service`'s implementation in Phase 3).
+before `payment-service`'s implementation and matched by it, Phase 3).
 
 ---
 
@@ -356,14 +481,17 @@ ahead of `payment-service`'s implementation in Phase 3).
 | Capture and release are called concurrently for the *same* hold | The hold row's own lock serializes them; exactly one resolves it, the other sees the result and takes its idempotent path |
 | A capture is attempted on an expired hold | The hold is released as a side effect and the capture is rejected — `409 Hold Expired` |
 | `/internal/*` endpoints are called without a service token, or through the gateway | Missing token → `422`; wrong token → `403`; through the gateway → `404` (no route exists there at all) |
-
-Saga-level failure handling (a ledger call timing out mid-transfer, an
-"unknown outcome," recovery workers, reconciliation) is designed in
-[ADR-0003](docs/adr/0003-sync-vs-async-communication.md) and the
-[transfer saga diagram](docs/diagrams/transfer-saga.md), and will move
-into this table once `payment-service` exists (Phase 3) — the ledger side
-of that flow (the `POST /internal/v1/postings` call it makes) is already
-built and covered above.
+| A transfer's fraud check comes back BLOCK | `FAILED` without ever calling `ledger-service` — verified by asserting the fake ledger received zero posting calls, not just by the resulting status |
+| A transfer's fraud check comes back REVIEW | Stays `PENDING` |
+| `fraud-service` is unreachable and the amount is at or under the fail-open limit | Treated as `ALLOW` (flagged), so a monitoring outage doesn't halt all transfers |
+| `fraud-service` is unreachable and the amount is over the fail-open limit | Treated as `REVIEW` — the riskier the amount, the less a monitoring outage is allowed to auto-approve it |
+| `ledger-service` returns a 5xx or is unreachable while posting a transfer | The transfer stays `PROCESSING`, **never** `FAILED` — money may or may not have actually moved, and reporting failure when it didn't would be worse than an operation left open |
+| A transfer stuck `PROCESSING` past the recovery threshold | The recovery worker retries the same posting call on its own schedule; safe because the posting is idempotent on `(source_service, source_id, type)` |
+| The same `Idempotency-Key` is replayed with an identical body | The original response is returned verbatim; the saga never runs twice |
+| The same `Idempotency-Key` is reused with a *different* body | `422 Idempotency Key Conflict` |
+| Two requests race with the same brand-new `Idempotency-Key` | Exactly one runs the business logic — the `UNIQUE(user_id, key)` constraint decides, not a pre-check |
+| A transfer is requested from a wallet the caller doesn't own, or between the same wallet twice | `404 Wallet Not Found` / `422 Same Wallet Transfer` — checked before any state is created |
+| The ledger's own invariants drift from what its entry log actually implies (posting unbalanced, a cached balance out of sync, a duplicate posting, a wallet's available balance negative) | The reconciliation job catches it on its next pass and logs it as an incident — it never silently "fixes" the numbers |
 
 ---
 
@@ -377,7 +505,7 @@ phases complete — not aspirational.
 | 0 — Design | 0 | Glossary, context map, ADRs, saga diagram | ✅ |
 | 1 — Foundation | 1–3 | `fincore-common`, `identity-service`, gateway, Docker Compose, CI | ✅ |
 | 2 — Core Ledger | 4–6 | `ledger-service`, postings, holds, row locking | ✅ |
-| 3 — Transfers & Distributed Consistency | 7–9 | `payment-service`, sagas, idempotency, recovery worker | ⏳ |
+| 3 — Transfers & Distributed Consistency | 7–9 | `payment-service`, sagas, idempotency, recovery worker | ✅ |
 | 4 — Async Architecture | 10–11 | Transactional outbox, Kafka, `notification-service`, tracing | ⏳ |
 | 5 — Advanced Financial Features | 12–14 | `fraud-service`, payment holds/refunds, `webhook-service`, `audit-service` | ⏳ |
 | 6 — Production Readiness | 15–16 | Prometheus/Grafana, full CI, e2e, load testing | ⏳ |
