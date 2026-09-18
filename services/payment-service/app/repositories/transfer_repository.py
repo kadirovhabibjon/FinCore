@@ -15,6 +15,19 @@ class TransferRepository:
     async def get(self, transfer_id: UUID) -> Transfer | None:
         return await self._session.get(Transfer, transfer_id)
 
+    async def list_for_user(self, user_id: UUID, *, limit: int, offset: int) -> list[Transfer]:
+        """Newest first — the user's own transaction history (spec
+        Section 20's `GET /api/v1/transactions`).
+        """
+        result = await self._session.execute(
+            select(Transfer)
+            .where(Transfer.initiator_user_id == user_id)
+            .order_by(Transfer.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.scalars().all())
+
     async def list_stuck_processing(self, *, older_than: datetime) -> list[Transfer]:
         """Transfers left in PROCESSING by an unknown ledger outcome
         (spec Section 10.1) whose last update is older than `older_than`

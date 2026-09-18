@@ -44,3 +44,13 @@ class WalletNotFoundError(DomainError):
 class TransferNotFoundError(DomainError):
     status_code = status.HTTP_404_NOT_FOUND
     title = "Transfer Not Found"
+
+
+class TransactionNotFoundError(DomainError):
+    """Raised by `GET /api/v1/transactions/{id}` — distinct from
+    TransferNotFoundError since this endpoint isn't transfer-specific
+    (spec Section 20).
+    """
+
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Transaction Not Found"
