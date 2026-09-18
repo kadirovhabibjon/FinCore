@@ -15,6 +15,17 @@ services:
       timeout: 3s
       retries: 5
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    environment:
+      # OTLP is the wire format every service exports spans in
+      # (fincore_common.tracing) — no separate collector needed in
+      # front of Jaeger for a single-node dev setup.
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # UI
+      - "4318:4318" # OTLP HTTP receiver
+
   identity-service:
     build:
       context: .
@@ -28,6 +39,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -50,6 +63,8 @@ services:
         condition: service_healthy
       identity-service:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -105,6 +120,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -127,6 +144,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s

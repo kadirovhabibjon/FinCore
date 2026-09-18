@@ -9,6 +9,7 @@ from fincore_common import (
     CorrelationIdMiddleware,
     EventEnvelope,
     configure_logging,
+    configure_tracing,
     register_error_handlers,
 )
 from fincore_common.kafka import EventConsumer, EventHandler
@@ -100,6 +101,9 @@ app = FastAPI(
 )
 app.add_middleware(CorrelationIdMiddleware)
 register_error_handlers(app)
+configure_tracing(
+    service_name=settings.service_name, otlp_endpoint=settings.otel_exporter_otlp_endpoint, app=app
+)
 app.include_router(dead_letters_router)
 
 
@@ -111,7 +115,9 @@ async def health() -> dict[str, str]:
 
 @app.get("/ready")
 async def ready() -> dict[str, str]:
-    """Readiness: can the service actually serve traffic (DB reachable)."""
+    """Readiness: can the service actually serve traffic (spec Section
+    24: DB and Kafka connectivity, not just liveness).
+    """
     try:
         await db_session.check_database_connection()
     except Exception as exc:
@@ -119,5 +125,13 @@ async def ready() -> dict[str, str]:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="database unreachable",
+        ) from exc
+    try:
+        await kafka_module.side_channel_producer.check_connection()
+    except Exception as exc:
+        logger.warning("readiness check failed: kafka unreachable")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="kafka unreachable",
         ) from exc
     return {"status": "ok"}

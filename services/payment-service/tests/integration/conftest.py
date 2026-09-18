@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import FastAPI
 from fincore_common import JWTVerifier
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from testcontainers.community.kafka import KafkaContainer
 from testcontainers.community.postgres import PostgresContainer
 
 from app.core import auth as auth_module
@@ -24,6 +25,14 @@ from app.db import session as db_session
 def postgres_url() -> str:
     with PostgresContainer("postgres:16-alpine", driver="asyncpg") as postgres:
         yield postgres.get_connection_url()
+
+
+@pytest.fixture(scope="module")
+def kafka_bootstrap_servers() -> str:
+    # Single-node KRaft mode — no separate Zookeeper container needed,
+    # same setup used in docker-compose.yml for local dev.
+    with KafkaContainer().with_kraft() as kafka:
+        yield kafka.get_bootstrap_server()
 
 
 @pytest.fixture
