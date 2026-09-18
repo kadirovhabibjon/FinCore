@@ -10,13 +10,14 @@ tutorial. Every non-obvious decision is recorded as an [ADR](docs/adr/)
 rather than left implicit, and the full design rationale lives in
 [`docs/spec.md`](docs/spec.md).
 
-**Status: Phase 3 (Transfers & Distributed Consistency) complete.**
-`identity-service`, `ledger-service`, and `payment-service` are built,
-tested, and run together via Docker Compose, gateway included. Fraud
-(the real service), notifications, webhooks, and audit are designed (see
-the ADRs and [`docs/context-map.md`](docs/context-map.md)) but not yet
-built. The table in [Roadmap](#roadmap) below tracks this precisely —
-nothing here is described as done unless it's tested and running.
+**Status: Phase 4 (Async Architecture) complete.** `identity-service`,
+`ledger-service`, `payment-service`, and `notification-service` are
+built, tested, and run together via Docker Compose — gateway, Kafka, and
+Jaeger included. Fraud (the real service), webhooks, and audit are
+designed (see the ADRs and [`docs/context-map.md`](docs/context-map.md))
+but not yet built. The table in [Roadmap](#roadmap) below tracks this
+precisely — nothing here is described as done unless it's tested and
+running.
 
 ---
 
@@ -67,9 +68,10 @@ across a distributed transaction. The full reasoning is in
 |---|---|---|
 | `identity-service` ✅ | users, roles, sessions, refresh tokens | Different security/scaling profile from money movement |
 | `ledger-service` ✅ | ledger accounts, postings, entries, balances, holds | Core banking; accepts balanced postings only, knows nothing about *why* — this is what keeps it the most stable service in the system |
-| `payment-service` ✅ | transfers, payments, refunds, idempotency keys | Owns the saga; transfers/payments/refunds share the same orchestration machinery, so splitting them would duplicate it |
+| `payment-service` ✅ | transfers, payments, refunds, idempotency keys, the outbox | Owns the saga; transfers/payments/refunds share the same orchestration machinery, so splitting them would duplicate it |
+| `notification-service` ✅ | notifications, retry/DLT state | Pure asynchronous event consumer — the natural boundary for "reacts, doesn't decide" |
 | `fraud-service` | fraud checks, rules | Isolated so the rule engine can become an ML model later without touching payment logic |
-| `notification-service` / `webhook-service` / `audit-service` | their own event tables | Pure asynchronous event consumers — the natural boundary for "reacts, doesn't decide" |
+| `webhook-service` / `audit-service` | their own event tables | Same "reacts, doesn't decide" boundary as `notification-service` |
 
 ✅ = implemented. Everything else is designed (ADRs + context map) and
 scheduled per the [roadmap](#roadmap).
@@ -81,15 +83,17 @@ scheduled per the [roadmap](#roadmap).
 ```text
 Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.x (async), Alembic
 PostgreSQL (one database, one least-privilege role, per service)
+Kafka (KRaft mode — no Zookeeper), aiokafka
+OpenTelemetry (traces) + Jaeger, structured JSON logging
 Nginx (gateway), Docker / Docker Compose
-pytest + pytest-asyncio + testcontainers (real PostgreSQL in tests, never SQLite)
+pytest + pytest-asyncio + testcontainers (real PostgreSQL/Kafka in tests, never SQLite or fakes)
 ruff + mypy
 GitHub Actions
 ```
 
 Planned, not yet introduced (added when the roadmap reaches them, per the
-project's own rule against speculative infrastructure): Kafka, Redis,
-OpenTelemetry, Prometheus/Grafana.
+project's own rule against speculative infrastructure): Redis,
+Prometheus/Grafana.
 
 ---
 
@@ -253,10 +257,72 @@ on `(source_service, source_id, type)`, so a retry of a posting that
 already succeeded just returns the existing one instead of moving money
 twice.
 
+**The transactional outbox** (`app/domain/outbox.py`, spec Section
+14.1): every time the saga transitions a transfer to `COMPLETED` or
+`FAILED`, an `outbox_events` row is written in the *same* database
+transaction as that status change — so a committed transition can never
+silently fail to get an event. A background relay
+(`app/services/outbox.py`) publishes unpublished rows to Kafka's
+`transfers` topic every `OUTBOX_RELAY_INTERVAL_SECONDS` (default 5s),
+keyed by transfer id for per-transfer ordering, and marks each published
+only *after* a successful send. A race the outbox design doesn't
+prevent on its own — the recovery worker retrying a transfer the
+original saga call is still mid-flight on — is closed by only letting
+whichever caller's `transition_status()` UPDATE actually applied write
+the outbox event (verified with a real `asyncio.gather` race against
+Postgres, not just reasoned about).
+
 **Database:**
 
 ```text
-payment_db: idempotency_keys, transfers
+payment_db: idempotency_keys, transfers, outbox_events
+```
+
+### `notification-service`
+
+Consumes domain events and dispatches (mocked) notifications — spec
+Sections 15 and 16. A pure event consumer: no public API beyond
+`/health` and `/ready`, not routed through the gateway.
+
+* Consumes `transfer.completed` / `transfer.failed` from the `transfers`
+  topic and dispatches each through three logging-mock channels
+  (`app/services/providers.py` — Email/SMS/Push behind one interface, so
+  a real provider can replace a mock later without touching the
+  consumer). No paid external provider is required for v1, per spec.
+* **Consumer idempotency**: `notifications.event_id` is `UNIQUE` and
+  doubles as the guard — a redelivered event (the normal consequence of
+  Kafka's at-least-once delivery) is a no-op, not a second notification.
+* **Retry topics + dead-letter queue** (`app/services/dispatch.py`, spec
+  Section 16): a failed event is classified, not just retried in place —
+  blocking the original partition until one poison message succeeds
+  would stall every other message queued behind it.
+
+  ```text
+  permanent error (bad data)                -> DLT immediately
+  transient error (e.g. provider timeout),
+    attempts remaining                       -> "transfers-retry" topic, delayed
+  transient error, attempts exhausted        -> DLT
+  ```
+
+  Retry state (attempt count, not-before time, last error) rides inside
+  a second `EventEnvelope` on its own topic rather than a new wire
+  format. Exponential backoff with jitter
+  (`RetryPolicy.delay_seconds`) avoids a burst of simultaneously-failing
+  messages retrying in lockstep. A dedicated retry-topic consumer (its
+  own consumer group) waits out each message's remaining backoff and
+  re-attempts it — delaying only that topic's own partition, never the
+  main one.
+* Dead-lettered events land on a `transfers-dlt` topic and in a
+  queryable `dead_letters` table, with a manual-replay internal API
+  (`GET`/`POST /internal/v1/dead-letters[/{id}/replay]`,
+  token-authenticated like every other `/internal/*` endpoint) that
+  republishes the original event onto the main topic for ordinary
+  reprocessing.
+
+**Database:**
+
+```text
+notification_db: notifications, dead_letters
 ```
 
 Every migration in every service is verified with a real
@@ -269,6 +335,22 @@ columns requires the dialect-specific `postgresql.ENUM(create_type=False)`
 flag and fails with "type already exists." Both are now covered by
 regression tests in `tests/integration/test_migrations.py` in each
 service.
+
+### Distributed tracing (all services)
+
+Every service calls `fincore_common.configure_tracing()` at startup
+(spec Section 24), which instruments FastAPI and httpx and exports spans
+via OTLP to Jaeger. The part worth calling out specifically:
+`fincore_common.kafka`'s `EventProducer`/`EventConsumer` inject and
+extract W3C trace context into Kafka message headers around
+publish/consume, so a trace continues across the async Kafka boundary
+as the *same* trace instead of breaking into two disconnected ones —
+verified both with a real Kafka broker + an in-memory span exporter in
+`fincore-common`'s own tests, and by querying Jaeger's API after a real
+transfer through the live stack: `payment-service`'s `transfers publish`
+span and `notification-service`'s `transfers process` span share one
+trace id. `/ready` also checks Kafka connectivity now, not just the
+database, for any service that talks to Kafka.
 
 ---
 
@@ -288,16 +370,25 @@ cp services/payment-service/.env.example services/payment-service/.env
 # then edit INTERNAL_SERVICE_TOKEN in that .env to the *same* value as
 # ledger-service's — cross-service internal auth is one shared secret
 
+cp services/notification-service/.env.example services/notification-service/.env
+# then edit INTERNAL_SERVICE_TOKEN in that .env to any random local value
+# (this one is its own secret — nothing else calls into it)
+
 docker compose up --build
 ```
 
 | Via gateway | Direct |
 |---|---|
-| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service) |
+| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service), `http://localhost:8094` (notification-service) |
 
 Swagger UI (FastAPI's auto-generated API docs):
-`http://localhost:8091/docs`, `http://localhost:8092/docs`, and
-`http://localhost:8093/docs`.
+`http://localhost:8091/docs`, `http://localhost:8092/docs`,
+`http://localhost:8093/docs`, and `http://localhost:8094/docs`.
+
+Jaeger UI (distributed traces): `http://localhost:16686`. Kafka's own
+external port (for `kcat`/`kafka-console-consumer` from the host, not
+needed by the services themselves — they talk to `kafka:9092` inside the
+compose network) is `http://localhost:9094`.
 
 `/internal/*` routes (postings, holds, reconciliation) are deliberately
 **not** reachable through the gateway (`8180`) — only directly against
@@ -321,12 +412,12 @@ curl -X POST localhost:8092/internal/v1/postings \
                   {"account_id":"<your wallet id>","direction":"CREDIT","amount_minor":10000000}]}'
 ```
 
-> `docker-compose.yml`'s host ports (`8180`/`8091`/`8092`/`8093`/`5440`
-> instead of the more usual `8080`/`8001`/`8002`/`8003`/`5432`) were
-> picked to avoid clashing with other local projects on this dev machine
-> — the internal container ports are unaffected. Change the left side of
-> each `"host:container"` mapping in `docker-compose.yml` if these also
-> collide with something on your machine.
+> `docker-compose.yml`'s host ports (`8180`/`8091`/`8092`/`8093`/`8094`/
+> `5440`/`9094` instead of the more usual `8080`/`8001`.../`5432`/`9092`)
+> were picked to avoid clashing with other local projects on this dev
+> machine — the internal container ports are unaffected. Change the left
+> side of each `"host:container"` mapping in `docker-compose.yml` if
+> these also collide with something on your machine.
 
 ### Running a service directly (faster edit/test loop)
 
@@ -369,13 +460,14 @@ docker run --rm -d --name fincore-ledger-dev \
 .venv/bin/uvicorn app.main:app --reload --port 8001
 ```
 
-`payment-service` needs both `identity-service` (JWKS) and
-`ledger-service` (postings, wallet ownership checks) running:
+`payment-service` needs `identity-service` (JWKS), `ledger-service`
+(postings, wallet ownership checks), and a running Kafka broker (the
+outbox relay):
 
 ```bash
 cd services/payment-service
 python3.12 -m venv .venv
-.venv/bin/pip install -e ../../libs/fincore-common
+.venv/bin/pip install -e "../../libs/fincore-common[kafka]"
 .venv/bin/pip install -e ".[dev]"
 
 cp .env.example .env   # fill in DATABASE_URL, IDENTITY_SERVICE_JWKS_URL,
@@ -394,15 +486,61 @@ docker run --rm -d --name fincore-payment-dev \
 doesn't exist yet (Phase 5), and pointing it at an unreachable host is
 exactly what exercises the fail-open/fail-closed policy end to end.
 
+`notification-service` needs a running Kafka broker and its own
+Postgres — it doesn't call any other service directly:
+
+```bash
+cd services/notification-service
+python3.12 -m venv .venv
+.venv/bin/pip install -e "../../libs/fincore-common[kafka]"
+.venv/bin/pip install -e ".[dev]"
+
+cp .env.example .env   # fill in DATABASE_URL, INTERNAL_SERVICE_TOKEN
+
+docker run --rm -d --name fincore-notification-dev \
+  -e POSTGRES_USER=notification -e POSTGRES_PASSWORD=notification -e POSTGRES_DB=notification_db \
+  -p 5435:5432 postgres:16-alpine
+
+.venv/bin/alembic upgrade head
+.venv/bin/uvicorn app.main:app --reload --port 8003
+```
+
+A local Kafka broker for either of the two above (matching
+`docker-compose.yml`'s single-node KRaft setup, no Zookeeper):
+
+```bash
+docker run --rm -d --name fincore-kafka-dev -p 9094:9094 \
+  -e KAFKA_NODE_ID=1 -e KAFKA_PROCESS_ROLES=broker,controller \
+  -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 \
+  -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+  -e KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9094 \
+  -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092,EXTERNAL://localhost:9094 \
+  -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT \
+  -e KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT \
+  -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 -e KAFKA_AUTO_CREATE_TOPICS_ENABLE=true \
+  -e CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk confluentinc/cp-kafka:7.6.0
+# then set KAFKA_BOOTSTRAP_SERVERS=localhost:9094 in both services' .env
+```
+
+Tracing works without any extra setup — `configure_tracing()` degrades
+to dropped spans if `OTEL_EXPORTER_OTLP_ENDPOINT` isn't reachable. Run
+Jaeger locally to actually see them:
+
+```bash
+docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
+  -e COLLECTOR_OTLP_ENABLED=true jaegertracing/all-in-one:1.60
+```
+
 ---
 
 ## Testing
 
 ```bash
-cd libs/fincore-common && .venv/bin/pytest -v      # 32 tests
-cd services/identity-service && .venv/bin/pytest -v # 52 tests
-cd services/ledger-service && .venv/bin/pytest -v   # 53 tests
-cd services/payment-service && .venv/bin/pytest -v  # 54 tests
+cd libs/fincore-common && .venv/bin/pytest -v           # 40 tests
+cd services/identity-service && .venv/bin/pytest -v     # 52 tests
+cd services/ledger-service && .venv/bin/pytest -v       # 53 tests
+cd services/payment-service && .venv/bin/pytest -v      # 64 tests
+cd services/notification-service && .venv/bin/pytest -v # 25 tests
 ```
 
 Integration tests spin up a real PostgreSQL container via `testcontainers`
@@ -424,11 +562,26 @@ application code timing — decides the winner:
   — races two requests carrying the same `Idempotency-Key`, asserting
   the `UNIQUE(user_id, key)` constraint, not a pre-check, decides which
   one runs the business logic (payment-service)
+* `test_two_concurrent_resolutions_of_the_same_transfer_write_exactly_one_outbox_event`
+  — the saga's own call and the recovery worker racing to resolve the
+  same transfer; only one may write the outbox event (payment-service)
+
+Several more tests run against a real single-node Kafka broker via
+`testcontainers` (never a fake producer/consumer) — the same "no fakes
+for infra" rule as PostgreSQL. Two are worth calling out specifically:
+`test_a_failed_handler_leaves_the_message_uncommitted_for_redelivery`
+proves a raised exception really does leave a message's offset
+uncommitted for redelivery rather than just asserting the code path was
+reached, and `test_trace_context_propagates_from_producer_to_consumer`
+proves a trace started before publishing continues as the parent of the
+consumer's own span, using a real broker plus an in-memory span exporter
+(fincore-common).
 
 ```bash
 cd services/identity-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/ledger-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/payment-service && .venv/bin/ruff check . && .venv/bin/mypy app
+cd services/notification-service && .venv/bin/ruff check . && .venv/bin/mypy app
 ```
 
 CI (`.github/workflows/ci.yml`) runs all of the above per package on every
@@ -492,6 +645,14 @@ before `payment-service`'s implementation and matched by it, Phase 3).
 | Two requests race with the same brand-new `Idempotency-Key` | Exactly one runs the business logic — the `UNIQUE(user_id, key)` constraint decides, not a pre-check |
 | A transfer is requested from a wallet the caller doesn't own, or between the same wallet twice | `404 Wallet Not Found` / `422 Same Wallet Transfer` — checked before any state is created |
 | The ledger's own invariants drift from what its entry log actually implies (posting unbalanced, a cached balance out of sync, a duplicate posting, a wallet's available balance negative) | The reconciliation job catches it on its next pass and logs it as an incident — it never silently "fixes" the numbers |
+| `payment-service` crashes between committing a transfer's status and the outbox relay publishing its event | The event is still there on restart — it was committed in the *same* transaction as the status change, not a follow-up step that could be lost |
+| The recovery worker and the saga's own call both try to resolve the same stuck transfer | Only the one whose `UPDATE ... WHERE status = :expected` actually applies gets to write the outbox event — the other sees it already moved on |
+| `notification-service` crashes between dispatching a notification and committing its offset | The event redelivers on restart; `notifications.event_id` is `UNIQUE`, so the redelivery is a no-op, not a second notification |
+| A notification handler raises for reasons that will never resolve (malformed event data) | Dead-lettered immediately — no retries wasted on something retrying can't fix |
+| A notification handler raises for a reason that might resolve (a provider timeout) | Routed to the retry topic with exponential backoff + jitter, delaying only that topic's partition — every other queued event keeps flowing |
+| A transient failure exhausts its retry attempts | Dead-lettered, recorded in a queryable table, and republishable on demand via the internal replay API |
+| `payment-service` or `notification-service` starts up with Kafka unreachable | `/ready` returns `503` — it checks Kafka connectivity now, not just the database |
+| A collector for distributed tracing isn't running | Spans queue in a background thread and get silently dropped — request handling is never blocked or failed by tracing infrastructure being down |
 
 ---
 
@@ -506,7 +667,7 @@ phases complete — not aspirational.
 | 1 — Foundation | 1–3 | `fincore-common`, `identity-service`, gateway, Docker Compose, CI | ✅ |
 | 2 — Core Ledger | 4–6 | `ledger-service`, postings, holds, row locking | ✅ |
 | 3 — Transfers & Distributed Consistency | 7–9 | `payment-service`, sagas, idempotency, recovery worker | ✅ |
-| 4 — Async Architecture | 10–11 | Transactional outbox, Kafka, `notification-service`, tracing | ⏳ |
+| 4 — Async Architecture | 10–11 | Transactional outbox, Kafka, `notification-service`, tracing | ✅ |
 | 5 — Advanced Financial Features | 12–14 | `fraud-service`, payment holds/refunds, `webhook-service`, `audit-service` | ⏳ |
 | 6 — Production Readiness | 15–16 | Prometheus/Grafana, full CI, e2e, load testing | ⏳ |
 | 7 — Frontend | after 6 | React/TypeScript dashboard + admin panel ([ADR-0005](docs/adr/0005-frontend-addition.md)) | ⏳ |
