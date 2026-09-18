@@ -144,3 +144,38 @@ jobs:
       - name: Build Docker image
         working-directory: .
         run: docker build -f services/payment-service/Dockerfile -t fincore-payment-service:ci .
+
+  notification-service:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/notification-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install fincore-common
+        run: pip install -e "../../libs/fincore-common[kafka]"
+
+      - name: Install notification-service
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (mypy)
+        run: mypy app
+
+      - name: Test (unit + integration — real PostgreSQL and Kafka via testcontainers)
+        # Same reasoning as the other services: tests/conftest.py sets a
+        # placeholder DATABASE_URL for settings that would otherwise
+        # fail to load at import time; integration tests point at real
+        # testcontainers explicitly instead.
+        run: pytest -v
+
+      - name: Build Docker image
+        working-directory: .
+        run: docker build -f services/notification-service/Dockerfile -t fincore-notification-service:ci .
