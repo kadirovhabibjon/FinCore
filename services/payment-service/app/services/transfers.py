@@ -2,13 +2,48 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
+from fincore_common import EventType, get_correlation_id
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import SameWalletTransferError
+from app.domain.outbox import OutboxEvent
 from app.domain.transfer import FraudDecision, Transfer, TransferStatus
 from app.repositories.transfer_repository import TransferRepository
 from app.services import fraud, ledger
 from app.services.ledger import PostingOutcome
+
+
+def _transfer_outbox_event(
+    transfer: Transfer,
+    event_type: EventType,
+    *,
+    status: TransferStatus,
+    failure_reason: str | None = None,
+    completed_at: datetime | None = None,
+) -> OutboxEvent:
+    """Built from the values this call is *about to* (or just did) write,
+    not by re-reading `transfer` — the caller already knows exactly what
+    changed, since it's the one that constructed those values, and this
+    keeps the outbox row correct regardless of ORM attribute-refresh
+    timing (spec Section 14.1: written in the same local transaction as
+    the business change).
+    """
+    return OutboxEvent(
+        aggregate_type="Transfer",
+        aggregate_id=str(transfer.id),
+        event_type=event_type.value,
+        correlation_id=get_correlation_id(),
+        payload={
+            "transfer_id": str(transfer.id),
+            "reference": transfer.reference,
+            "initiator_user_id": str(transfer.initiator_user_id),
+            "amount_minor": transfer.amount_minor,
+            "currency": transfer.currency,
+            "status": status.value,
+            "failure_reason": failure_reason,
+            "completed_at": completed_at.isoformat() if completed_at else None,
+        },
+    )
 
 
 @dataclass(frozen=True)
@@ -79,6 +114,14 @@ async def _advance_saga(session: AsyncSession, transfer: Transfer) -> Transfer:
             failure_reason="blocked by fraud check",
             fraud_decision=FraudDecision.BLOCK,
         )
+        session.add(
+            _transfer_outbox_event(
+                transfer,
+                EventType.TRANSFER_FAILED,
+                status=TransferStatus.FAILED,
+                failure_reason="blocked by fraud check",
+            )
+        )
         await session.commit()
         await session.refresh(transfer)
         return transfer
@@ -147,21 +190,47 @@ async def attempt_posting_and_resolve(
     )
 
     if posting_result.outcome == PostingOutcome.SUCCESS:
-        await repository.transition_status(
+        completed_at = datetime.now(UTC)
+        applied = await repository.transition_status(
             transfer.id,
             expected=TransferStatus.PROCESSING,
             new_status=TransferStatus.COMPLETED,
-            completed_at=datetime.now(UTC),
+            completed_at=completed_at,
         )
+        # `applied` can be False here in a way it can't for the other
+        # transitions in this saga: this same function is also called by
+        # the recovery worker (app/services/recovery.py) retrying a
+        # transfer the original saga call is still mid-flight on. Only
+        # whichever caller's UPDATE actually matched gets to record the
+        # outbox event — the loser must not emit a second
+        # transfer.completed for the same transfer.
+        if applied:
+            session.add(
+                _transfer_outbox_event(
+                    transfer,
+                    EventType.TRANSFER_COMPLETED,
+                    status=TransferStatus.COMPLETED,
+                    completed_at=completed_at,
+                )
+            )
         await session.commit()
         await session.refresh(transfer)
     elif posting_result.outcome == PostingOutcome.BUSINESS_REJECTION:
-        await repository.transition_status(
+        applied = await repository.transition_status(
             transfer.id,
             expected=TransferStatus.PROCESSING,
             new_status=TransferStatus.FAILED,
             failure_reason=posting_result.failure_reason,
         )
+        if applied:
+            session.add(
+                _transfer_outbox_event(
+                    transfer,
+                    EventType.TRANSFER_FAILED,
+                    status=TransferStatus.FAILED,
+                    failure_reason=posting_result.failure_reason,
+                )
+            )
         await session.commit()
         await session.refresh(transfer)
     # else UNKNOWN: leave the transfer PROCESSING, untouched — `transfer`

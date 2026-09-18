@@ -5,7 +5,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY libs/fincore-common ./libs/fincore-common
-RUN pip install --no-cache-dir ./libs/fincore-common
+RUN pip install --no-cache-dir "./libs/fincore-common[kafka]"
 
 COPY services/payment-service ./services/payment-service
 RUN pip install --no-cache-dir ./services/payment-service

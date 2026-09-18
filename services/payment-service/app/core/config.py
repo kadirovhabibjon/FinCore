@@ -35,5 +35,12 @@ class Settings(BaseServiceSettings):
     recovery_worker_interval_seconds: float = 30.0
     recovery_worker_stuck_after_seconds: float = 60.0
 
+    # Outbox relay (spec Section 14.1): publishes committed outbox_events
+    # rows to Kafka on a fixed interval.
+    kafka_bootstrap_servers: str = "localhost:9094"
+    outbox_relay_interval_seconds: float = 5.0
+    outbox_relay_batch_size: int = 100
+    transfers_topic: str = "transfers"
+
 
 settings = Settings()  # type: ignore[call-arg]
