@@ -109,6 +109,24 @@ async def _advance_saga(session: AsyncSession, transfer: Transfer) -> Transfer:
     # `transfer` again, here and after every commit below.
     await session.refresh(transfer)
 
+    return await attempt_posting_and_resolve(session, repository, transfer)
+
+
+async def attempt_posting_and_resolve(
+    session: AsyncSession, repository: TransferRepository, transfer: Transfer
+) -> Transfer:
+    """Calls ledger-service to move the money for a PROCESSING transfer,
+    then resolves it to COMPLETED/FAILED, or leaves it PROCESSING on an
+    unknown outcome.
+
+    Shared by `_advance_saga` (the transfer's first attempt) and the
+    recovery worker (`app/services/recovery.py`, retrying transfers that
+    were left PROCESSING by an earlier unknown outcome). Safe to call
+    more than once for the same transfer: ledger-service's posting
+    endpoint is idempotent on (source_service, source_id, type), so a
+    retry that already succeeded just returns the existing posting
+    instead of moving money twice.
+    """
     posting_result = await ledger.ledger_client.create_posting(
         source_service="payment-service",
         source_id=str(transfer.id),

@@ -1,7 +1,8 @@
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.transfer import Transfer, TransferStatus
@@ -13,6 +14,19 @@ class TransferRepository:
 
     async def get(self, transfer_id: UUID) -> Transfer | None:
         return await self._session.get(Transfer, transfer_id)
+
+    async def list_stuck_processing(self, *, older_than: datetime) -> list[Transfer]:
+        """Transfers left in PROCESSING by an unknown ledger outcome
+        (spec Section 10.1) whose last update is older than `older_than`
+        — recent ones are left alone since the original request may
+        still be in flight. Used by the recovery worker.
+        """
+        result = await self._session.execute(
+            select(Transfer)
+            .where(Transfer.status == TransferStatus.PROCESSING, Transfer.updated_at < older_than)
+            .order_by(Transfer.updated_at)
+        )
+        return list(result.scalars().all())
 
     async def transition_status(
         self,

@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -10,14 +12,38 @@ from app.api.v1.transfers import router as transfers_router
 from app.core.config import settings
 from app.db import session as db_session
 from app.services.idempotency import IdempotentReplayResponse
+from app.services.recovery import resolve_stuck_transfers
 
 configure_logging(service_name=settings.service_name, level=settings.log_level)
 logger = logging.getLogger(__name__)
 
 
+async def _recovery_worker_loop() -> None:
+    """Runs `resolve_stuck_transfers` on a fixed interval for the life of
+    the process. One misbehaving iteration (e.g. ledger-service down for
+    an extended stretch) is logged and retried next tick rather than
+    killing the loop.
+    """
+    while True:
+        await asyncio.sleep(settings.recovery_worker_interval_seconds)
+        try:
+            async with db_session.async_session_factory() as session:
+                resolved = await resolve_stuck_transfers(
+                    session, stuck_after_seconds=settings.recovery_worker_stuck_after_seconds
+                )
+            if resolved:
+                logger.info("recovery worker resolved %d stuck transfer(s)", len(resolved))
+        except Exception:
+            logger.exception("recovery worker iteration failed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    worker_task = asyncio.create_task(_recovery_worker_loop())
     yield
+    worker_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await worker_task
     await db_session.engine.dispose()
 
 

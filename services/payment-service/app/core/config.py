@@ -30,5 +30,10 @@ class Settings(BaseServiceSettings):
     # now (ADR-0001), so this doesn't yet need to be currency-aware.
     fraud_fail_open_limit_minor: int = 100_000_00
 
+    # Recovery worker (spec Section 10.1): a background loop that retries
+    # transfers left PROCESSING by an unknown ledger outcome.
+    recovery_worker_interval_seconds: float = 30.0
+    recovery_worker_stuck_after_seconds: float = 60.0
+
 
 settings = Settings()  # type: ignore[call-arg]
