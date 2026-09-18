@@ -24,7 +24,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,kafka]"
 
       - name: Lint (ruff)
         run: ruff check .
