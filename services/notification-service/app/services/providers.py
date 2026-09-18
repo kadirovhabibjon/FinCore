@@ -5,6 +5,17 @@ from uuid import UUID
 logger = logging.getLogger(__name__)
 
 
+class ProviderUnavailableError(Exception):
+    """The kind of failure a real provider (an SMTP relay, a Twilio
+    call) can raise that has nothing to do with the message itself — a
+    timeout, a 5xx, a dropped connection. Retrying later has a real
+    chance of succeeding, unlike a malformed event (spec Section 16's
+    "timeout -> retry" vs. "validation error -> DLT immediately";
+    app/services/retry.py's classifier treats this type, specifically,
+    as retryable).
+    """
+
+
 class NotificationProvider(Protocol):
     """A delivery channel (spec Section 15: "Email / SMS / Push").
     Every provider here is a logging mock for v1 — no paid external
