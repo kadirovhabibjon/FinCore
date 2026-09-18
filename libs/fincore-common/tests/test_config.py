@@ -22,6 +22,7 @@ def test_defaults_when_only_service_name_given() -> None:
     assert settings.service_name == "identity-service"
     assert settings.environment == "local"
     assert settings.log_level == "INFO"
+    assert settings.otel_exporter_otlp_endpoint == "http://localhost:4318"
 
 
 def test_environment_variable_overrides_default(monkeypatch) -> None:

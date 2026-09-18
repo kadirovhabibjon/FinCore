@@ -4,7 +4,6 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fincore_common.events import EventEnvelope
 from fincore_common.kafka import EventConsumer, EventProducer
-from testcontainers.community.kafka import KafkaContainer
 
 from app.core.config import settings
 from app.db import session as db_session
@@ -13,11 +12,8 @@ from app.services.outbox import relay_outbox_events
 
 pytestmark = pytest.mark.usefixtures("migrated_database")
 
-
-@pytest.fixture(scope="module")
-def kafka_bootstrap_servers() -> str:
-    with KafkaContainer().with_kraft() as kafka:
-        yield kafka.get_bootstrap_server()
+# `kafka_bootstrap_servers` (module-scoped) comes from
+# tests/integration/conftest.py.
 
 
 async def _insert_outbox_row(*, aggregate_id: str, event_type: str, payload: dict) -> uuid.UUID:

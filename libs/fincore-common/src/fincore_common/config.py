@@ -19,3 +19,9 @@ class BaseServiceSettings(BaseSettings):
     service_name: str
     environment: str = "local"
     log_level: str = "INFO"
+
+    # Distributed tracing (spec Section 24) — an OTLP HTTP collector
+    # (Jaeger in docker-compose). Same default host:port pattern as the
+    # rest of this base class: correct for direct/local runs, overridden
+    # per-service in docker-compose.yml for the container network.
+    otel_exporter_otlp_endpoint: str = "http://localhost:4318"

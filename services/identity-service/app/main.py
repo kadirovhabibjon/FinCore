@@ -3,7 +3,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
-from fincore_common import CorrelationIdMiddleware, configure_logging, register_error_handlers
+from fincore_common import (
+    CorrelationIdMiddleware,
+    configure_logging,
+    configure_tracing,
+    register_error_handlers,
+)
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.users import router as users_router
@@ -28,6 +33,9 @@ app = FastAPI(
 )
 app.add_middleware(CorrelationIdMiddleware)
 register_error_handlers(app)
+configure_tracing(
+    service_name=settings.service_name, otlp_endpoint=settings.otel_exporter_otlp_endpoint, app=app
+)
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(well_known_router)

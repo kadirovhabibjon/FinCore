@@ -6,7 +6,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from fincore_common import CorrelationIdMiddleware, configure_logging, register_error_handlers
+from fincore_common import (
+    CorrelationIdMiddleware,
+    configure_logging,
+    configure_tracing,
+    register_error_handlers,
+)
 
 from app.api.v1.transactions import router as transactions_router
 from app.api.v1.transfers import router as transfers_router
@@ -78,6 +83,9 @@ app = FastAPI(
 )
 app.add_middleware(CorrelationIdMiddleware)
 register_error_handlers(app)
+configure_tracing(
+    service_name=settings.service_name, otlp_endpoint=settings.otel_exporter_otlp_endpoint, app=app
+)
 
 
 @app.exception_handler(IdempotentReplayResponse)
@@ -103,7 +111,9 @@ async def health() -> dict[str, str]:
 
 @app.get("/ready")
 async def ready() -> dict[str, str]:
-    """Readiness: can the service actually serve traffic (DB reachable)."""
+    """Readiness: can the service actually serve traffic (spec Section
+    24: DB and Kafka connectivity, not just liveness).
+    """
     try:
         await db_session.check_database_connection()
     except Exception as exc:
@@ -111,5 +121,13 @@ async def ready() -> dict[str, str]:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="database unreachable",
+        ) from exc
+    try:
+        await kafka_module.event_producer.check_connection()
+    except Exception as exc:
+        logger.warning("readiness check failed: kafka unreachable")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="kafka unreachable",
         ) from exc
     return {"status": "ok"}

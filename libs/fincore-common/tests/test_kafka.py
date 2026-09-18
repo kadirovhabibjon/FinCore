@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+from aiokafka.errors import KafkaConnectionError
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -17,6 +18,27 @@ def bootstrap_servers() -> str:
     # same setup used in docker-compose.yml for local dev.
     with KafkaContainer().with_kraft() as kafka:
         yield kafka.get_bootstrap_server()
+
+
+async def test_check_connection_succeeds_against_a_reachable_broker(bootstrap_servers: str) -> None:
+    producer = EventProducer(bootstrap_servers)
+    await producer.start()
+    try:
+        await producer.check_connection()  # must not raise
+    finally:
+        await producer.stop()
+
+
+async def test_starting_against_an_unreachable_broker_fails_loudly() -> None:
+    """aiokafka's own `start()` already bootstraps cluster metadata, so
+    an unreachable broker fails right there rather than waiting for a
+    later `check_connection()` call — a `/ready` endpoint gets the same
+    failure either way, whichever point in the process's life it
+    happens at.
+    """
+    producer = EventProducer("127.0.0.1:59999")
+    with pytest.raises(KafkaConnectionError):
+        await producer.start()
 
 
 async def _send(bootstrap_servers: str, topic: str, *, key: str, envelope: EventEnvelope) -> None:

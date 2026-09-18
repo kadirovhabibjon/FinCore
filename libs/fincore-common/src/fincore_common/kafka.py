@@ -97,6 +97,15 @@ class EventProducer:
                 headers=headers,
             )
 
+    async def check_connection(self) -> None:
+        """Used by a `/ready` endpoint (spec Section 24: readiness
+        checks should cover Kafka connectivity, not just the database).
+        Raises if the broker can't be reached.
+        """
+        if self._producer is None:
+            raise RuntimeError("EventProducer.start() must be called before check_connection()")
+        await self._producer.client.bootstrap()
+
 
 class EventConsumer:
     """Consumes `EventEnvelope`s from Kafka and hands each to `handler`,
