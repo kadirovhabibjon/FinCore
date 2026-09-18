@@ -31,6 +31,7 @@ from .money import (
     minor_unit_exponent,
     parse_decimal_string,
 )
+from .tracing import configure_tracing
 
 __all__ = [
     "InvalidInternalTokenError",
@@ -58,4 +59,5 @@ __all__ = [
     "minor_to_decimal",
     "minor_unit_exponent",
     "parse_decimal_string",
+    "configure_tracing",
 ]

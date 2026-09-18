@@ -4,6 +4,10 @@ import logging
 from collections.abc import Awaitable, Callable
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from opentelemetry import trace
+from opentelemetry.propagate import extract, inject
+from opentelemetry.propagators.textmap import Getter, Setter
+from opentelemetry.trace import SpanKind
 
 from .correlation import new_correlation_id, reset_correlation_id, set_correlation_id
 from .events import EventEnvelope
@@ -11,6 +15,35 @@ from .events import EventEnvelope
 logger = logging.getLogger(__name__)
 
 EventHandler = Callable[[EventEnvelope], Awaitable[None]]
+
+_tracer = trace.get_tracer(__name__)
+
+# aiokafka headers are a list of (str, bytes) pairs, not the dict-like
+# carrier OpenTelemetry's default propagator expects — these adapt one
+# to the other so a producer's span context survives the hop to Kafka
+# and a consumer can pick it up as the parent of its own "process" span
+# (spec Section 24: "correlation ID propagated through ... Kafka
+# events" — done here with real trace context, not just the string).
+
+_KafkaHeaders = list[tuple[str, bytes]]
+
+
+class _KafkaHeaderSetter(Setter[_KafkaHeaders]):
+    def set(self, carrier: _KafkaHeaders, key: str, value: str) -> None:
+        carrier.append((key, value.encode("utf-8")))
+
+
+class _KafkaHeaderGetter(Getter[_KafkaHeaders]):
+    def get(self, carrier: _KafkaHeaders, key: str) -> list[str] | None:
+        values = [v.decode("utf-8") for k, v in carrier if k == key]
+        return values or None
+
+    def keys(self, carrier: _KafkaHeaders) -> list[str]:
+        return [k for k, _ in carrier]
+
+
+_setter = _KafkaHeaderSetter()
+_getter = _KafkaHeaderGetter()
 
 
 class EventProducer:
@@ -46,11 +79,23 @@ class EventProducer:
         """
         if self._producer is None:
             raise RuntimeError("EventProducer.start() must be called before send()")
-        await self._producer.send_and_wait(
-            topic,
-            key=key.encode("utf-8"),
-            value=envelope.model_dump_json().encode("utf-8"),
-        )
+        with _tracer.start_as_current_span(
+            f"{topic} publish",
+            kind=SpanKind.PRODUCER,
+            attributes={
+                "messaging.system": "kafka",
+                "messaging.destination.name": topic,
+                "messaging.kafka.message.key": key,
+            },
+        ):
+            headers: _KafkaHeaders = []
+            inject(headers, setter=_setter)
+            await self._producer.send_and_wait(
+                topic,
+                key=key.encode("utf-8"),
+                value=envelope.model_dump_json().encode("utf-8"),
+                headers=headers,
+            )
 
 
 class EventConsumer:
@@ -101,9 +146,19 @@ class EventConsumer:
         async for message in self._consumer:
             envelope = EventEnvelope.model_validate_json(message.value)
             token = set_correlation_id(envelope.correlation_id or new_correlation_id())
+            parent_context = extract(message.headers or [], getter=_getter)
             try:
-                await handler(envelope)
-                await self._consumer.commit()
+                with _tracer.start_as_current_span(
+                    f"{message.topic} process",
+                    context=parent_context,
+                    kind=SpanKind.CONSUMER,
+                    attributes={
+                        "messaging.system": "kafka",
+                        "messaging.destination.name": message.topic,
+                    },
+                ):
+                    await handler(envelope)
+                    await self._consumer.commit()
             finally:
                 reset_correlation_id(token)
             processed += 1
