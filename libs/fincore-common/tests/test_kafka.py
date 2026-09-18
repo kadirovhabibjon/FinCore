@@ -1,6 +1,10 @@
 import asyncio
 
 import pytest
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from testcontainers.community.kafka import KafkaContainer
 
 from fincore_common.events import EventEnvelope, EventType
@@ -123,3 +127,51 @@ async def test_a_failed_handler_leaves_the_message_uncommitted_for_redelivery(
         await third_consumer.stop()
 
     assert third_received == []
+
+
+async def test_trace_context_propagates_from_producer_to_consumer(bootstrap_servers: str) -> None:
+    """The whole point of injecting/extracting trace context into Kafka
+    headers (spec Section 24's "correlation ID propagated through ...
+    Kafka events," done here with real span context, not just the
+    string): a trace started before publishing must continue as the
+    parent of the consumer's own processing span, not start a second,
+    disconnected trace.
+    """
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+    tracer = trace.get_tracer("test")
+
+    topic = "test-tracing-1"
+    envelope = EventEnvelope(
+        event_type=EventType.TRANSFER_COMPLETED, producer="test", data={"n": 1}
+    )
+
+    producer = EventProducer(bootstrap_servers)
+    await producer.start()
+    try:
+        with tracer.start_as_current_span("caller span") as caller_span:
+            expected_trace_id = caller_span.get_span_context().trace_id
+            await producer.send(topic, key="k-1", envelope=envelope)
+    finally:
+        await producer.stop()
+
+    consumer = EventConsumer(
+        bootstrap_servers=bootstrap_servers, topics=[topic], group_id="test-tracing-group"
+    )
+    await consumer.start()
+    try:
+        await consumer.run(_collector([]), max_messages=1)
+    finally:
+        await consumer.stop()
+
+    span_names = {span.name: span for span in exporter.get_finished_spans()}
+    assert "caller span" in span_names
+    assert f"{topic} publish" in span_names
+    assert f"{topic} process" in span_names
+    # All three spans belong to the one trace the caller started —
+    # proof the context actually crossed the Kafka boundary rather than
+    # the consumer starting a fresh, unrelated trace.
+    for span in span_names.values():
+        assert span.get_span_context().trace_id == expected_trace_id
