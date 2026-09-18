@@ -9,3 +9,4 @@ os.environ.setdefault(
     "DATABASE_URL",
     "postgresql+asyncpg://placeholder:placeholder@localhost:5432/placeholder",
 )
+os.environ.setdefault("INTERNAL_SERVICE_TOKEN", "test-only-internal-token")
