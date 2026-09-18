@@ -58,3 +58,11 @@ class CaptureHoldRequest(BaseModel):
     source_service: str = Field(min_length=1, max_length=64)
     source_id: str = Field(min_length=1, max_length=128)
     amount_minor: int = Field(gt=0)
+
+
+class ReconciliationReportResponse(BaseModel):
+    is_clean: bool
+    unbalanced_postings: list[UUID]
+    balance_mismatches: list[UUID]
+    negative_available_wallets: list[UUID]
+    duplicate_source_postings: list[tuple[str, str, str]]
