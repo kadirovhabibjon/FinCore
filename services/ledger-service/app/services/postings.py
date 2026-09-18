@@ -21,7 +21,12 @@ from app.repositories.posting_repository import PostingRepository
 # it. SUSPENSE has no fixed normal side in the spec — CREDIT is used here
 # only as a bookkeeping convention for computing a delta, not a claim
 # that SUSPENSE behaves like a liability account.
-_NORMAL_SIDE: dict[AccountKind, EntryDirection] = {
+#
+# Public (not module-private): this is the ledger's one sign-convention
+# table (ADR-0002), and app/services/reconciliation.py independently
+# recomputes account balances from entries using the same table — it
+# must reuse this definition rather than re-derive its own copy.
+NORMAL_SIDE: dict[AccountKind, EntryDirection] = {
     AccountKind.USER_WALLET: EntryDirection.CREDIT,
     AccountKind.MERCHANT_SETTLEMENT: EntryDirection.CREDIT,
     AccountKind.FEES: EntryDirection.CREDIT,
@@ -38,8 +43,8 @@ class EntryInput:
     amount_minor: int
 
 
-def _signed_delta(kind: AccountKind, direction: EntryDirection, amount_minor: int) -> int:
-    normal_side = _NORMAL_SIDE[kind]
+def signed_delta(kind: AccountKind, direction: EntryDirection, amount_minor: int) -> int:
+    normal_side = NORMAL_SIDE[kind]
     return amount_minor if direction is normal_side else -amount_minor
 
 
@@ -97,7 +102,7 @@ async def create_posting(
         if account.status != AccountStatus.ACTIVE:
             raise AccountNotActiveError(f"account {account.id} is {account.status.value}")
 
-        delta = _signed_delta(account.kind, entry.direction, entry.amount_minor)
+        delta = signed_delta(account.kind, entry.direction, entry.amount_minor)
         net_effect[entry.account_id] = net_effect.get(entry.account_id, 0) + delta
 
     for account_id, delta in net_effect.items():
