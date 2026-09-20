@@ -22,10 +22,7 @@ class FraudCheckResult:
 
 class FraudClient:
     """Calls fraud-service's synchronous risk check (spec Section 12,
-    ADR-0003). fraud-service itself doesn't exist yet (spec Phase 5) —
-    every call here will fail to connect until it does, which is exactly
-    what exercises the failure policy below in real, non-mocked
-    conditions rather than only in unit tests that assume the branch.
+    ADR-0003).
 
     `httpx.RequestError` (connection refused, DNS failure, timeout) and a
     5xx response are both treated as "fraud-service unavailable" and go

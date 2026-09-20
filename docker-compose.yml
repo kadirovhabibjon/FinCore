@@ -103,6 +103,28 @@ services:
       retries: 10
       start_period: 20s
 
+  fraud-service:
+    build:
+      context: .
+      dockerfile: services/fraud-service/Dockerfile
+    env_file:
+      - services/fraud-service/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "8095:8000"
+
   payment-service:
     build:
       context: .
@@ -117,6 +139,8 @@ services:
       identity-service:
         condition: service_healthy
       ledger-service:
+        condition: service_healthy
+      fraud-service:
         condition: service_healthy
       kafka:
         condition: service_healthy

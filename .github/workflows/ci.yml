@@ -179,3 +179,38 @@ jobs:
       - name: Build Docker image
         working-directory: .
         run: docker build -f services/notification-service/Dockerfile -t fincore-notification-service:ci .
+
+  fraud-service:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/fraud-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install fincore-common
+        run: pip install -e ../../libs/fincore-common
+
+      - name: Install fraud-service
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (mypy)
+        run: mypy app
+
+      - name: Test (unit + integration — real PostgreSQL via testcontainers)
+        # DATABASE_URL / INTERNAL_SERVICE_TOKEN: no env vars needed
+        # here, same reasoning as the other services — tests/conftest.py
+        # sets placeholders, integration tests point at a real
+        # testcontainer explicitly.
+        run: pytest -v
+
+      - name: Build Docker image
+        working-directory: .
+        run: docker build -f services/fraud-service/Dockerfile -t fincore-fraud-service:ci .

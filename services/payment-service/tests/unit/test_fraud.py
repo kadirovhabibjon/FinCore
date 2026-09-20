@@ -90,9 +90,9 @@ async def test_a_5xx_response_triggers_the_failure_policy() -> None:
 
 async def test_an_unreachable_fraud_service_triggers_the_failure_policy() -> None:
     """No fake transport here at all: a real connection attempt against a
-    port nothing is listening on — genuine network-level unavailability,
-    the exact situation fraud-service being unbuilt (spec Phase 5)
-    creates for every call this client ever makes right now.
+    port nothing is listening on — genuine network-level unavailability
+    (fraud-service down, network partition, etc.), not a mocked
+    exception.
     """
     client = _client(
         transport=None, base_url="http://127.0.0.1:59999", timeout_seconds=0.2

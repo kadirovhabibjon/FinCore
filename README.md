@@ -70,7 +70,7 @@ across a distributed transaction. The full reasoning is in
 | `ledger-service` ✅ | ledger accounts, postings, entries, balances, holds | Core banking; accepts balanced postings only, knows nothing about *why* — this is what keeps it the most stable service in the system |
 | `payment-service` ✅ | transfers, payments, refunds, idempotency keys, the outbox | Owns the saga; transfers/payments/refunds share the same orchestration machinery, so splitting them would duplicate it |
 | `notification-service` ✅ | notifications, retry/DLT state | Pure asynchronous event consumer — the natural boundary for "reacts, doesn't decide" |
-| `fraud-service` | fraud checks, rules | Isolated so the rule engine can become an ML model later without touching payment logic |
+| `fraud-service` ✅ | fraud checks, rules | Isolated so the rule engine can become an ML model later without touching payment logic |
 | `webhook-service` / `audit-service` | their own event tables | Same "reacts, doesn't decide" boundary as `notification-service` |
 
 ✅ = implemented. Everything else is designed (ADRs + context map) and
@@ -325,6 +325,52 @@ Sections 15 and 16. A pure event consumer: no public API beyond
 notification_db: notifications, dead_letters
 ```
 
+### `fraud-service`
+
+A rule-based risk engine (spec Section 12) — `payment-service`'s
+transfer saga calls it synchronously on every transfer, and its
+fail-open/fail-closed policy (`app/services/fraud.py` in
+`payment-service`) was designed and tested against this service being
+genuinely unreachable *before* it existed; that failure path is now
+exercised by the real thing instead of only a fake transport.
+
+* `POST /internal/v1/risk-checks` — scores an operation, persists the
+  result, and returns a decision. Idempotent on
+  `(operation_id, operation_type)`: a retried check for the same
+  operation returns the stored result instead of re-scoring, which also
+  keeps the frequency-based rules below from double-counting a retry as
+  a second operation.
+* Three rules (`app/services/rules.py`, spec Section 12's Strategy
+  pattern — each rule is independent and contributes a fixed weight if
+  triggered):
+
+  ```text
+  LARGE_AMOUNT       amount > threshold                          +30
+  HIGH_FREQUENCY     ≥ N risk checks for this user in the window  +25
+  REPEATED_FAILURES  ≥ N REVIEW/BLOCK decisions for this user     +25
+
+  score 0-39  -> ALLOW
+  score 40-69 -> REVIEW
+  score 70+   -> BLOCK
+  ```
+
+  Two of spec Section 12's example rules — "new device" and "suspicious
+  IP" — are deliberately not implemented: nothing in FinCore captures a
+  device fingerprint anywhere, and `payment-service`'s risk-check
+  request doesn't carry the caller's IP. Faking those signals from data
+  that doesn't exist would be worse than not having them; the `Rule`
+  interface is exactly what lets them be added later as real rules once
+  that data actually exists.
+* Every check is stored with its score and which rules fired
+  (`fraud_checks.rules_triggered`), per spec Section 12 — "for audit and
+  tuning."
+
+**Database:**
+
+```text
+fraud_db: fraud_checks
+```
+
 Every migration in every service is verified with a real
 `upgrade → downgrade → upgrade` cycle before being committed. This caught
 two real bugs: PostgreSQL native enum types aren't dropped by
@@ -366,6 +412,11 @@ openssl genpkey -algorithm ed25519
 cp services/ledger-service/.env.example services/ledger-service/.env
 # then edit INTERNAL_SERVICE_TOKEN in that .env to any random local value
 
+cp services/fraud-service/.env.example services/fraud-service/.env
+# then edit INTERNAL_SERVICE_TOKEN in that .env to the *same* value as
+# ledger-service's/payment-service's — payment-service sends one shared
+# internal token to every internal API it calls
+
 cp services/payment-service/.env.example services/payment-service/.env
 # then edit INTERNAL_SERVICE_TOKEN in that .env to the *same* value as
 # ledger-service's — cross-service internal auth is one shared secret
@@ -379,11 +430,12 @@ docker compose up --build
 
 | Via gateway | Direct |
 |---|---|
-| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service), `http://localhost:8094` (notification-service) |
+| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service), `http://localhost:8094` (notification-service), `http://localhost:8095` (fraud-service) |
 
 Swagger UI (FastAPI's auto-generated API docs):
 `http://localhost:8091/docs`, `http://localhost:8092/docs`,
-`http://localhost:8093/docs`, and `http://localhost:8094/docs`.
+`http://localhost:8093/docs`, `http://localhost:8094/docs`, and
+`http://localhost:8095/docs`.
 
 Jaeger UI (distributed traces): `http://localhost:16686`. Kafka's own
 external port (for `kcat`/`kafka-console-consumer` from the host, not
@@ -412,12 +464,12 @@ curl -X POST localhost:8092/internal/v1/postings \
                   {"account_id":"<your wallet id>","direction":"CREDIT","amount_minor":10000000}]}'
 ```
 
-> `docker-compose.yml`'s host ports (`8180`/`8091`/`8092`/`8093`/`8094`/
-> `5440`/`9094` instead of the more usual `8080`/`8001`.../`5432`/`9092`)
-> were picked to avoid clashing with other local projects on this dev
-> machine — the internal container ports are unaffected. Change the left
-> side of each `"host:container"` mapping in `docker-compose.yml` if
-> these also collide with something on your machine.
+> `docker-compose.yml`'s host ports (`8180`/`8091`-`8095`/`5440`/`9094`
+> instead of the more usual `8080`/`8001`.../`5432`/`9092`) were picked
+> to avoid clashing with other local projects on this dev machine — the
+> internal container ports are unaffected. Change the left side of each
+> `"host:container"` mapping in `docker-compose.yml` if these also
+> collide with something on your machine.
 
 ### Running a service directly (faster edit/test loop)
 
@@ -482,9 +534,30 @@ docker run --rm -d --name fincore-payment-dev \
 .venv/bin/uvicorn app.main:app --reload --port 8002
 ```
 
-`FRAUD_SERVICE_BASE_URL` can point anywhere nothing answers — fraud-service
-doesn't exist yet (Phase 5), and pointing it at an unreachable host is
-exactly what exercises the fail-open/fail-closed policy end to end.
+Pointing `FRAUD_SERVICE_BASE_URL` at a host nothing answers on (instead
+of a running `fraud-service`) is still a legitimate way to exercise the
+fail-open/fail-closed policy end to end without standing up a second
+service.
+
+`fraud-service` has no dependency on any other service — just its own
+Postgres:
+
+```bash
+cd services/fraud-service
+python3.12 -m venv .venv
+.venv/bin/pip install -e ../../libs/fincore-common
+.venv/bin/pip install -e ".[dev]"
+
+cp .env.example .env   # fill in DATABASE_URL, INTERNAL_SERVICE_TOKEN
+                        # (must match payment-service's)
+
+docker run --rm -d --name fincore-fraud-dev \
+  -e POSTGRES_USER=fraud -e POSTGRES_PASSWORD=fraud -e POSTGRES_DB=fraud_db \
+  -p 5436:5432 postgres:16-alpine
+
+.venv/bin/alembic upgrade head
+.venv/bin/uvicorn app.main:app --reload --port 8004
+```
 
 `notification-service` needs a running Kafka broker and its own
 Postgres — it doesn't call any other service directly:
@@ -541,6 +614,7 @@ cd services/identity-service && .venv/bin/pytest -v     # 52 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 53 tests
 cd services/payment-service && .venv/bin/pytest -v      # 64 tests
 cd services/notification-service && .venv/bin/pytest -v # 25 tests
+cd services/fraud-service && .venv/bin/pytest -v        # 26 tests
 ```
 
 Integration tests spin up a real PostgreSQL container via `testcontainers`
@@ -565,6 +639,9 @@ application code timing — decides the winner:
 * `test_two_concurrent_resolutions_of_the_same_transfer_write_exactly_one_outbox_event`
   — the saga's own call and the recovery worker racing to resolve the
   same transfer; only one may write the outbox event (payment-service)
+* `test_two_concurrent_first_time_checks_for_the_same_operation_produce_one_row`
+  — races two risk checks for the same operation id; the
+  `UNIQUE(operation_id, operation_type)` constraint decides (fraud-service)
 
 Several more tests run against a real single-node Kafka broker via
 `testcontainers` (never a fake producer/consumer) — the same "no fakes
@@ -582,6 +659,7 @@ cd services/identity-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/ledger-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/payment-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/notification-service && .venv/bin/ruff check . && .venv/bin/mypy app
+cd services/fraud-service && .venv/bin/ruff check . && .venv/bin/mypy app
 ```
 
 CI (`.github/workflows/ci.yml`) runs all of the above per package on every
@@ -638,6 +716,8 @@ before `payment-service`'s implementation and matched by it, Phase 3).
 | A transfer's fraud check comes back REVIEW | Stays `PENDING` |
 | `fraud-service` is unreachable and the amount is at or under the fail-open limit | Treated as `ALLOW` (flagged), so a monitoring outage doesn't halt all transfers |
 | `fraud-service` is unreachable and the amount is over the fail-open limit | Treated as `REVIEW` — the riskier the amount, the less a monitoring outage is allowed to auto-approve it |
+| The same operation is risk-checked twice (retry after a timeout) | The second call returns the *stored* result instead of re-scoring — and doesn't double-count itself in the frequency-based rules' own history lookups |
+| Two concurrent first-time risk checks arrive for the same operation | Exactly one is scored — the `UNIQUE(operation_id, operation_type)` constraint decides, not a pre-check |
 | `ledger-service` returns a 5xx or is unreachable while posting a transfer | The transfer stays `PROCESSING`, **never** `FAILED` — money may or may not have actually moved, and reporting failure when it didn't would be worse than an operation left open |
 | A transfer stuck `PROCESSING` past the recovery threshold | The recovery worker retries the same posting call on its own schedule; safe because the posting is idempotent on `(source_service, source_id, type)` |
 | The same `Idempotency-Key` is replayed with an identical body | The original response is returned verbatim; the saga never runs twice |
