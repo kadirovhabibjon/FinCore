@@ -31,9 +31,21 @@ class Settings(BaseServiceSettings):
     fraud_fail_open_limit_minor: int = 100_000_00
 
     # Recovery worker (spec Section 10.1): a background loop that retries
-    # transfers left PROCESSING by an unknown ledger outcome.
+    # transfers and payments left PROCESSING by an unknown ledger
+    # outcome. Shared between both aggregate types — "how often to retry
+    # a stuck operation" is the same operational question either way.
     recovery_worker_interval_seconds: float = 30.0
     recovery_worker_stuck_after_seconds: float = 60.0
+
+    # Expiration worker (spec Section 11): a background loop that expires
+    # payments stuck in CREATED — most likely awaiting a fraud REVIEW
+    # that was never resolved — past this window.
+    expiration_worker_interval_seconds: float = 60.0
+    payment_review_ttl_seconds: float = 900.0
+
+    # How long a payment's ledger hold reserves funds before it can be
+    # lazily expired on ledger-service's side if never captured.
+    payment_hold_ttl_seconds: int = 900
 
     # Outbox relay (spec Section 14.1): publishes committed outbox_events
     # rows to Kafka on a fixed interval.
@@ -41,6 +53,7 @@ class Settings(BaseServiceSettings):
     outbox_relay_interval_seconds: float = 5.0
     outbox_relay_batch_size: int = 100
     transfers_topic: str = "transfers"
+    payments_topic: str = "payments"
 
 
 settings = Settings()  # type: ignore[call-arg]

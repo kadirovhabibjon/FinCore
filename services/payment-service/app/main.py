@@ -13,36 +13,78 @@ from fincore_common import (
     register_error_handlers,
 )
 
+from app.api.v1.merchants import router as merchants_router
+from app.api.v1.payments import router as payments_router
 from app.api.v1.transactions import router as transactions_router
 from app.api.v1.transfers import router as transfers_router
 from app.core import kafka as kafka_module
 from app.core.config import settings
 from app.db import session as db_session
+from app.services.expiration import expire_stale_payments
 from app.services.idempotency import IdempotentReplayResponse
 from app.services.outbox import relay_outbox_events
-from app.services.recovery import resolve_stuck_transfers
+from app.services.recovery import (
+    resolve_stuck_payments,
+    resolve_stuck_refunds,
+    resolve_stuck_transfers,
+)
 
 configure_logging(service_name=settings.service_name, level=settings.log_level)
 logger = logging.getLogger(__name__)
 
 
 async def _recovery_worker_loop() -> None:
-    """Runs `resolve_stuck_transfers` on a fixed interval for the life of
-    the process. One misbehaving iteration (e.g. ledger-service down for
-    an extended stretch) is logged and retried next tick rather than
-    killing the loop.
+    """Runs the stuck-transfer/payment/refund recovery passes on a fixed
+    interval for the life of the process. One misbehaving iteration
+    (e.g. ledger-service down for an extended stretch) is logged and
+    retried next tick rather than killing the loop.
     """
     while True:
         await asyncio.sleep(settings.recovery_worker_interval_seconds)
         try:
             async with db_session.async_session_factory() as session:
-                resolved = await resolve_stuck_transfers(
+                resolved_transfers = await resolve_stuck_transfers(
                     session, stuck_after_seconds=settings.recovery_worker_stuck_after_seconds
                 )
-            if resolved:
-                logger.info("recovery worker resolved %d stuck transfer(s)", len(resolved))
+            if resolved_transfers:
+                logger.info(
+                    "recovery worker resolved %d stuck transfer(s)", len(resolved_transfers)
+                )
+
+            async with db_session.async_session_factory() as session:
+                resolved_payments = await resolve_stuck_payments(
+                    session, stuck_after_seconds=settings.recovery_worker_stuck_after_seconds
+                )
+            if resolved_payments:
+                logger.info(
+                    "recovery worker resolved %d stuck payment(s)", len(resolved_payments)
+                )
+
+            async with db_session.async_session_factory() as session:
+                resolved_refunds = await resolve_stuck_refunds(
+                    session, stuck_after_seconds=settings.recovery_worker_stuck_after_seconds
+                )
+            if resolved_refunds:
+                logger.info("recovery worker resolved %d stuck refund(s)", len(resolved_refunds))
         except Exception:
             logger.exception("recovery worker iteration failed")
+
+
+async def _expiration_worker_loop() -> None:
+    """Runs `expire_stale_payments` on a fixed interval for the life of
+    the process (spec Section 11).
+    """
+    while True:
+        await asyncio.sleep(settings.expiration_worker_interval_seconds)
+        try:
+            async with db_session.async_session_factory() as session:
+                expired = await expire_stale_payments(
+                    session, stale_after_seconds=settings.payment_review_ttl_seconds
+                )
+            if expired:
+                logger.info("expiration worker expired %d stale payment(s)", len(expired))
+        except Exception:
+            logger.exception("expiration worker iteration failed")
 
 
 async def _outbox_relay_loop() -> None:
@@ -67,8 +109,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await kafka_module.event_producer.start()
     recovery_task = asyncio.create_task(_recovery_worker_loop())
     outbox_task = asyncio.create_task(_outbox_relay_loop())
+    expiration_task = asyncio.create_task(_expiration_worker_loop())
     yield
-    for task in (recovery_task, outbox_task):
+    for task in (recovery_task, outbox_task, expiration_task):
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
@@ -100,6 +143,8 @@ async def _handle_idempotent_replay(
 
 
 app.include_router(transfers_router)
+app.include_router(payments_router)
+app.include_router(merchants_router)
 app.include_router(transactions_router)
 
 

@@ -18,6 +18,9 @@ class EventType(enum.StrEnum):
 
     TRANSFER_COMPLETED = "transfer.completed"
     TRANSFER_FAILED = "transfer.failed"
+    PAYMENT_COMPLETED = "payment.completed"
+    PAYMENT_FAILED = "payment.failed"
+    PAYMENT_REFUNDED = "payment.refunded"
 
 
 class EventEnvelope(BaseModel):

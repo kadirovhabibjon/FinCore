@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -16,10 +17,12 @@ pytestmark = pytest.mark.usefixtures("migrated_database")
 # tests/integration/conftest.py.
 
 
-async def _insert_outbox_row(*, aggregate_id: str, event_type: str, payload: dict) -> uuid.UUID:
+async def _insert_outbox_row(
+    *, aggregate_id: str, event_type: str, payload: dict, aggregate_type: str = "Transfer"
+) -> uuid.UUID:
     async with db_session.async_session_factory() as session:
         row = OutboxEvent(
-            aggregate_type="Transfer",
+            aggregate_type=aggregate_type,
             aggregate_id=aggregate_id,
             event_type=event_type,
             payload=payload,
@@ -29,6 +32,61 @@ async def _insert_outbox_row(*, aggregate_id: str, event_type: str, payload: dic
         await session.commit()
         await session.refresh(row)
         return row.id
+
+
+async def test_relay_routes_payment_events_to_the_payments_topic_not_transfers(
+    kafka_bootstrap_servers: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "transfers_topic", "test-relay-transfers-4")
+    monkeypatch.setattr(settings, "payments_topic", "test-relay-payments-4")
+    await _insert_outbox_row(
+        aggregate_id="p-relay-1",
+        event_type="payment.completed",
+        payload={"payment_id": "p-relay-1"},
+        aggregate_type="Payment",
+    )
+
+    producer = EventProducer(kafka_bootstrap_servers)
+    await producer.start()
+    try:
+        async with db_session.async_session_factory() as session:
+            published_count = await relay_outbox_events(session, producer)
+    finally:
+        await producer.stop()
+
+    assert published_count == 1
+
+    received: list[EventEnvelope] = []
+
+    async def collector(event: EventEnvelope) -> None:
+        received.append(event)
+
+    consumer = EventConsumer(
+        bootstrap_servers=kafka_bootstrap_servers,
+        topics=["test-relay-payments-4"],
+        group_id="test-relay-group-4",
+    )
+    await consumer.start()
+    try:
+        await consumer.run(collector, max_messages=1)
+    finally:
+        await consumer.stop()
+
+    assert len(received) == 1
+    assert received[0].data == {"payment_id": "p-relay-1"}
+
+    # Nothing ever landed on the transfers topic.
+    empty_consumer = EventConsumer(
+        bootstrap_servers=kafka_bootstrap_servers,
+        topics=["test-relay-transfers-4"],
+        group_id="test-relay-group-4b",
+    )
+    await empty_consumer.start()
+    try:
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(empty_consumer.run(collector, max_messages=1), timeout=5)
+    finally:
+        await empty_consumer.stop()
 
 
 async def test_relay_publishes_unpublished_rows_and_marks_them_published(

@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.domain.account import AccountKind
 from app.domain.hold import HoldStatus
 from app.domain.posting import EntryDirection, PostingType
 
@@ -58,6 +59,14 @@ class CaptureHoldRequest(BaseModel):
     source_service: str = Field(min_length=1, max_length=64)
     source_id: str = Field(min_length=1, max_length=128)
     amount_minor: int = Field(gt=0)
+
+
+class SystemAccountResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    kind: AccountKind
+    currency: str
 
 
 class ReconciliationReportResponse(BaseModel):

@@ -47,6 +47,38 @@ def _ledger_app() -> FastAPI:
             status_code=201,
         )
 
+    @fake.post("/internal/v1/holds")
+    async def _post_hold(request: Request) -> JSONResponse:
+        payload = await request.json()
+        return JSONResponse(
+            {
+                "id": str(uuid.uuid4()),
+                "account_id": payload["account_id"],
+                "amount_minor": payload["amount_minor"],
+                "currency": payload["currency"],
+                "status": "ACTIVE",
+                "created_at": "2026-01-01T00:00:00Z",
+                "expires_at": "2026-01-01T00:15:00Z",
+                "resolved_at": None,
+            },
+            status_code=201,
+        )
+
+    @fake.post("/internal/v1/holds/{hold_id}/capture")
+    async def _post_capture(hold_id: str, request: Request) -> JSONResponse:
+        payload = await request.json()
+        return JSONResponse(
+            {
+                "id": str(uuid.uuid4()),
+                "source_service": payload["source_service"],
+                "source_id": payload["source_id"],
+                "type": "PAYMENT",
+                "currency": "UZS",
+                "created_at": "2026-01-01T00:00:00Z",
+            },
+            status_code=201,
+        )
+
     return fake
 
 
@@ -100,6 +132,75 @@ async def _create_transfer(client: AsyncClient, token: str, *, amount: str = "10
     )
     assert response.status_code == 201
     return response.json()["id"]
+
+
+async def _create_payment(client: AsyncClient, token: str, *, amount: str = "10.00") -> str:
+    merchant_response = await client.post(
+        "/api/v1/merchants",
+        json={"name": "Test Shop"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    merchant_id = merchant_response.json()["id"]
+
+    response = await client.post(
+        "/api/v1/payments",
+        json={
+            "source_wallet_id": str(_SOURCE_WALLET),
+            "merchant_id": merchant_id,
+            "amount": amount,
+            "currency": "UZS",
+        },
+        headers={"Authorization": f"Bearer {token}", "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert response.status_code == 201
+    return response.json()["id"]
+
+
+async def test_listing_transactions_merges_transfers_and_payments_newest_first(
+    monkeypatch: pytest.MonkeyPatch, issue_access_token
+) -> None:
+    _wire_ledger(monkeypatch)
+    _wire_fraud(monkeypatch, "ALLOW")
+    token = issue_access_token(uuid.uuid4())
+
+    async with await _client() as client:
+        transfer_id = await _create_transfer(client, token)
+        payment_id = await _create_payment(client, token)
+
+        response = await client.get(
+            "/api/v1/transactions", headers={"Authorization": f"Bearer {token}"}
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    ids = [item["id"] for item in body]
+    assert set(ids) == {transfer_id, payment_id}
+    # The payment was created after the transfer, so it sorts first.
+    assert ids[0] == payment_id
+    types = {item["id"]: item["type"] for item in body}
+    assert types[transfer_id] == "TRANSFER"
+    assert types[payment_id] == "PAYMENT"
+
+
+async def test_getting_a_single_payment_transaction_by_id(
+    monkeypatch: pytest.MonkeyPatch, issue_access_token
+) -> None:
+    _wire_ledger(monkeypatch)
+    _wire_fraud(monkeypatch, "ALLOW")
+    token = issue_access_token(uuid.uuid4())
+
+    async with await _client() as client:
+        payment_id = await _create_payment(client, token)
+
+        response = await client.get(
+            f"/api/v1/transactions/{payment_id}", headers={"Authorization": f"Bearer {token}"}
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == payment_id
+    assert body["type"] == "PAYMENT"
+    assert body["status"] == "SUCCESS"
 
 
 async def test_listing_transactions_returns_the_users_own_transfers_newest_first(

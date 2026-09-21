@@ -12,6 +12,7 @@ from fincore_common import (
     register_error_handlers,
 )
 
+from app.api.internal.accounts import router as internal_accounts_router
 from app.api.internal.holds import router as internal_holds_router
 from app.api.internal.postings import router as internal_postings_router
 from app.api.internal.reconciliation import router as internal_reconciliation_router
@@ -64,6 +65,7 @@ app.include_router(wallets_router)
 app.include_router(internal_postings_router)
 app.include_router(internal_holds_router)
 app.include_router(internal_reconciliation_router)
+app.include_router(internal_accounts_router)
 
 
 @app.get("/health")

@@ -7,6 +7,7 @@ from app.api.v1.dependencies import AuthenticatedUser, get_authenticated_user
 from app.api.v1.schemas import TransactionResponse
 from app.core.exceptions import TransactionNotFoundError
 from app.db.session import get_db
+from app.repositories.payment_repository import PaymentRepository
 from app.repositories.transfer_repository import TransferRepository
 
 router = APIRouter(prefix="/api/v1/transactions", tags=["transactions"])
@@ -20,19 +21,31 @@ async def list_transactions(
     session: AsyncSession = Depends(get_db),
 ) -> list[TransactionResponse]:
     """The caller's own business-operation history (spec Section 20),
-    newest first. Only ever the operations they *initiated* — the other
-    side of a transfer sees it via ledger-service's
-    `GET /api/v1/wallets/{id}/entries` instead, which is scoped by wallet
-    rather than by who started the operation.
+    newest first across *both* Transfer and Payment. Only ever the
+    operations they *initiated* — the other side of a transfer or
+    payment sees it via ledger-service's
+    `GET /api/v1/wallets/{id}/entries` instead, which is scoped by
+    wallet rather than by who started the operation.
 
-    Transfer is the only operation type today; a future Payment would
-    be merged into this same list rather than requiring a second
-    endpoint (see TransactionResponse.from_transfer).
+    Merged and sorted in Python rather than a single SQL query, since
+    Transfer and Payment are two separate tables (each operation type
+    gets its own table, spec Section 7.1) — a reasonable v1 approach at
+    this scale; a UNION query would be the next step if this list ever
+    needs to paginate over a serious volume of rows.
     """
+    fetch_count = limit + offset
     transfers = await TransferRepository(session).list_for_user(
-        user.user_id, limit=limit, offset=offset
+        user.user_id, limit=fetch_count, offset=0
     )
-    return [TransactionResponse.from_transfer(transfer) for transfer in transfers]
+    payments = await PaymentRepository(session).list_for_user(
+        user.user_id, limit=fetch_count, offset=0
+    )
+
+    combined = [TransactionResponse.from_transfer(transfer) for transfer in transfers] + [
+        TransactionResponse.from_payment(payment) for payment in payments
+    ]
+    combined.sort(key=lambda item: item.created_at, reverse=True)
+    return combined[offset : offset + limit]
 
 
 @router.get("/{transaction_id}", response_model=TransactionResponse)
@@ -42,6 +55,11 @@ async def get_transaction(
     session: AsyncSession = Depends(get_db),
 ) -> TransactionResponse:
     transfer = await TransferRepository(session).get(transaction_id)
-    if transfer is None or transfer.initiator_user_id != user.user_id:
-        raise TransactionNotFoundError(str(transaction_id))
-    return TransactionResponse.from_transfer(transfer)
+    if transfer is not None and transfer.initiator_user_id == user.user_id:
+        return TransactionResponse.from_transfer(transfer)
+
+    payment = await PaymentRepository(session).get(transaction_id)
+    if payment is not None and payment.initiator_user_id == user.user_id:
+        return TransactionResponse.from_payment(payment)
+
+    raise TransactionNotFoundError(str(transaction_id))
