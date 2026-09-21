@@ -72,7 +72,8 @@ across a distributed transaction. The full reasoning is in
 | `payment-service` ✅ | transfers, payments, refunds, idempotency keys, the outbox | Owns the saga; transfers/payments/refunds share the same orchestration machinery, so splitting them would duplicate it |
 | `notification-service` ✅ | notifications, retry/DLT state | Pure asynchronous event consumer — the natural boundary for "reacts, doesn't decide" |
 | `fraud-service` ✅ | fraud checks, rules | Isolated so the rule engine can become an ML model later without touching payment logic |
-| `webhook-service` / `audit-service` | their own event tables | Same "reacts, doesn't decide" boundary as `notification-service` |
+| `webhook-service` ✅ | webhook endpoints, deliveries, attempts | Same "reacts, doesn't decide" boundary as `notification-service`, plus its own public registration API — a merchant-facing surface `payment-service` shouldn't own |
+| `audit-service` | its own event table | Same "reacts, doesn't decide" boundary as `notification-service` |
 
 ✅ = implemented. Everything else is designed (ADRs + context map) and
 scheduled per the [roadmap](#roadmap).
@@ -430,6 +431,56 @@ exercised by the real thing instead of only a fake transport.
 fraud_db: fraud_checks
 ```
 
+### `webhook-service`
+
+Delivers signed merchant callbacks for payment events (spec Section 17).
+Consumes `payment.completed` / `payment.failed` / `payment.refunded`
+from the `payments` topic and fans each out to every `ACTIVE` webhook
+endpoint registered for that payment's merchant — decoupled from actual
+HTTP delivery, which a separate background worker drives off its own
+per-delivery retry schedule instead of Kafka's.
+
+* **Public API** (`/api/v1/webhooks/endpoints[...]`, JWT-authenticated,
+  routed through the gateway): register an endpoint, list/get your own,
+  rotate its secret, re-enable one the delivery worker auto-disabled,
+  and read its delivery history (every attempt, with status code and
+  latency). Merchant ownership is verified against `payment-service`'s
+  new `GET /internal/v1/merchants/{id}` (shared-secret authenticated,
+  Section 19) rather than trusted from the request — otherwise any
+  authenticated user could register a callback for someone else's
+  merchant.
+* **Signed delivery**: HMAC-SHA256 over `timestamp.body` with a
+  per-endpoint secret (`app/services/signing.py`), sent as
+  `X-Webhook-Signature: t=<ts>,v1=<hex>` plus `X-Webhook-Id` (the event
+  id, for the receiver's own idempotent dedup). The timestamp is folded
+  into the signed material itself, not just sent alongside it, so a
+  receiver that checks both rejects a captured request replayed later.
+* **SSRF protection** (`app/services/ssrf.py`): rejects a non-http(s)
+  scheme outright, then resolves the target hostname and rejects it if
+  *any* resolved address is private, loopback, link-local, reserved, or
+  multicast — the classic "register a webhook pointed at
+  `169.254.169.254` or `localhost:5432`" attack. Checked both at
+  registration time and fresh before every delivery attempt, since DNS
+  can change in between.
+* **Retry with backoff and auto-disable**: a failed delivery is
+  rescheduled with exponential backoff + jitter
+  (`app/services/retry.py`, the same shape as `notification-service`'s)
+  up to `MAX_DELIVERY_ATTEMPTS`, then marked terminally `FAILED`. An
+  endpoint that racks up `DISABLE_ENDPOINT_AFTER_CONSECUTIVE_FAILURES`
+  terminally-failed deliveries in a row is auto-disabled — a single
+  delivery retrying within its own backoff window doesn't count, only a
+  delivery that gave up entirely; any success resets the count.
+* **Idempotency**: `UNIQUE(endpoint_id, event_id)` on
+  `webhook_deliveries` — a redelivered Kafka message (at-least-once)
+  creates no second delivery row for an endpoint that already has one
+  for that event.
+
+**Database:**
+
+```text
+webhook_db: webhook_endpoints, webhook_deliveries, webhook_attempts
+```
+
 Every migration in every service is verified with a real
 `upgrade → downgrade → upgrade` cycle before being committed. This caught
 two real bugs: PostgreSQL native enum types aren't dropped by
@@ -484,17 +535,22 @@ cp services/notification-service/.env.example services/notification-service/.env
 # then edit INTERNAL_SERVICE_TOKEN in that .env to any random local value
 # (this one is its own secret — nothing else calls into it)
 
+cp services/webhook-service/.env.example services/webhook-service/.env
+# then edit INTERNAL_SERVICE_TOKEN in that .env to the *same* value as
+# payment-service's — webhook-service calls payment-service's internal
+# merchant-ownership lookup with it
+
 docker compose up --build
 ```
 
 | Via gateway | Direct |
 |---|---|
-| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service), `http://localhost:8094` (notification-service), `http://localhost:8095` (fraud-service) |
+| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service), `http://localhost:8094` (notification-service), `http://localhost:8095` (fraud-service), `http://localhost:8097` (webhook-service) |
 
 Swagger UI (FastAPI's auto-generated API docs):
 `http://localhost:8091/docs`, `http://localhost:8092/docs`,
-`http://localhost:8093/docs`, `http://localhost:8094/docs`, and
-`http://localhost:8095/docs`.
+`http://localhost:8093/docs`, `http://localhost:8094/docs`,
+`http://localhost:8095/docs`, and `http://localhost:8097/docs`.
 
 Jaeger UI (distributed traces): `http://localhost:16686`. Kafka's own
 external port (for `kcat`/`kafka-console-consumer` from the host, not
@@ -541,6 +597,27 @@ curl -X POST localhost:8180/api/v1/payments/<payment id>/refunds \
   -H "Idempotency-Key: $(uuidgen)" -H 'Content-Type: application/json' \
   -d '{"amount":"10.00","reason":"partial refund"}'
 ```
+
+Register a webhook endpoint for that merchant (spec Section 17) to have
+its next `payment.completed`/`failed`/`refunded` delivered, signed, to
+your own callback URL — the response's `secret` is shown once, save it
+to verify `X-Webhook-Signature` on your receiving end:
+
+```bash
+curl -X POST localhost:8180/api/v1/webhooks/endpoints \
+  -H "Authorization: Bearer <merchant owner's access token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"merchant_id":"<merchant id>","url":"https://<your public callback URL>"}'
+
+# delivery history for that endpoint, every attempt with status code and latency:
+curl localhost:8180/api/v1/webhooks/endpoints/<endpoint id>/deliveries \
+  -H "Authorization: Bearer <merchant owner's access token>"
+```
+
+The target URL must resolve to a public address — `app/services/ssrf.py`
+rejects anything private/loopback/link-local at both registration and
+delivery time (spec Section 17's SSRF protection), so `localhost` or a
+Docker-internal address won't work here even for local testing.
 
 > `docker-compose.yml`'s host ports (`8180`/`8091`-`8095`/`5440`/`9094`
 > instead of the more usual `8080`/`8001`.../`5432`/`9092`) were picked
@@ -690,9 +767,10 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 cd libs/fincore-common && .venv/bin/pytest -v           # 40 tests
 cd services/identity-service && .venv/bin/pytest -v     # 52 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 56 tests
-cd services/payment-service && .venv/bin/pytest -v      # 94 tests
+cd services/payment-service && .venv/bin/pytest -v      # 97 tests
 cd services/notification-service && .venv/bin/pytest -v # 25 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 26 tests
+cd services/webhook-service && .venv/bin/pytest -v      # 39 tests
 ```
 
 Integration tests spin up a real PostgreSQL container via `testcontainers`
@@ -743,6 +821,7 @@ cd services/ledger-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/payment-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/notification-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/fraud-service && .venv/bin/ruff check . && .venv/bin/mypy app
+cd services/webhook-service && .venv/bin/ruff check . && .venv/bin/mypy app
 ```
 
 CI (`.github/workflows/ci.yml`) runs all of the above per package on every
@@ -827,6 +906,12 @@ before `payment-service`'s implementation and matched by it, Phase 3).
 | Two refunds for the same payment are requested concurrently, each individually valid but jointly exceeding the captured amount | The `ck_payments_refunded_amount_within_bounds` CHECK constraint rejects whichever one loses the race, not application code |
 | A refund is requested by someone other than the merchant the payment was made to | `404 Payment Not Found` — same anti-enumeration shape as every other ownership check in this project |
 | Someone tries to pay a merchant that doesn't exist, or one that's `SUSPENDED` | `404 Merchant Not Found` / `409 Merchant Not Active` |
+| A webhook endpoint is registered for a merchant the caller doesn't own, or one that doesn't exist | `404 Merchant Not Found` — same anti-enumeration shape, verified against `payment-service`'s internal merchant lookup, not trusted from the request |
+| A webhook endpoint's URL resolves to a private/loopback/link-local address (or any host, if it has a mixed public/private answer set) | `422 Invalid Webhook URL` — rejected at registration *and* fresh before every delivery attempt, since DNS can change in between |
+| A merchant's endpoint is unreachable or times out on delivery | Rescheduled with exponential backoff + jitter, up to `MAX_DELIVERY_ATTEMPTS`, without blocking any other endpoint's or event's delivery |
+| A merchant's endpoint keeps failing until its deliveries exhaust every retry, repeatedly | Auto-disabled after `DISABLE_ENDPOINT_AFTER_CONSECUTIVE_FAILURES` terminally-failed deliveries in a row — no further attempts until the owner explicitly re-enables it |
+| The same Kafka event is redelivered to `webhook-service` (at-least-once) | No second delivery row for an endpoint that already has one for that event — `UNIQUE(endpoint_id, event_id)` decides, not a pre-check |
+| `webhook-service` crashes between recording a delivery and committing its Kafka offset | The event redelivers on restart; the same idempotency guard makes it a no-op |
 
 ---
 
@@ -842,7 +927,7 @@ phases complete — not aspirational.
 | 2 — Core Ledger | 4–6 | `ledger-service`, postings, holds, row locking | ✅ |
 | 3 — Transfers & Distributed Consistency | 7–9 | `payment-service`, sagas, idempotency, recovery worker | ✅ |
 | 4 — Async Architecture | 10–11 | Transactional outbox, Kafka, `notification-service`, tracing | ✅ |
-| 5 — Advanced Financial Features | 12–14 | `fraud-service` ✅, payment holds/refunds ✅, `webhook-service`, `audit-service` | 🚧 |
+| 5 — Advanced Financial Features | 12–14 | `fraud-service` ✅, payment holds/refunds ✅, `webhook-service` ✅, `audit-service` | 🚧 |
 | 6 — Production Readiness | 15–16 | Prometheus/Grafana, full CI, e2e, load testing | ⏳ |
 | 7 — Frontend | after 6 | React/TypeScript dashboard + admin panel ([ADR-0005](docs/adr/0005-frontend-addition.md)) | ⏳ |
 

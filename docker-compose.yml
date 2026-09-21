@@ -179,6 +179,34 @@ services:
     ports:
       - "8094:8000"
 
+  webhook-service:
+    build:
+      context: .
+      dockerfile: services/webhook-service/Dockerfile
+    env_file:
+      - services/webhook-service/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://webhook:webhook@postgres:5432/webhook_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "8097:8000"
+
   gateway:
     build:
       context: ./gateway/nginx
@@ -188,6 +216,8 @@ services:
       ledger-service:
         condition: service_healthy
       payment-service:
+        condition: service_healthy
+      webhook-service:
         condition: service_healthy
     ports:
       - "8180:80"

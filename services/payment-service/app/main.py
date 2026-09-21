@@ -13,6 +13,7 @@ from fincore_common import (
     register_error_handlers,
 )
 
+from app.api.internal.merchants import router as internal_merchants_router
 from app.api.v1.merchants import router as merchants_router
 from app.api.v1.payments import router as payments_router
 from app.api.v1.transactions import router as transactions_router
@@ -146,6 +147,7 @@ app.include_router(transfers_router)
 app.include_router(payments_router)
 app.include_router(merchants_router)
 app.include_router(transactions_router)
+app.include_router(internal_merchants_router)
 
 
 @app.get("/health")
