@@ -73,7 +73,7 @@ across a distributed transaction. The full reasoning is in
 | `notification-service` ✅ | notifications, retry/DLT state | Pure asynchronous event consumer — the natural boundary for "reacts, doesn't decide" |
 | `fraud-service` ✅ | fraud checks, rules | Isolated so the rule engine can become an ML model later without touching payment logic |
 | `webhook-service` ✅ | webhook endpoints, deliveries, attempts | Same "reacts, doesn't decide" boundary as `notification-service`, plus its own public registration API — a merchant-facing surface `payment-service` shouldn't own |
-| `audit-service` | its own event table | Same "reacts, doesn't decide" boundary as `notification-service` |
+| `audit-service` ✅ | audit logs, dead-letter state | Same "reacts, doesn't decide" boundary as `notification-service`, plus append-only storage enforced at the database-role level — a property no other service's data needs |
 
 ✅ = implemented. Everything else is designed (ADRs + context map) and
 scheduled per the [roadmap](#roadmap).
@@ -481,6 +481,62 @@ per-delivery retry schedule instead of Kafka's.
 webhook_db: webhook_endpoints, webhook_deliveries, webhook_attempts
 ```
 
+### `audit-service`
+
+Consumes domain events and writes an append-only audit trail (spec
+Section 18). A pure event consumer, same shape as `notification-service`
+(no public API beyond `/health`/`/ready`, not routed through the
+gateway) — plus a read-only `/internal/*` query API, since an audit
+trail nobody can query isn't useful for its stated purpose
+("investigation").
+
+* Consumes both `transfers` and `payments` topics with one consumer;
+  `action` is derived mechanically from `event_type`
+  ("transfer.completed" -> `TRANSFER_COMPLETED`) rather than
+  special-cased per event, which happens to match spec Section 18's own
+  example action names exactly — this service doesn't need to
+  understand *why* something happened, only record that it did (the
+  same "reacts, doesn't decide" boundary as every other consumer here).
+* **Append-only, enforced by PostgreSQL itself, not just by convention**
+  (spec Section 18: "no UPDATE/DELETE permissions for the service's DB
+  user"): the first migration runs
+  `REVOKE UPDATE, DELETE, TRUNCATE ON audit_logs FROM CURRENT_USER`
+  right after creating the table. Verified by a test that creates a
+  second, genuinely non-superuser role and database inside the
+  PostgreSQL testcontainer (`tests/integration/test_migrations.py`) —
+  the testcontainer's own bootstrap role is a superuser and bypasses
+  privilege checks entirely, which would make a naive version of this
+  test pass even if the `REVOKE` did nothing. Confirmed again against
+  the real `audit` role in a live stack: `UPDATE`/`DELETE`/`TRUNCATE`
+  all fail with `permission denied for table audit_logs`; `SELECT` and
+  `INSERT` still work.
+* `who`/`what`/`resource`/`when`/`result`/`correlation id` (spec
+  Section 18) are all populated from real data on `transfer.*`/
+  `payment.*` events. `actor_role`, `ip_address` and `user_agent` are
+  columns that exist but are always `null` today — deliberately not
+  implemented, the same reasoning as fraud-service's skipped "new
+  device"/"suspicious IP" rules: nothing in payment-service's current
+  event payloads carries a role, an IP, or a user agent, and
+  identity-service doesn't yet publish its own domain events (no
+  outbox), so there is nothing real to put there for `USER_LOGIN`/
+  `USER_BLOCKED`-style entries from spec's example list either.
+  Extending identity-service with an outbox is a natural next step, not
+  done here to keep this change scoped to the one new service.
+* **Retry + DLT** (`app/services/dispatch.py`), same architecture as
+  notification-service's: a malformed event (missing the field every
+  `transfer.*`/`payment.*` event is documented to carry) is dead-lettered
+  immediately; a transient failure (e.g. the database briefly
+  unreachable) is retried with backoff and dead-lettered only after
+  exhausting `MAX_RETRY_ATTEMPTS`. Taken at least as seriously here as
+  in notification-service — losing an audit record silently is worse
+  than losing a notification.
+
+**Database:**
+
+```text
+audit_db: audit_logs, dead_letters
+```
+
 Every migration in every service is verified with a real
 `upgrade → downgrade → upgrade` cycle before being committed. This caught
 two real bugs: PostgreSQL native enum types aren't dropped by
@@ -540,17 +596,22 @@ cp services/webhook-service/.env.example services/webhook-service/.env
 # payment-service's — webhook-service calls payment-service's internal
 # merchant-ownership lookup with it
 
+cp services/audit-service/.env.example services/audit-service/.env
+# then edit INTERNAL_SERVICE_TOKEN in that .env to any random local value
+# (this one is its own secret — nothing else calls into it)
+
 docker compose up --build
 ```
 
 | Via gateway | Direct |
 |---|---|
-| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service), `http://localhost:8094` (notification-service), `http://localhost:8095` (fraud-service), `http://localhost:8097` (webhook-service) |
+| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service), `http://localhost:8094` (notification-service), `http://localhost:8095` (fraud-service), `http://localhost:8097` (webhook-service), `http://localhost:8098` (audit-service) |
 
 Swagger UI (FastAPI's auto-generated API docs):
 `http://localhost:8091/docs`, `http://localhost:8092/docs`,
 `http://localhost:8093/docs`, `http://localhost:8094/docs`,
-`http://localhost:8095/docs`, and `http://localhost:8097/docs`.
+`http://localhost:8095/docs`, `http://localhost:8097/docs`, and
+`http://localhost:8098/docs`.
 
 Jaeger UI (distributed traces): `http://localhost:16686`. Kafka's own
 external port (for `kcat`/`kafka-console-consumer` from the host, not
@@ -618,6 +679,16 @@ The target URL must resolve to a public address — `app/services/ssrf.py`
 rejects anything private/loopback/link-local at both registration and
 delivery time (spec Section 17's SSRF protection), so `localhost` or a
 Docker-internal address won't work here even for local testing.
+
+Every transfer and payment above also lands in the audit trail (spec
+Section 18) within a few seconds — query it directly against
+audit-service (not routed through the gateway, same as
+notification-service):
+
+```bash
+curl "localhost:8098/internal/v1/audit-logs?resource_id=<transfer or payment id>" \
+  -H "X-Internal-Token: <audit-service's own INTERNAL_SERVICE_TOKEN>"
+```
 
 > `docker-compose.yml`'s host ports (`8180`/`8091`-`8095`/`5440`/`9094`
 > instead of the more usual `8080`/`8001`.../`5432`/`9092`) were picked
@@ -771,6 +842,7 @@ cd services/payment-service && .venv/bin/pytest -v      # 97 tests
 cd services/notification-service && .venv/bin/pytest -v # 25 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 26 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 39 tests
+cd services/audit-service && .venv/bin/pytest -v        # 31 tests
 ```
 
 Integration tests spin up a real PostgreSQL container via `testcontainers`
@@ -822,6 +894,7 @@ cd services/payment-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/notification-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/fraud-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/webhook-service && .venv/bin/ruff check . && .venv/bin/mypy app
+cd services/audit-service && .venv/bin/ruff check . && .venv/bin/mypy app
 ```
 
 CI (`.github/workflows/ci.yml`) runs all of the above per package on every
@@ -912,6 +985,10 @@ before `payment-service`'s implementation and matched by it, Phase 3).
 | A merchant's endpoint keeps failing until its deliveries exhaust every retry, repeatedly | Auto-disabled after `DISABLE_ENDPOINT_AFTER_CONSECUTIVE_FAILURES` terminally-failed deliveries in a row — no further attempts until the owner explicitly re-enables it |
 | The same Kafka event is redelivered to `webhook-service` (at-least-once) | No second delivery row for an endpoint that already has one for that event — `UNIQUE(endpoint_id, event_id)` decides, not a pre-check |
 | `webhook-service` crashes between recording a delivery and committing its Kafka offset | The event redelivers on restart; the same idempotency guard makes it a no-op |
+| Someone with a valid database connection to `audit_db` (e.g. the `audit` role itself) tries to `UPDATE`, `DELETE`, or `TRUNCATE` `audit_logs` | Rejected by PostgreSQL itself — `permission denied for table audit_logs` — the role's DML privileges on that table were revoked in its own first migration, not merely never used by the application code |
+| `audit-service` receives an event missing a field every `transfer.*`/`payment.*` event is documented to carry | Dead-lettered immediately — a producer bug, not something retrying fixes |
+| `audit-service`'s database is briefly unreachable while writing a row | Retried with exponential backoff + jitter, dead-lettered (not silently dropped) only after exhausting `MAX_RETRY_ATTEMPTS` |
+| The same event is redelivered to `audit-service` (at-least-once) | No second audit row — `audit_logs.event_id` is `UNIQUE`, same idempotency shape as `notification-service`'s |
 
 ---
 
@@ -927,7 +1004,7 @@ phases complete — not aspirational.
 | 2 — Core Ledger | 4–6 | `ledger-service`, postings, holds, row locking | ✅ |
 | 3 — Transfers & Distributed Consistency | 7–9 | `payment-service`, sagas, idempotency, recovery worker | ✅ |
 | 4 — Async Architecture | 10–11 | Transactional outbox, Kafka, `notification-service`, tracing | ✅ |
-| 5 — Advanced Financial Features | 12–14 | `fraud-service` ✅, payment holds/refunds ✅, `webhook-service` ✅, `audit-service` | 🚧 |
+| 5 — Advanced Financial Features | 12–14 | `fraud-service` ✅, payment holds/refunds ✅, `webhook-service` ✅, `audit-service` ✅ | ✅ |
 | 6 — Production Readiness | 15–16 | Prometheus/Grafana, full CI, e2e, load testing | ⏳ |
 | 7 — Frontend | after 6 | React/TypeScript dashboard + admin panel ([ADR-0005](docs/adr/0005-frontend-addition.md)) | ⏳ |
 

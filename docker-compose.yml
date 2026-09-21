@@ -207,6 +207,30 @@ services:
     ports:
       - "8097:8000"
 
+  audit-service:
+    build:
+      context: .
+      dockerfile: services/audit-service/Dockerfile
+    env_file:
+      - services/audit-service/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://audit:audit@postgres:5432/audit_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "8098:8000"
+
   gateway:
     build:
       context: ./gateway/nginx
