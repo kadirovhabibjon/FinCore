@@ -10,14 +10,15 @@ tutorial. Every non-obvious decision is recorded as an [ADR](docs/adr/)
 rather than left implicit, and the full design rationale lives in
 [`docs/spec.md`](docs/spec.md).
 
-**Status: Phase 4 (Async Architecture) complete.** `identity-service`,
-`ledger-service`, `payment-service`, and `notification-service` are
-built, tested, and run together via Docker Compose — gateway, Kafka, and
-Jaeger included. Fraud (the real service), webhooks, and audit are
-designed (see the ADRs and [`docs/context-map.md`](docs/context-map.md))
-but not yet built. The table in [Roadmap](#roadmap) below tracks this
-precisely — nothing here is described as done unless it's tested and
-running.
+**Status: Phase 5 (Advanced Financial Features) in progress.**
+`identity-service`, `ledger-service`, `payment-service`,
+`notification-service`, and `fraud-service` are built, tested, and run
+together via Docker Compose — gateway, Kafka, and Jaeger included.
+`payment-service` now handles payments with holds/capture/refunds on
+top of transfers. Webhooks and audit are designed (see the ADRs and
+[`docs/context-map.md`](docs/context-map.md)) but not yet built. The
+table in [Roadmap](#roadmap) below tracks this precisely — nothing here
+is described as done unless it's tested and running.
 
 ---
 
@@ -151,10 +152,12 @@ for money (ADR-0002, spec Section 8).
   routed through the gateway; requires the shared `X-Internal-Token`
   header (Section 19 — mTLS is a later concern).
 * `POST /internal/v1/holds`, `.../{id}/capture`, `.../{id}/release` — the
-  reserve → capture/release flow for merchant payments (not yet called by
-  anything — `payment-service` only does direct transfers so far; holds
-  are exercised today by ledger-service's own tests, and will back
-  Phase 5's payment-capture flow).
+  reserve → capture/release flow `payment-service`'s Payment saga calls
+  (spec Section 11) — built in Phase 2, its first real caller in Phase 5.
+* `GET /internal/v1/accounts/system` — looks up a pooled system
+  account's id by kind and currency (e.g. `MERCHANT_SETTLEMENT`), for
+  `payment-service`'s refund flow to build a posting directly, the same
+  lookup `capture_hold` already does internally.
 * `GET /internal/v1/reconciliation` — triggers one reconciliation pass on
   demand, on top of the background job described below.
 
@@ -205,8 +208,8 @@ as distinct.
 
 ### `payment-service`
 
-Transfers, idempotency, and the distributed transaction — spec Sections
-9, 10, and 20.
+Transfers, payments, refunds, merchants, idempotency, and the
+distributed transaction — spec Sections 9, 10, 11, and 20.
 
 * `POST /api/v1/transfers` — the flow runs in this exact order:
   authorize (does the source wallet belong to the caller — relayed to
@@ -215,10 +218,19 @@ Transfers, idempotency, and the distributed transaction — spec Sections
   idempotency check → create the `Transfer` and run its saga.
 * `GET /api/v1/transfers/{id}` — owner-only; "doesn't exist" and "exists
   but isn't yours" return the same `404`.
+* `POST /api/v1/merchants`, `GET /api/v1/merchants[/{id}]` — minimal by
+  design: the spec defines the `merchants` table but no onboarding flow
+  beyond it, and every payment settles into one pooled
+  `MERCHANT_SETTLEMENT` ledger account per currency regardless of which
+  merchant it's for (ADR-0002) — a merchant row exists so a payment has
+  something concrete to reference, not because the ledger needs it.
+* `POST /api/v1/payments`, `GET /api/v1/payments/{id}`,
+  `POST /api/v1/payments/{id}/refunds` (merchant-initiated, same
+  anti-enumeration `404` as everywhere else) — see **Payments** below.
 * `GET /api/v1/transactions`, `GET /api/v1/transactions/{id}` — a
-  type-erased view over the caller's own business operations (`Transfer`
-  today; a future `Payment` would join the same list without changing
-  its shape).
+  type-erased view merging Transfer *and* Payment into one newest-first
+  list, exactly as `TransactionResponse.from_payment` was scaffolded to
+  do back when only Transfer existed.
 
 **The saga** (`app/services/transfers.py`), per spec Section 10.1:
 
@@ -250,32 +262,79 @@ concurrent first-time requests carrying the same key.
 
 **The recovery worker** (`app/services/recovery.py`) runs in the
 background every `RECOVERY_WORKER_INTERVAL_SECONDS` (default 30s) and
-retries the ledger posting for any transfer that's been stuck
-`PROCESSING` for more than `RECOVERY_WORKER_STUCK_AFTER_SECONDS` (default
-60s). Retrying is safe: `ledger-service`'s posting endpoint is idempotent
-on `(source_service, source_id, type)`, so a retry of a posting that
-already succeeded just returns the existing one instead of moving money
-twice.
+retries whichever ledger call hasn't confirmed yet for any transfer,
+payment, or refund stuck `PROCESSING`/`PENDING` for more than
+`RECOVERY_WORKER_STUCK_AFTER_SECONDS` (default 60s). Retrying is safe:
+every ledger call it retries — postings, holds, captures — is
+idempotent on `(source_service, source_id[, type])`, so a retry of a
+call that already succeeded just returns the existing result instead of
+moving money twice.
 
 **The transactional outbox** (`app/domain/outbox.py`, spec Section
-14.1): every time the saga transitions a transfer to `COMPLETED` or
-`FAILED`, an `outbox_events` row is written in the *same* database
-transaction as that status change — so a committed transition can never
-silently fail to get an event. A background relay
-(`app/services/outbox.py`) publishes unpublished rows to Kafka's
-`transfers` topic every `OUTBOX_RELAY_INTERVAL_SECONDS` (default 5s),
-keyed by transfer id for per-transfer ordering, and marks each published
-only *after* a successful send. A race the outbox design doesn't
-prevent on its own — the recovery worker retrying a transfer the
-original saga call is still mid-flight on — is closed by only letting
-whichever caller's `transition_status()` UPDATE actually applied write
-the outbox event (verified with a real `asyncio.gather` race against
-Postgres, not just reasoned about).
+14.1): every time a saga transitions a transfer or payment to a terminal
+(or refund-affecting) status, an `outbox_events` row is written in the
+*same* database transaction as that status change — so a committed
+transition can never silently fail to get an event. A background relay
+(`app/services/outbox.py`) publishes unpublished rows to Kafka every
+`OUTBOX_RELAY_INTERVAL_SECONDS` (default 5s) — one topic per aggregate
+type (`transfers` for Transfer, `payments` for Payment — the row's own
+`aggregate_type` column decides), keyed by the operation's id for
+per-operation ordering, and marks each published only *after* a
+successful send. A race the outbox design doesn't prevent on its own —
+the recovery worker retrying an operation the original saga call is
+still mid-flight on — is closed by only letting whichever caller's
+`transition_status()` UPDATE actually applied write the outbox event
+(verified with a real `asyncio.gather` race against Postgres, not just
+reasoned about).
+
+**Payments** (`app/services/payments.py`, spec Section 11) reuse
+`ledger-service`'s hold reserve → capture API — built in Phase 2, unused
+by any caller until now — instead of posting directly the way transfers
+do:
+
+```text
+fraud BLOCK                    → FAILED
+fraud REVIEW                    → stays CREATED
+hold created + captured          → SUCCESS (auto-captured within the
+                                    same saga run — no API exists yet
+                                    to trigger a capture independently
+                                    of creating the payment)
+hold/capture business-rejected   → FAILED
+hold/capture outcome unknown     → stays PROCESSING; the recovery
+                                    worker resumes from whichever step
+                                    didn't confirm, skipping a hold
+                                    that's already on record
+capture rejected after a
+  successful hold                → FAILED, the hold released best-effort
+```
+
+A separate **expiration worker** (`app/services/expiration.py`) expires
+payments stuck `CREATED` past a review window (`PAYMENT_REVIEW_TTL_SECONDS`,
+default 900s) — most likely an unresolved fraud `REVIEW`. This is
+deliberately not the recovery worker's job: the spec's own state machine
+only allows `EXPIRED` from `CREATED`, never from `PROCESSING`.
+
+**Refunds** (spec: "as new postings, never by editing old ones; total
+refunds ≤ captured amount") get a minimal `PENDING`/`COMPLETED`/`FAILED`
+state of their own — not the full saga treatment, but needed for the
+same underlying reason: a refund's ledger posting is only reachable
+over the network, so a retried refund request needs a stable id to stay
+idempotent rather than risk a duplicate posting. The amount invariant is
+enforced twice — an eligibility check before the idempotency key is
+created, and the real, race-safe guard,
+`payments.ck_payments_refunded_amount_within_bounds` (this project's
+usual "let the database decide" pattern). Building a refund posting
+needed one new thing from `ledger-service`: `GET
+/internal/v1/accounts/system` looks up a pooled system account's id
+(e.g. `MERCHANT_SETTLEMENT` for a currency) the same way `capture_hold`
+already does internally — the one piece of information payment-service
+was missing to construct the posting itself via the existing generic
+`create_posting`.
 
 **Database:**
 
 ```text
-payment_db: idempotency_keys, transfers, outbox_events
+payment_db: idempotency_keys, transfers, payments, refunds, merchants, outbox_events
 ```
 
 ### `notification-service`
@@ -450,10 +509,10 @@ network), matching Section 19. Verified:
 same path against `localhost:8092` reaches the route (and then rejects a
 missing/wrong `X-Internal-Token`).
 
-`payment-service` has no wallet balance to fund a transfer with out of
-the box — there's no public deposit endpoint yet (Phase 5). To try a
-transfer end to end locally, credit a wallet directly via
-`ledger-service`'s internal API first:
+`payment-service` has no wallet balance to fund a transfer or payment
+with out of the box — deposits were never in the spec's public API map,
+only its internal one. To try a transfer or payment end to end locally,
+credit a wallet directly via `ledger-service`'s internal API first:
 
 ```bash
 curl -X POST localhost:8092/internal/v1/postings \
@@ -462,6 +521,25 @@ curl -X POST localhost:8092/internal/v1/postings \
   -d '{"source_service":"manual","source_id":"seed-1","type":"DEPOSIT","currency":"UZS",
        "entries":[{"account_id":"<EXTERNAL_FUNDING account id for UZS>","direction":"DEBIT","amount_minor":10000000},
                   {"account_id":"<your wallet id>","direction":"CREDIT","amount_minor":10000000}]}'
+```
+
+A payment (spec Section 11) needs a merchant to pay first:
+
+```bash
+curl -X POST localhost:8180/api/v1/merchants \
+  -H "Authorization: Bearer <merchant owner's access token>" \
+  -H 'Content-Type: application/json' -d '{"name":"Example Shop"}'
+
+curl -X POST localhost:8180/api/v1/payments \
+  -H "Authorization: Bearer <payer's access token>" \
+  -H "Idempotency-Key: $(uuidgen)" -H 'Content-Type: application/json' \
+  -d '{"source_wallet_id":"<funded wallet id>","merchant_id":"<merchant id>","amount":"25.50","currency":"UZS"}'
+
+# then, as the merchant owner, refund part or all of it:
+curl -X POST localhost:8180/api/v1/payments/<payment id>/refunds \
+  -H "Authorization: Bearer <merchant owner's access token>" \
+  -H "Idempotency-Key: $(uuidgen)" -H 'Content-Type: application/json' \
+  -d '{"amount":"10.00","reason":"partial refund"}'
 ```
 
 > `docker-compose.yml`'s host ports (`8180`/`8091`-`8095`/`5440`/`9094`
@@ -611,8 +689,8 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 40 tests
 cd services/identity-service && .venv/bin/pytest -v     # 52 tests
-cd services/ledger-service && .venv/bin/pytest -v       # 53 tests
-cd services/payment-service && .venv/bin/pytest -v      # 64 tests
+cd services/ledger-service && .venv/bin/pytest -v       # 56 tests
+cd services/payment-service && .venv/bin/pytest -v      # 94 tests
 cd services/notification-service && .venv/bin/pytest -v # 25 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 26 tests
 ```
@@ -642,6 +720,11 @@ application code timing — decides the winner:
 * `test_two_concurrent_first_time_checks_for_the_same_operation_produce_one_row`
   — races two risk checks for the same operation id; the
   `UNIQUE(operation_id, operation_type)` constraint decides (fraud-service)
+* `test_resolve_stuck_payments_resumes_from_an_existing_hold_straight_to_capture`
+  — uses a fake ledger that doesn't even implement the hold-creation
+  route, proving the recovery worker really does skip re-reserving funds
+  for a payment that already has one, not just that the end state looks
+  right (payment-service)
 
 Several more tests run against a real single-node Kafka broker via
 `testcontainers` (never a fake producer/consumer) — the same "no fakes
@@ -733,6 +816,17 @@ before `payment-service`'s implementation and matched by it, Phase 3).
 | A transient failure exhausts its retry attempts | Dead-lettered, recorded in a queryable table, and republishable on demand via the internal replay API |
 | `payment-service` or `notification-service` starts up with Kafka unreachable | `/ready` returns `503` — it checks Kafka connectivity now, not just the database |
 | A collector for distributed tracing isn't running | Spans queue in a background thread and get silently dropped — request handling is never blocked or failed by tracing infrastructure being down |
+| A payment's fraud check comes back BLOCK | `FAILED` without ever calling `ledger-service`'s hold endpoint |
+| A payment's fraud check comes back REVIEW | Stays `CREATED` |
+| A payment's hold is rejected (e.g. insufficient funds) | `FAILED`, no capture ever attempted |
+| `ledger-service` is unreachable while creating a hold, or while capturing one | The payment stays `PROCESSING`, **never** `FAILED` — same "unknown outcome" reasoning as transfers; the recovery worker resumes from exactly the step that didn't confirm, without re-reserving a hold that's already on record |
+| Capturing a hold fails after it was successfully reserved | `FAILED`, and the hold is released best-effort so the funds aren't left needlessly reserved |
+| A payment sits in `CREATED` past its review window | The expiration worker moves it to `EXPIRED` — a payment stuck `PROCESSING` is never touched by this worker, only the recovery worker's |
+| A refund is requested for more than a payment's remaining refundable amount | `422 Refund Exceeds Remaining Amount`, checked before the idempotency key is created |
+| A refund is requested for a payment that was never captured (still `CREATED`/`PROCESSING`) or already fully `REFUNDED` | `409 Payment Not Eligible For Refund` |
+| Two refunds for the same payment are requested concurrently, each individually valid but jointly exceeding the captured amount | The `ck_payments_refunded_amount_within_bounds` CHECK constraint rejects whichever one loses the race, not application code |
+| A refund is requested by someone other than the merchant the payment was made to | `404 Payment Not Found` — same anti-enumeration shape as every other ownership check in this project |
+| Someone tries to pay a merchant that doesn't exist, or one that's `SUSPENDED` | `404 Merchant Not Found` / `409 Merchant Not Active` |
 
 ---
 
@@ -748,7 +842,7 @@ phases complete — not aspirational.
 | 2 — Core Ledger | 4–6 | `ledger-service`, postings, holds, row locking | ✅ |
 | 3 — Transfers & Distributed Consistency | 7–9 | `payment-service`, sagas, idempotency, recovery worker | ✅ |
 | 4 — Async Architecture | 10–11 | Transactional outbox, Kafka, `notification-service`, tracing | ✅ |
-| 5 — Advanced Financial Features | 12–14 | `fraud-service`, payment holds/refunds, `webhook-service`, `audit-service` | ⏳ |
+| 5 — Advanced Financial Features | 12–14 | `fraud-service` ✅, payment holds/refunds ✅, `webhook-service`, `audit-service` | 🚧 |
 | 6 — Production Readiness | 15–16 | Prometheus/Grafana, full CI, e2e, load testing | ⏳ |
 | 7 — Frontend | after 6 | React/TypeScript dashboard + admin panel ([ADR-0005](docs/adr/0005-frontend-addition.md)) | ⏳ |
 
