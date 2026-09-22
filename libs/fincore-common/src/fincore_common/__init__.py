@@ -16,6 +16,7 @@ from .correlation import (
 from .errors import DomainError, ProblemDetail, register_error_handlers
 from .events import EventEnvelope, EventType
 from .logging import JSONFormatter, configure_logging
+from .metrics import Counter, Gauge, Histogram, configure_metrics
 
 # .kafka (EventProducer, EventConsumer) is deliberately not imported
 # here: it needs aiokafka, an optional extra (`fincore-common[kafka]`)
@@ -60,4 +61,8 @@ __all__ = [
     "minor_unit_exponent",
     "parse_decimal_string",
     "configure_tracing",
+    "Counter",
+    "Gauge",
+    "Histogram",
+    "configure_metrics",
 ]

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fincore_common import (
     CorrelationIdMiddleware,
     configure_logging,
+    configure_metrics,
     configure_tracing,
     register_error_handlers,
 )
@@ -20,7 +21,9 @@ from app.api.v1.transactions import router as transactions_router
 from app.api.v1.transfers import router as transfers_router
 from app.core import kafka as kafka_module
 from app.core.config import settings
+from app.core.metrics import OUTBOX_BACKLOG, STUCK_PROCESSING
 from app.db import session as db_session
+from app.repositories.outbox_repository import OutboxRepository
 from app.services.expiration import expire_stale_payments
 from app.services.idempotency import IdempotentReplayResponse
 from app.services.outbox import relay_outbox_events
@@ -47,6 +50,7 @@ async def _recovery_worker_loop() -> None:
                 resolved_transfers = await resolve_stuck_transfers(
                     session, stuck_after_seconds=settings.recovery_worker_stuck_after_seconds
                 )
+            STUCK_PROCESSING.labels(operation_type="transfer").set(len(resolved_transfers))
             if resolved_transfers:
                 logger.info(
                     "recovery worker resolved %d stuck transfer(s)", len(resolved_transfers)
@@ -56,6 +60,7 @@ async def _recovery_worker_loop() -> None:
                 resolved_payments = await resolve_stuck_payments(
                     session, stuck_after_seconds=settings.recovery_worker_stuck_after_seconds
                 )
+            STUCK_PROCESSING.labels(operation_type="payment").set(len(resolved_payments))
             if resolved_payments:
                 logger.info(
                     "recovery worker resolved %d stuck payment(s)", len(resolved_payments)
@@ -65,6 +70,7 @@ async def _recovery_worker_loop() -> None:
                 resolved_refunds = await resolve_stuck_refunds(
                     session, stuck_after_seconds=settings.recovery_worker_stuck_after_seconds
                 )
+            STUCK_PROCESSING.labels(operation_type="refund").set(len(resolved_refunds))
             if resolved_refunds:
                 logger.info("recovery worker resolved %d stuck refund(s)", len(resolved_refunds))
         except Exception:
@@ -101,6 +107,10 @@ async def _outbox_relay_loop() -> None:
                 published = await relay_outbox_events(session, kafka_module.event_producer)
             if published:
                 logger.info("outbox relay published %d event(s)", published)
+
+            async with db_session.async_session_factory() as session:
+                backlog = await OutboxRepository(session).count_unpublished()
+            OUTBOX_BACKLOG.set(backlog)
         except Exception:
             logger.exception("outbox relay iteration failed")
 
@@ -130,6 +140,7 @@ register_error_handlers(app)
 configure_tracing(
     service_name=settings.service_name, otlp_endpoint=settings.otel_exporter_otlp_endpoint, app=app
 )
+configure_metrics(app, service_name=settings.service_name)
 
 
 @app.exception_handler(IdempotentReplayResponse)

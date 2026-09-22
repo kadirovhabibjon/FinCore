@@ -6,6 +6,7 @@ from fincore_common import EventType, get_correlation_id
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import SameWalletTransferError
+from app.core.metrics import TRANSFERS_TOTAL
 from app.domain.outbox import OutboxEvent
 from app.domain.transfer import FraudDecision, Transfer, TransferStatus
 from app.repositories.transfer_repository import TransferRepository
@@ -28,6 +29,7 @@ def _transfer_outbox_event(
     timing (spec Section 14.1: written in the same local transaction as
     the business change).
     """
+    TRANSFERS_TOTAL.labels(status=status.value).inc()
     return OutboxEvent(
         aggregate_type="Transfer",
         aggregate_id=str(transfer.id),

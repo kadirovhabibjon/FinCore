@@ -26,6 +26,32 @@ services:
       - "16686:16686" # UI
       - "4318:4318" # OTLP HTTP receiver
 
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      # Dev-only default credentials, same reasoning as every other
+      # checked-in local dev secret in this repo (e.g. the Postgres
+      # init scripts): a Docker network the developer's own machine
+      # controls, not a deployed secret.
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+
   identity-service:
     build:
       context: .
@@ -249,3 +275,5 @@ services:
 volumes:
   postgres_data:
   kafka_data:
+  prometheus_data:
+  grafana_data:

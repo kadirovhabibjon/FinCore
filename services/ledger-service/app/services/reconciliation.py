@@ -38,6 +38,18 @@ class ReconciliationReport:
             or self.duplicate_source_postings
         )
 
+    @property
+    def total_violations(self) -> int:
+        """Feeds the `reconciliation_mismatches` gauge (spec Section
+        24) — every violation counted together, regardless of kind.
+        """
+        return (
+            len(self.unbalanced_postings)
+            + len(self.balance_mismatches)
+            + len(self.negative_available_wallets)
+            + len(self.duplicate_source_postings)
+        )
+
 
 async def run_reconciliation(session: AsyncSession) -> ReconciliationReport:
     report = ReconciliationReport(

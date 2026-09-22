@@ -17,6 +17,9 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http>=1.27",
     "opentelemetry-instrumentation-fastapi>=0.48b0",
     "opentelemetry-instrumentation-httpx>=0.48b0",
+    # Metrics (spec Section 24 — deferred relative to tracing, but still
+    # a core cross-cutting concern every service exposes the same way).
+    "prometheus-client>=0.20",
 ]
 
 [project.optional-dependencies]

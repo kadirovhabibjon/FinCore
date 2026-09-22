@@ -7,6 +7,7 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.core.metrics import DELIVERIES_TERMINALLY_FAILED_TOTAL
 from app.db import session as db_session
 from app.domain.webhook_delivery import WebhookDelivery, WebhookDeliveryStatus
 from app.domain.webhook_endpoint import WebhookEndpoint, WebhookEndpointStatus
@@ -155,6 +156,7 @@ async def test_failed_delivery_with_retries_left_is_rescheduled_forward() -> Non
 async def test_delivery_is_failed_terminally_after_exhausting_attempts() -> None:
     endpoint = await _create_endpoint()
     delivery = await _create_delivery(endpoint.id)
+    counter_before = DELIVERIES_TERMINALLY_FAILED_TOTAL._value.get()
 
     async with db_session.async_session_factory() as session:
         await run_delivery_pass(
@@ -172,6 +174,8 @@ async def test_delivery_is_failed_terminally_after_exhausting_attempts() -> None
 
         endpoint_after = await WebhookEndpointRepository(session).get(endpoint.id)
         assert endpoint_after.consecutive_failures == 1
+
+    assert DELIVERIES_TERMINALLY_FAILED_TOTAL._value.get() == counter_before + 1
 
 
 async def test_endpoint_is_auto_disabled_after_repeated_terminal_failures() -> None:

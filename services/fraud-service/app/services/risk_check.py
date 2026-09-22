@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.metrics import FRAUD_CHECKS_TOTAL
 from app.domain.fraud_check import FraudCheck
 from app.services.rules import RiskContext, RiskEngine
 
@@ -77,4 +78,5 @@ async def perform_risk_check(
         return existing
 
     await session.refresh(check)
+    FRAUD_CHECKS_TOTAL.labels(decision=check.decision.value).inc()
     return check

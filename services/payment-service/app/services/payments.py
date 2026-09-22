@@ -7,6 +7,7 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.metrics import PAYMENTS_TOTAL
 from app.domain.outbox import OutboxEvent
 from app.domain.payment import Payment, PaymentStatus
 from app.domain.transfer import FraudDecision
@@ -27,6 +28,7 @@ def payment_outbox_event(
     not by re-reading `payment` — same reasoning as
     transfers.py's `_transfer_outbox_event`.
     """
+    PAYMENTS_TOTAL.labels(status=status.value).inc()
     return OutboxEvent(
         aggregate_type="Payment",
         aggregate_id=str(payment.id),

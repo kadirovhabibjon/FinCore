@@ -6,6 +6,7 @@ from fincore_common import EventEnvelope, EventType
 from fincore_common.kafka import EventConsumer, EventProducer
 from sqlalchemy import select
 
+from app.core.metrics import DLT_MESSAGES_TOTAL
 from app.db import session as db_session
 from app.domain.dead_letter import DeadLetter
 from app.domain.notification import Notification
@@ -85,6 +86,7 @@ async def test_a_permanent_error_goes_straight_to_the_dlt_without_retrying(
     # KeyError, classified as permanent (a producer bug, not a timeout).
     envelope = _completed_envelope(uuid.uuid4())
     del envelope.data["initiator_user_id"]
+    dlt_counter_before = DLT_MESSAGES_TOTAL._value.get()
 
     producer = EventProducer(kafka_bootstrap_servers)
     await producer.start()
@@ -105,6 +107,7 @@ async def test_a_permanent_error_goes_straight_to_the_dlt_without_retrying(
     assert dead_letter is not None
     assert dead_letter.attempts == 1
     assert dead_letter.topic == dlt_topic
+    assert DLT_MESSAGES_TOTAL._value.get() == dlt_counter_before + 1
 
     await _assert_topic_is_empty(kafka_bootstrap_servers, retry_topic, "test-permanent-group")
 

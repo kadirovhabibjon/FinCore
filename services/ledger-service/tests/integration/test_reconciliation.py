@@ -74,6 +74,7 @@ async def test_a_healthy_ledger_reports_no_violations() -> None:
         report = await run_reconciliation(session)
 
     assert report.is_clean
+    assert report.total_violations == 0
 
 
 async def test_detects_an_unbalanced_posting() -> None:
@@ -118,6 +119,11 @@ async def test_detects_an_unbalanced_posting() -> None:
 
     assert report.unbalanced_postings == [posting_id]
     assert not report.is_clean
+    # Bypassing create_posting also left account_balances stale for the
+    # accounts touched above, so this legitimately trips
+    # balance_mismatches too — total_violations counts every kind
+    # together, not just the one this test is named for.
+    assert report.total_violations >= 1
 
 
 async def test_detects_a_balance_mismatch() -> None:

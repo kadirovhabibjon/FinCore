@@ -86,7 +86,7 @@ scheduled per the [roadmap](#roadmap).
 Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2.x (async), Alembic
 PostgreSQL (one database, one least-privilege role, per service)
 Kafka (KRaft mode — no Zookeeper), aiokafka
-OpenTelemetry (traces) + Jaeger, structured JSON logging
+OpenTelemetry (traces) + Jaeger, Prometheus + Grafana (metrics), structured JSON logging
 Nginx (gateway), Docker / Docker Compose
 pytest + pytest-asyncio + testcontainers (real PostgreSQL/Kafka in tests, never SQLite or fakes)
 ruff + mypy
@@ -94,8 +94,7 @@ GitHub Actions
 ```
 
 Planned, not yet introduced (added when the roadmap reaches them, per the
-project's own rule against speculative infrastructure): Redis,
-Prometheus/Grafana.
+project's own rule against speculative infrastructure): Redis.
 
 ---
 
@@ -564,6 +563,49 @@ span and `notification-service`'s `transfers process` span share one
 trace id. `/ready` also checks Kafka connectivity now, not just the
 database, for any service that talks to Kafka.
 
+### Metrics (all services)
+
+Every service calls `fincore_common.configure_metrics()` at startup
+(spec Section 24, deferred there relative to tracing — added once
+Phase 6 reached it), which mounts `GET /metrics` in Prometheus text
+format and records two metrics on every HTTP request via a hand-rolled
+ASGI middleware, not `BaseHTTPMiddleware`: request count and latency,
+both labeled by the matched route's path *template*
+(`/api/v1/payments/{payment_id}`, never the literal path — otherwise
+every distinct id ever requested becomes its own time series). Docker
+Compose runs Prometheus (scraping all seven services every 10s,
+`infra/prometheus/prometheus.yml`) and Grafana, provisioned on startup
+with that Prometheus instance as its datasource and one dashboard
+(`infra/grafana/provisioning/dashboards/fincore-overview.json`) —
+verified via Grafana's own API against the live stack, not just by the
+files existing: `/api/datasources` returns the provisioned Prometheus
+source, `/api/search` finds the dashboard, and its ten panels resolve
+real data once traffic (a transfer, a risk check) has flowed through
+the system.
+
+Beyond the generic HTTP metrics, each service that has something
+specific to say records it at the point that fact actually becomes true
+— not derived after the fact from another service's data:
+
+```text
+payment-service     fincore_transfers_total{status}, fincore_payments_total{status}
+                     fincore_outbox_backlog
+                     fincore_stuck_processing{operation_type}    (recovery worker)
+ledger-service       fincore_reconciliation_mismatches
+fraud-service        fincore_fraud_checks_total{decision}
+notification-service fincore_dlt_messages_total
+audit-service        fincore_dlt_messages_total
+webhook-service      fincore_deliveries_terminally_failed_total  (its own DLT
+                                                                   equivalent — see below)
+```
+
+`webhook-service` has no Kafka DLT of its own (delivery retries run off
+`webhook_deliveries.next_attempt_at`, not a retry topic — see its own
+section above), so its metric is a delivery reaching terminal `FAILED`
+rather than a dead-lettered Kafka message — the same "something needs a
+human" signal, expressed the way this service's own architecture
+actually produces it.
+
 ---
 
 ## Run it
@@ -613,10 +655,14 @@ Swagger UI (FastAPI's auto-generated API docs):
 `http://localhost:8095/docs`, `http://localhost:8097/docs`, and
 `http://localhost:8098/docs`.
 
-Jaeger UI (distributed traces): `http://localhost:16686`. Kafka's own
-external port (for `kcat`/`kafka-console-consumer` from the host, not
-needed by the services themselves — they talk to `kafka:9092` inside the
-compose network) is `http://localhost:9094`.
+Jaeger UI (distributed traces): `http://localhost:16686`. Prometheus:
+`http://localhost:9090`. Grafana: `http://localhost:3000` (`admin` /
+`admin` — a dev-only default checked into `docker-compose.yml` on
+purpose, same reasoning as the Postgres init scripts' own passwords: a
+Docker network this machine controls, not a deployed secret). Kafka's
+own external port (for `kcat`/`kafka-console-consumer` from the host,
+not needed by the services themselves — they talk to `kafka:9092`
+inside the compose network) is `http://localhost:9094`.
 
 `/internal/*` routes (postings, holds, reconciliation) are deliberately
 **not** reachable through the gateway (`8180`) — only directly against
@@ -835,12 +881,12 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 ## Testing
 
 ```bash
-cd libs/fincore-common && .venv/bin/pytest -v           # 40 tests
+cd libs/fincore-common && .venv/bin/pytest -v           # 43 tests
 cd services/identity-service && .venv/bin/pytest -v     # 52 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 56 tests
-cd services/payment-service && .venv/bin/pytest -v      # 97 tests
+cd services/payment-service && .venv/bin/pytest -v      # 101 tests
 cd services/notification-service && .venv/bin/pytest -v # 25 tests
-cd services/fraud-service && .venv/bin/pytest -v        # 26 tests
+cd services/fraud-service && .venv/bin/pytest -v        # 28 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 39 tests
 cd services/audit-service && .venv/bin/pytest -v        # 31 tests
 ```
@@ -1005,7 +1051,7 @@ phases complete — not aspirational.
 | 3 — Transfers & Distributed Consistency | 7–9 | `payment-service`, sagas, idempotency, recovery worker | ✅ |
 | 4 — Async Architecture | 10–11 | Transactional outbox, Kafka, `notification-service`, tracing | ✅ |
 | 5 — Advanced Financial Features | 12–14 | `fraud-service` ✅, payment holds/refunds ✅, `webhook-service` ✅, `audit-service` ✅ | ✅ |
-| 6 — Production Readiness | 15–16 | Prometheus/Grafana, full CI, e2e, load testing | ⏳ |
+| 6 — Production Readiness | 15–16 | Prometheus/Grafana ✅, full CI, e2e, load testing | 🚧 |
 | 7 — Frontend | after 6 | React/TypeScript dashboard + admin panel ([ADR-0005](docs/adr/0005-frontend-addition.md)) | ⏳ |
 
 Per the spec's own rule: if time runs short, webhook/dashboard scope

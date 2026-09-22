@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from fincore_common import EventEnvelope
 from fincore_common.kafka import EventProducer
 
+from app.core.metrics import DLT_MESSAGES_TOTAL
 from app.db import session as db_session
 from app.domain.dead_letter import DeadLetter
 from app.services.consumer import handle_transfer_event
@@ -100,6 +101,7 @@ async def _dead_letter(
     logger.error(
         "dead-lettering event %s after %d attempt(s): %s", envelope.event_id, attempts, error
     )
+    DLT_MESSAGES_TOTAL.inc()
     async with db_session.async_session_factory() as session:
         session.add(
             DeadLetter(

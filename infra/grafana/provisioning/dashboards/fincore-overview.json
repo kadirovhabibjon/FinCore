@@ -1,0 +1,144 @@
+{
+  "title": "FinCore Overview",
+  "uid": "fincore-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP request rate by service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (service) (rate(fincore_http_requests_total[1m]))",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "HTTP 5xx rate by service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (service) (rate(fincore_http_requests_total{status_code=~\"5..\"}[1m]))",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "HTTP p95 latency by service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (service, le) (rate(fincore_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Transfers by status (rate)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(fincore_transfers_total[5m]))",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Payments by status (rate)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(fincore_payments_total[5m]))",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Fraud checks by decision (rate)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (decision) (rate(fincore_fraud_checks_total[5m]))",
+          "legendFormat": "{{decision}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Outbox backlog (payment-service)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{ "expr": "fincore_outbox_backlog" }]
+    },
+    {
+      "id": 8,
+      "title": "Stuck in PROCESSING",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 24 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(fincore_stuck_processing)",
+          "legendFormat": "stuck"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Reconciliation mismatches",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [{ "expr": "fincore_reconciliation_mismatches" }]
+    },
+    {
+      "id": 10,
+      "title": "DLT messages (rate)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 24 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(fincore_dlt_messages_total[15m])) + sum(rate(fincore_deliveries_terminally_failed_total[15m]))",
+          "legendFormat": "dead-lettered / terminally failed"
+        }
+      ]
+    }
+  ]
+}

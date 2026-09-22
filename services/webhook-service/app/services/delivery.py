@@ -7,6 +7,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import InvalidWebhookUrlError
+from app.core.metrics import DELIVERIES_TERMINALLY_FAILED_TOTAL
 from app.domain.webhook_attempt import WebhookAttempt
 from app.domain.webhook_delivery import WebhookDelivery
 from app.domain.webhook_endpoint import WebhookEndpoint
@@ -104,6 +105,7 @@ async def attempt_delivery(
         await delivery_repository.mark_failed(
             delivery.id, attempts=attempt_number, last_error=error or "unknown error"
         )
+        DELIVERIES_TERMINALLY_FAILED_TOTAL.inc()
         await endpoint_repository.record_delivery_failure(
             endpoint.id, disable_after=disable_after_consecutive_failures
         )
@@ -147,6 +149,7 @@ async def run_delivery_pass(
             await delivery_repository.mark_failed(
                 delivery.id, attempts=delivery.attempts, last_error="endpoint disabled"
             )
+            DELIVERIES_TERMINALLY_FAILED_TOTAL.inc()
             await session.commit()
             continue
 

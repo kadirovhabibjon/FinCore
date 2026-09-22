@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, status
 from fincore_common import (
     CorrelationIdMiddleware,
     configure_logging,
+    configure_metrics,
     configure_tracing,
     register_error_handlers,
 )
@@ -18,6 +19,7 @@ from app.api.internal.postings import router as internal_postings_router
 from app.api.internal.reconciliation import router as internal_reconciliation_router
 from app.api.v1.wallets import router as wallets_router
 from app.core.config import settings
+from app.core.metrics import RECONCILIATION_MISMATCHES
 from app.db import session as db_session
 from app.services.reconciliation import run_reconciliation
 
@@ -36,7 +38,8 @@ async def _reconciliation_loop() -> None:
         await asyncio.sleep(settings.reconciliation_interval_seconds)
         try:
             async with db_session.async_session_factory() as session:
-                await run_reconciliation(session)
+                report = await run_reconciliation(session)
+            RECONCILIATION_MISMATCHES.set(report.total_violations)
         except Exception:
             logger.exception("reconciliation iteration failed")
 
@@ -61,6 +64,7 @@ register_error_handlers(app)
 configure_tracing(
     service_name=settings.service_name, otlp_endpoint=settings.otel_exporter_otlp_endpoint, app=app
 )
+configure_metrics(app, service_name=settings.service_name)
 app.include_router(wallets_router)
 app.include_router(internal_postings_router)
 app.include_router(internal_holds_router)

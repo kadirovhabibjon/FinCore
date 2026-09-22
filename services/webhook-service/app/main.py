@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, status
 from fincore_common import (
     CorrelationIdMiddleware,
     configure_logging,
+    configure_metrics,
     configure_tracing,
     register_error_handlers,
 )
@@ -95,6 +96,7 @@ register_error_handlers(app)
 configure_tracing(
     service_name=settings.service_name, otlp_endpoint=settings.otel_exporter_otlp_endpoint, app=app
 )
+configure_metrics(app, service_name=settings.service_name)
 app.include_router(webhooks_router)
 
 
