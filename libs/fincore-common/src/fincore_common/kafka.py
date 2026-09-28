@@ -5,6 +5,7 @@ import logging
 from collections.abc import Awaitable, Callable
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from aiokafka.structs import TopicPartition
 from opentelemetry import trace
 from opentelemetry.propagate import extract, inject
 from opentelemetry.propagators.textmap import Getter, Setter
@@ -12,12 +13,22 @@ from opentelemetry.trace import SpanKind
 
 from .correlation import new_correlation_id, reset_correlation_id, set_correlation_id
 from .events import EventEnvelope
+from .metrics import Gauge
 
 logger = logging.getLogger(__name__)
 
 EventHandler = Callable[[EventEnvelope], Awaitable[None]]
 
 _tracer = trace.get_tracer(__name__)
+
+# spec Section 24: "Kafka consumer lag". Updated after every committed
+# message: the partition's high-water mark minus the position just
+# committed — how many messages are still queued behind it.
+KAFKA_CONSUMER_LAG = Gauge(
+    "fincore_kafka_consumer_lag",
+    "Messages remaining on a partition after the last committed offset.",
+    ["group", "topic", "partition"],
+)
 
 # aiokafka headers are a list of (str, bytes) pairs, not the dict-like
 # carrier OpenTelemetry's default propagator expects — these adapt one
@@ -208,9 +219,17 @@ class EventConsumer:
                 ):
                     await handler(envelope)
                     await self._consumer.commit()
+                    self._record_lag(message.topic, message.partition, message.offset)
             finally:
                 reset_correlation_id(token)
             processed += 1
             if max_messages is not None and processed >= max_messages:
                 return
 
+    def _record_lag(self, topic: str, partition: int, offset: int) -> None:
+        assert self._consumer is not None
+        highwater = self._consumer.highwater(TopicPartition(topic, partition))
+        if highwater is not None:
+            KAFKA_CONSUMER_LAG.labels(
+                group=self._group_id, topic=topic, partition=str(partition)
+            ).set(max(0, highwater - (offset + 1)))

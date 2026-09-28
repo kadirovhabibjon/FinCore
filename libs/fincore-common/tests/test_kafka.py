@@ -9,7 +9,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from testcontainers.community.kafka import KafkaContainer
 
 from fincore_common.events import EventEnvelope, EventType
-from fincore_common.kafka import EventConsumer, EventProducer
+from fincore_common.kafka import KAFKA_CONSUMER_LAG, EventConsumer, EventProducer
 
 
 @pytest.fixture(scope="module")
@@ -240,3 +240,29 @@ async def test_send_many_with_nothing_to_send_is_a_no_op(bootstrap_servers: str)
     finally:
         await producer.stop()
 
+
+async def test_consumer_lag_reflects_messages_still_queued(bootstrap_servers: str) -> None:
+    topic, group = "test-consumer-lag", "test-lag-group"
+    producer = EventProducer(bootstrap_servers)
+    await producer.start()
+    try:
+        await producer.send_many(
+            [
+                (topic, "k", EventEnvelope(event_type=EventType.TRANSFER_COMPLETED,
+                                           producer="test", data={"i": i}))
+                for i in range(5)
+            ]
+        )
+    finally:
+        await producer.stop()
+
+    lag = KAFKA_CONSUMER_LAG.labels(group=group, topic=topic, partition="0")
+    consumer = EventConsumer(bootstrap_servers=bootstrap_servers, topics=[topic], group_id=group)
+    await consumer.start()
+    try:
+        await consumer.run(_collector([]), max_messages=2)
+        assert lag._value.get() == 3
+        await consumer.run(_collector([]), max_messages=3)
+        assert lag._value.get() == 0
+    finally:
+        await consumer.stop()
