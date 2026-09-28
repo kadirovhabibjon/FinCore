@@ -35,10 +35,12 @@ class OutboxRepository:
         )
         return list(result.scalars().all())
 
-    async def mark_published(self, event_id: UUID, *, published_at: datetime) -> None:
+    async def mark_published(self, event_ids: list[UUID], *, published_at: datetime) -> None:
+        """One UPDATE for a whole relayed batch (app/services/outbox.py),
+        not one per row."""
         await self._session.execute(
             update(OutboxEvent)
-            .where(OutboxEvent.id == event_id)
+            .where(OutboxEvent.id.in_(event_ids))
             .values(published_at=published_at)
         )
         await self._session.commit()

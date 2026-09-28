@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 
@@ -97,6 +98,45 @@ class EventProducer:
                 headers=headers,
             )
 
+    async def send_many(self, messages: list[tuple[str, str, EventEnvelope]]) -> None:
+        """Publishes (topic, key, envelope) messages as one batch: each is
+        enqueued in order, then every acknowledgement is awaited together
+        — one round of waiting instead of one per message, which matters
+        once an outbox relay shares a busy event loop with request
+        handling (see README, "Load testing"). Order within a partition
+        is preserved: one producer appends each partition's records in
+        call order.
+
+        Raises if any send fails. Which of the others landed is then
+        unknown, so a caller must treat the whole batch as unpublished
+        and retry it — at-least-once, as spec Section 14.1 already
+        requires consumers to tolerate.
+        """
+        if self._producer is None:
+            raise RuntimeError("EventProducer.start() must be called before send_many()")
+        acknowledgements = []
+        for topic, key, envelope in messages:
+            with _tracer.start_as_current_span(
+                f"{topic} publish",
+                kind=SpanKind.PRODUCER,
+                attributes={
+                    "messaging.system": "kafka",
+                    "messaging.destination.name": topic,
+                    "messaging.kafka.message.key": key,
+                },
+            ):
+                headers: _KafkaHeaders = []
+                inject(headers, setter=_setter)
+                acknowledgements.append(
+                    await self._producer.send(
+                        topic,
+                        key=key.encode("utf-8"),
+                        value=envelope.model_dump_json().encode("utf-8"),
+                        headers=headers,
+                    )
+                )
+        await asyncio.gather(*acknowledgements)
+
     async def check_connection(self) -> None:
         """Used by a `/ready` endpoint (spec Section 24: readiness
         checks should cover Kafka connectivity, not just the database).
@@ -173,3 +213,4 @@ class EventConsumer:
             processed += 1
             if max_messages is not None and processed >= max_messages:
                 return
+

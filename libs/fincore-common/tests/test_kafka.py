@@ -197,3 +197,46 @@ async def test_trace_context_propagates_from_producer_to_consumer(bootstrap_serv
     # the consumer starting a fresh, unrelated trace.
     for span in span_names.values():
         assert span.get_span_context().trace_id == expected_trace_id
+
+
+async def test_send_many_delivers_every_message_in_order(bootstrap_servers: str) -> None:
+    topic = "test-send-many"
+    envelopes = [
+        EventEnvelope(
+            event_type=EventType.TRANSFER_COMPLETED,
+            producer="payment-service",
+            data={"sequence": i},
+        )
+        for i in range(25)
+    ]
+    producer = EventProducer(bootstrap_servers)
+    await producer.start()
+    try:
+        # One key: one partition, where order is the property that matters
+        # (spec Section 14.1 keys by aggregate id for exactly this).
+        await producer.send_many([(topic, "t-same-aggregate", e) for e in envelopes])
+    finally:
+        await producer.stop()
+
+    received: list[EventEnvelope] = []
+    consumer = EventConsumer(
+        bootstrap_servers=bootstrap_servers, topics=[topic], group_id="test-send-many"
+    )
+    await consumer.start()
+    try:
+        await consumer.run(_collector(received), max_messages=25)
+    finally:
+        await consumer.stop()
+
+    assert [event.data["sequence"] for event in received] == list(range(25))
+    assert [event.event_id for event in received] == [e.event_id for e in envelopes]
+
+
+async def test_send_many_with_nothing_to_send_is_a_no_op(bootstrap_servers: str) -> None:
+    producer = EventProducer(bootstrap_servers)
+    await producer.start()
+    try:
+        await producer.send_many([])
+    finally:
+        await producer.stop()
+

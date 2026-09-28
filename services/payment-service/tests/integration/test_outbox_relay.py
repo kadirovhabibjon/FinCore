@@ -7,9 +7,11 @@ from fincore_common.events import EventEnvelope
 from fincore_common.kafka import EventConsumer, EventProducer
 
 from app.core.config import settings
+from app.core.metrics import OUTBOX_BACKLOG
 from app.db import session as db_session
 from app.domain.outbox import OutboxEvent
-from app.services.outbox import relay_outbox_events
+from app.repositories.outbox_repository import OutboxRepository
+from app.services.outbox import drain_outbox, relay_outbox_events
 
 pytestmark = pytest.mark.usefixtures("migrated_database")
 
@@ -208,3 +210,99 @@ async def test_relay_processes_oldest_unpublished_rows_first(
         await consumer.stop()
 
     assert [event.data["order"] for event in received] == ["older", "newer"]
+
+
+async def test_drain_publishes_a_backlog_larger_than_one_batch_in_a_single_call(
+    kafka_bootstrap_servers: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Relaying one batch per tick capped throughput at batch_size /
+    interval; draining must keep going until the backlog is gone.
+    """
+    monkeypatch.setattr(settings, "transfers_topic", "test-relay-drain")
+    monkeypatch.setattr(settings, "outbox_relay_batch_size", 4)
+    for i in range(10):
+        await _insert_outbox_row(
+            aggregate_id=f"t-drain-{i}",
+            event_type="transfer.completed",
+            payload={"transfer_id": f"t-drain-{i}"},
+        )
+
+    producer = EventProducer(kafka_bootstrap_servers)
+    await producer.start()
+    try:
+        published = await drain_outbox(producer)
+    finally:
+        await producer.stop()
+
+    assert published == 10
+    async with db_session.async_session_factory() as session:
+        assert await OutboxRepository(session).count_unpublished() == 0
+
+
+async def test_drain_stops_on_unroutable_rows_instead_of_spinning(
+    kafka_bootstrap_servers: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A full batch of rows the relay can't route is fetched again every
+    pass — draining must stop on what was *published*, not fetched."""
+    monkeypatch.setattr(settings, "outbox_relay_batch_size", 3)
+    for i in range(3):
+        await _insert_outbox_row(
+            aggregate_id=f"x-{i}",
+            event_type="transfer.completed",
+            payload={},
+            aggregate_type="Unknown",
+        )
+
+    producer = EventProducer(kafka_bootstrap_servers)
+    await producer.start()
+    try:
+        published = await asyncio.wait_for(drain_outbox(producer), timeout=10)
+    finally:
+        await producer.stop()
+
+    assert published == 0
+
+
+async def test_drain_keeps_the_backlog_gauge_current(
+    kafka_bootstrap_servers: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "transfers_topic", "test-relay-gauge")
+    monkeypatch.setattr(settings, "outbox_relay_batch_size", 2)
+    for i in range(5):
+        await _insert_outbox_row(
+            aggregate_id=f"t-gauge-{i}",
+            event_type="transfer.completed",
+            payload={"transfer_id": f"t-gauge-{i}"},
+        )
+    OUTBOX_BACKLOG.set(999)
+
+    producer = EventProducer(kafka_bootstrap_servers)
+    await producer.start()
+    try:
+        await drain_outbox(producer)
+    finally:
+        await producer.stop()
+
+    assert OUTBOX_BACKLOG._value.get() == 0
+
+
+class _FailingProducer:
+    async def send_many(self, messages: list) -> None:
+        raise RuntimeError("broker rejected the batch")
+
+
+async def test_a_failed_batch_send_leaves_every_row_unpublished_for_the_next_pass() -> None:
+    """Which messages of a failed batch landed is unknowable, so none may
+    be marked published — the whole batch goes again (at-least-once;
+    consumers deduplicate on event_id)."""
+    for i in range(3):
+        await _insert_outbox_row(
+            aggregate_id=f"t-fail-{i}", event_type="transfer.completed", payload={}
+        )
+
+    with pytest.raises(RuntimeError):
+        async with db_session.async_session_factory() as session:
+            await relay_outbox_events(session, _FailingProducer())  # type: ignore[arg-type]
+
+    async with db_session.async_session_factory() as session:
+        assert await OutboxRepository(session).count_unpublished() == 3

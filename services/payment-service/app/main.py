@@ -21,12 +21,11 @@ from app.api.v1.transactions import router as transactions_router
 from app.api.v1.transfers import router as transfers_router
 from app.core import kafka as kafka_module
 from app.core.config import settings
-from app.core.metrics import OUTBOX_BACKLOG, STUCK_PROCESSING
+from app.core.metrics import STUCK_PROCESSING
 from app.db import session as db_session
-from app.repositories.outbox_repository import OutboxRepository
 from app.services.expiration import expire_stale_payments
 from app.services.idempotency import IdempotentReplayResponse
-from app.services.outbox import relay_outbox_events
+from app.services.outbox import drain_outbox
 from app.services.recovery import (
     resolve_stuck_payments,
     resolve_stuck_refunds,
@@ -95,22 +94,16 @@ async def _expiration_worker_loop() -> None:
 
 
 async def _outbox_relay_loop() -> None:
-    """Runs `relay_outbox_events` on a fixed interval for the life of the
-    process (spec Section 14.1). Same failure handling as the recovery
-    worker: one bad iteration (Kafka unreachable) is logged and retried
-    next tick.
+    """Drains the outbox (spec Section 14.1), then sleeps — for the life
+    of the process. Same failure handling as the recovery worker: one
+    bad iteration (Kafka unreachable) is logged and retried next tick.
     """
     while True:
         await asyncio.sleep(settings.outbox_relay_interval_seconds)
         try:
-            async with db_session.async_session_factory() as session:
-                published = await relay_outbox_events(session, kafka_module.event_producer)
+            published = await drain_outbox(kafka_module.event_producer)
             if published:
                 logger.info("outbox relay published %d event(s)", published)
-
-            async with db_session.async_session_factory() as session:
-                backlog = await OutboxRepository(session).count_unpublished()
-            OUTBOX_BACKLOG.set(backlog)
         except Exception:
             logger.exception("outbox relay iteration failed")
 
