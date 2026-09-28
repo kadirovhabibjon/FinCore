@@ -89,6 +89,7 @@ Kafka (KRaft mode — no Zookeeper), aiokafka
 OpenTelemetry (traces) + Jaeger, Prometheus + Grafana (metrics), structured JSON logging
 Nginx (gateway), Docker / Docker Compose
 pytest + pytest-asyncio + testcontainers (real PostgreSQL/Kafka in tests, never SQLite or fakes)
+JSON Schema + committed OpenAPI contracts, Locust (load testing)
 ruff + mypy
 GitHub Actions
 ```
@@ -588,8 +589,8 @@ specific to say records it at the point that fact actually becomes true
 — not derived after the fact from another service's data:
 
 ```text
-payment-service     fincore_transfers_total{status}, fincore_payments_total{status}
-                     fincore_outbox_backlog
+payment-service      fincore_transfers_total{status}, fincore_payments_total{status}
+                     fincore_outbox_backlog                      (per relayed batch)
                      fincore_stuck_processing{operation_type}    (recovery worker)
 ledger-service       fincore_reconciliation_mismatches
 fraud-service        fincore_fraud_checks_total{decision}
@@ -597,7 +598,14 @@ notification-service fincore_dlt_messages_total
 audit-service        fincore_dlt_messages_total
 webhook-service      fincore_deliveries_terminally_failed_total  (its own DLT
                                                                    equivalent — see below)
+every Kafka consumer fincore_kafka_consumer_lag{group,topic,partition}
+                                                   (fincore_common.kafka.EventConsumer)
 ```
+
+`fincore_outbox_backlog` is updated after every relayed batch, not once
+per drain — a drain can run for minutes under load, and a gauge updated
+only at its end sat stale for exactly the stretch it exists to show (the
+load test caught it reading the same value for two minutes).
 
 `webhook-service` has no Kafka DLT of its own (delivery retries run off
 `webhook_deliveries.next_attempt_at`, not a retry topic — see its own
@@ -613,37 +621,25 @@ actually produces it.
 ### Docker Compose (the whole stack)
 
 ```bash
-cp services/identity-service/.env.example services/identity-service/.env
-# then edit JWT_PRIVATE_KEY in that .env — generate one with:
-openssl genpkey -algorithm ed25519
-
-cp services/ledger-service/.env.example services/ledger-service/.env
-# then edit INTERNAL_SERVICE_TOKEN in that .env to any random local value
-
-cp services/fraud-service/.env.example services/fraud-service/.env
-# then edit INTERNAL_SERVICE_TOKEN in that .env to the *same* value as
-# ledger-service's/payment-service's — payment-service sends one shared
-# internal token to every internal API it calls
-
-cp services/payment-service/.env.example services/payment-service/.env
-# then edit INTERNAL_SERVICE_TOKEN in that .env to the *same* value as
-# ledger-service's — cross-service internal auth is one shared secret
-
-cp services/notification-service/.env.example services/notification-service/.env
-# then edit INTERNAL_SERVICE_TOKEN in that .env to any random local value
-# (this one is its own secret — nothing else calls into it)
-
-cp services/webhook-service/.env.example services/webhook-service/.env
-# then edit INTERNAL_SERVICE_TOKEN in that .env to the *same* value as
-# payment-service's — webhook-service calls payment-service's internal
-# merchant-ownership lookup with it
-
-cp services/audit-service/.env.example services/audit-service/.env
-# then edit INTERNAL_SERVICE_TOKEN in that .env to any random local value
-# (this one is its own secret — nothing else calls into it)
-
-docker compose up --build
+./scripts/generate-dev-env.sh    # one-time: writes every services/*/.env
+docker compose up -d --build --wait
 ```
+
+`scripts/generate-dev-env.sh` writes a compose-ready `.env` for all seven
+services: container-network hostnames, fresh random internal tokens
+(one shared by ledger/fraud/payment/webhook-service — payment-service
+sends the same secret to ledger's and fraud's internal APIs, and
+webhook-service to payment-service's — plus separate ones for
+notification-service and audit-service, which nothing else calls into),
+and a freshly generated Ed25519 JWT signing key. It never overwrites an
+existing `.env` unless given `--force`, and when filling in a missing
+one it reuses the token its siblings already hold, so a partial run
+can't leave two services with mismatched secrets. CI's e2e job uses the
+same script.
+
+Each service's `.env.example` is for running that service *directly*
+(below) — its `localhost` URLs point at the container itself once
+inside Docker, which is why compose needs the generated files instead.
 
 | Via gateway | Direct |
 |---|---|
@@ -881,14 +877,14 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 ## Testing
 
 ```bash
-cd libs/fincore-common && .venv/bin/pytest -v           # 43 tests
-cd services/identity-service && .venv/bin/pytest -v     # 52 tests
-cd services/ledger-service && .venv/bin/pytest -v       # 56 tests
-cd services/payment-service && .venv/bin/pytest -v      # 101 tests
-cd services/notification-service && .venv/bin/pytest -v # 25 tests
-cd services/fraud-service && .venv/bin/pytest -v        # 28 tests
-cd services/webhook-service && .venv/bin/pytest -v      # 39 tests
-cd services/audit-service && .venv/bin/pytest -v        # 31 tests
+cd libs/fincore-common && .venv/bin/pytest -v           # 50 tests
+cd services/identity-service && .venv/bin/pytest -v     # 53 tests
+cd services/ledger-service && .venv/bin/pytest -v       # 58 tests
+cd services/payment-service && .venv/bin/pytest -v      # 117 tests
+cd services/notification-service && .venv/bin/pytest -v # 28 tests
+cd services/fraud-service && .venv/bin/pytest -v        # 29 tests
+cd services/webhook-service && .venv/bin/pytest -v      # 44 tests
+cd services/audit-service && .venv/bin/pytest -v        # 37 tests
 ```
 
 Integration tests spin up a real PostgreSQL container via `testcontainers`
@@ -943,8 +939,143 @@ cd services/webhook-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/audit-service && .venv/bin/ruff check . && .venv/bin/mypy app
 ```
 
-CI (`.github/workflows/ci.yml`) runs all of the above per package on every
-push/PR.
+### Contract tests (`contracts/`)
+
+spec Sections 23 and 26: "contract tests — API and event schemas between
+services." Two kinds of contract are committed to the repo and enforced
+from both sides:
+
+* **`contracts/openapi/<service>.json`** — every service's full API
+  (public and `/internal/*`), exported from its own FastAPI app by
+  `scripts/export-openapi.sh`. Each service's
+  `tests/unit/test_openapi_contract.py` fails the moment the app no
+  longer matches its committed file, so an API change can't land without
+  its contract diff showing up in review next to it.
+* **`contracts/events/<event_type>.v1.json`** — a strict JSON Schema for
+  every Kafka event's payload, plus `envelope.v1.json`. payment-service
+  (the producer) builds every (event type, status) combination it can
+  emit through the real code path and validates it; each consumer
+  (notification, webhook, audit) runs its own parsing on the contract's
+  canonical example rather than on a fixture it wrote itself.
+  audit-service iterates over *every* `EventType`, so adding a new event
+  without a contract fails there.
+* **Consumer-side HTTP contracts** — `tests/contracts.py`'s `ContractFake`
+  stands in for a provider and fails the test on any request that doesn't
+  match the provider's committed OpenAPI (unknown route, missing required
+  query parameter or `X-Internal-Token` header, invalid body), and only
+  serves canned responses that themselves validate against the
+  provider's documented response schema. payment-service's real
+  transfer, payment, refund and recovery sagas run against ledger- and
+  fraud-service fakes built this way; webhook-service's merchant lookup
+  against payment-service's. Mutation-checked: making ledger's
+  `CreateHoldRequest` require one more field fails payment-service's
+  consumer test with exactly that message.
+
+### End-to-end tests (`tests/e2e/`)
+
+40 tests that run against a live `docker compose` stack, through the
+gateway, the way a real client would (spec Section 23: "full flows
+through the gateway"). Only what a client genuinely can't do goes
+direct: funding a wallet (no public deposit API), reading the audit
+trail, and triggering reconciliation — all `/internal/*` calls.
+
+```bash
+./scripts/generate-dev-env.sh && docker compose up -d --build --wait
+cd tests/e2e && python3.12 -m venv .venv && .venv/bin/pip install -e .
+.venv/bin/pytest -v
+```
+
+Covered: registration/login/refresh-token rotation and reuse revocation;
+transfers (balances on both sides, history, insufficient funds,
+idempotent replay and key-reuse conflict, foreign-wallet 404); payments
+with hold/capture, partial and full refunds, over-refund, refund by a
+non-owner; a real fraud REVIEW decision (a large transfer after a burst
+— two rules firing together); the async pipeline (a committed transfer
+or payment reaching audit-service over Kafka, correlation id intact);
+SSRF rejection of internal targets (including `postgres`, which really
+does resolve from inside webhook-service's container) and a real signed
+webhook delivery to a public receiver; ledger reconciliation clean after
+a mixed workload; `/internal/*` unreachable through the gateway; every
+service ready and scraped by Prometheus. The webhook delivery test is
+marked `external_network` and skips (never fails) if the stack has no
+internet access or the public receiver itself is down.
+
+### Load testing (`tests/load/`)
+
+A Locust workload through the gateway (`tests/load/locustfile.py`):
+every simulated user registers, gets a funded wallet and its own
+merchant, then mixes transfers to random other users (so concurrent
+transfers in *opposite* directions between the same two wallets happen
+constantly), payments, merchant-side refunds, idempotent replays, and
+reads. The run fails if the failure ratio or p95 exceeds its threshold —
+or if ledger-service's reconciliation finds any violated invariant once
+the load stops, the check that matters most for a ledger.
+
+```bash
+cd tests/load && python3.12 -m venv .venv && .venv/bin/pip install -e .
+.venv/bin/locust -f locustfile.py --host http://localhost:8180 \
+    --headless -u 30 -r 3 -t 2m        # LOAD_MAX_P95_MS / LOAD_MAX_FAILURE_RATIO
+```
+
+Results, on a shared 8-core / 7.5 GB development machine (swap already
+full before the run started — absolute latencies here describe that
+machine as much as the system):
+
+| Profile | Requests | Failures | p50 | p95 | Throughput | Reconciliation |
+|---|---|---|---|---|---|---|
+| 30 users, 2 min | 2,781 | 0 | 69 ms | 330 ms | 23 req/s | clean — **PASS** |
+| 100 users, 3 min (saturation) | 6,418 | 0 | 1.3 s | 4.5 s | 36 req/s | clean — fails the p95 gate |
+
+Correctness held at every load level: no failed request, no deadlock
+between opposite-direction transfers, every idempotent replay returned
+the original transfer, and the ledger reconciled clean. What the load
+test found and fixed along the way:
+
+* **Outbox relay capped at 20 events/s.** It relayed one batch (100 rows)
+  per 5 s tick; under load the backlog reached 4,089 events and
+  consumers saw transfers minutes late — which is how an e2e run right
+  after a load test first failed. It now drains batch after batch until
+  caught up, publishes each batch as one unit (`EventProducer.send_many`)
+  and marks it in one UPDATE instead of a Kafka round trip and a commit
+  per row. Peak backlog under the same load: **111**, back to ~0 within
+  seconds.
+* **Reconciliation reported false violations under concurrent writes.**
+  It read entries and cached balances in two statements under READ
+  COMMITTED, so a posting committing in between looked like a
+  mismatch — in the background job that runs continuously in
+  production, this would have been a false incident alert. It now reads
+  one REPEATABLE READ snapshot; a regression test forces that exact
+  interleaving.
+* **~16 ms of blocked event loop per outbound call.** `httpx.AsyncClient()`
+  built a new SSL context (loading the CA bundle synchronously) on every
+  construction, even for plain `http://`; payment-service does 3–5 per
+  request. `fincore_common.async_client()` reuses one per process:
+  0.15 ms.
+* **Jaeger's in-memory trace store grew without bound** (719 MB during
+  a run); now capped (`MEMORY_MAX_TRACES`).
+* **Unpinned dependency drift** (surfaced by the image rebuild, not the
+  load itself): every service declared `sqlalchemy>=2.0`; SQLAlchemy 2.1
+  stopped installing `greenlet` implicitly, so a fresh image couldn't
+  start. Declared as `sqlalchemy[asyncio]` — what `sqlalchemy.ext.asyncio`
+  actually requires.
+
+**Known limit, not yet addressed:** each service runs a single uvicorn
+process, so ledger- and payment-service each top out near one CPU core
+(~36 req/s end to end here). Scaling out means multiple workers or
+replicas — but the outbox relay, recovery worker, reconciliation job and
+Kafka consumers currently run *inside* each API process, so they would
+run N times. Moving them into their own worker process (or electing a
+single leader for them) comes first; until then, the entrypoints stay
+single-instance on purpose.
+
+CI (`.github/workflows/ci.yml`) runs lint, type checks and every test
+above per package on every push/PR, with the contract checks as their own
+step first so a contract break fails fast and reads as exactly that. On
+pushes to `main` — after every package job has passed — an `e2e` job
+generates fresh `.env` files, starts the whole stack on clean volumes,
+and runs the e2e suite against it (spec Section 26: "Plus e2e tests on
+the main branch"). The load test isn't part of CI: its thresholds only
+mean something on known hardware.
 
 ---
 
@@ -1035,6 +1166,11 @@ before `payment-service`'s implementation and matched by it, Phase 3).
 | `audit-service` receives an event missing a field every `transfer.*`/`payment.*` event is documented to carry | Dead-lettered immediately — a producer bug, not something retrying fixes |
 | `audit-service`'s database is briefly unreachable while writing a row | Retried with exponential backoff + jitter, dead-lettered (not silently dropped) only after exhausting `MAX_RETRY_ATTEMPTS` |
 | The same event is redelivered to `audit-service` (at-least-once) | No second audit row — `audit_logs.event_id` is `UNIQUE`, same idempotency shape as `notification-service`'s |
+| A posting commits while the reconciliation job is mid-pass | Not reported as a violation — the whole pass reads one REPEATABLE READ snapshot (regression test forces the interleaving; found by the load test) |
+| Sustained write load outpaces one relay batch per tick | The relay keeps draining batch after batch until caught up; outbox backlog stayed ≤ 111 under the 100-user load test (was 4,089 before) |
+| A Kafka send fails partway through a relayed batch | The whole batch stays unpublished and is resent next pass — which messages landed is unknowable, and consumers deduplicate on `event_id` |
+| A provider's API changes (a route, a required field) without its callers being updated | The provider's own contract test fails until `contracts/openapi/` is regenerated, and the regenerated contract then fails the consumer's `ContractFake`-based test |
+| payment-service's event payload changes without its contract | payment-service's producer contract test fails (`additionalProperties: false`), before any consumer sees it |
 
 ---
 
@@ -1051,7 +1187,7 @@ phases complete — not aspirational.
 | 3 — Transfers & Distributed Consistency | 7–9 | `payment-service`, sagas, idempotency, recovery worker | ✅ |
 | 4 — Async Architecture | 10–11 | Transactional outbox, Kafka, `notification-service`, tracing | ✅ |
 | 5 — Advanced Financial Features | 12–14 | `fraud-service` ✅, payment holds/refunds ✅, `webhook-service` ✅, `audit-service` ✅ | ✅ |
-| 6 — Production Readiness | 15–16 | Prometheus/Grafana ✅, full CI, e2e, load testing | 🚧 |
+| 6 — Production Readiness | 15–16 | Prometheus/Grafana ✅, full CI (contract checks, e2e on `main`) ✅, e2e ✅, load testing ✅, final documentation & architecture diagrams | 🚧 |
 | 7 — Frontend | after 6 | React/TypeScript dashboard + admin panel ([ADR-0005](docs/adr/0005-frontend-addition.md)) | ⏳ |
 
 Per the spec's own rule: if time runs short, webhook/dashboard scope
