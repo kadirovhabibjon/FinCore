@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 import httpx
+from fincore_common import async_client
 
 from app.core.config import settings
 
@@ -89,7 +90,7 @@ class LedgerClient:
         entries: list[dict[str, object]],
     ) -> PostingResult:
         try:
-            async with httpx.AsyncClient(
+            async with async_client(
                 base_url=self._base_url,
                 timeout=self._timeout_seconds,
                 transport=self._transport,
@@ -136,7 +137,7 @@ class LedgerClient:
         original create call returned UNKNOWN (spec Section 10.1).
         """
         try:
-            async with httpx.AsyncClient(
+            async with async_client(
                 base_url=self._base_url,
                 timeout=self._timeout_seconds,
                 transport=self._transport,
@@ -175,7 +176,7 @@ class LedgerClient:
         UNKNOWN outcome is safe.
         """
         try:
-            async with httpx.AsyncClient(
+            async with async_client(
                 base_url=self._base_url,
                 timeout=self._timeout_seconds,
                 transport=self._transport,
@@ -226,7 +227,7 @@ class LedgerClient:
         branch on a `PostingOutcome`.
         """
         try:
-            async with httpx.AsyncClient(
+            async with async_client(
                 base_url=self._base_url,
                 timeout=self._timeout_seconds,
                 transport=self._transport,
@@ -272,7 +273,7 @@ class LedgerClient:
         lands.
         """
         try:
-            async with httpx.AsyncClient(
+            async with async_client(
                 base_url=self._base_url,
                 timeout=self._timeout_seconds,
                 transport=self._transport,
@@ -288,7 +289,7 @@ class LedgerClient:
 
     async def get_wallet(self, wallet_id: UUID, *, user_bearer_token: str) -> WalletInfo | None:
         try:
-            async with httpx.AsyncClient(
+            async with async_client(
                 base_url=self._base_url,
                 timeout=self._timeout_seconds,
                 transport=self._transport,
@@ -318,7 +319,7 @@ class LedgerClient:
         itself via the generic `create_posting`.
         """
         try:
-            async with httpx.AsyncClient(
+            async with async_client(
                 base_url=self._base_url,
                 timeout=self._timeout_seconds,
                 transport=self._transport,

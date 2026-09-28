@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 import httpx
+from fincore_common import async_client
 
 from app.core.config import settings
 from app.domain.transfer import FraudDecision
@@ -56,7 +57,7 @@ class FraudClient:
         operation_id: UUID,
     ) -> FraudCheckResult:
         try:
-            async with httpx.AsyncClient(
+            async with async_client(
                 base_url=self._base_url,
                 timeout=self._timeout_seconds,
                 transport=self._transport,

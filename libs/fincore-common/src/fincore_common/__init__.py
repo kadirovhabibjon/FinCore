@@ -15,6 +15,7 @@ from .correlation import (
 )
 from .errors import DomainError, ProblemDetail, register_error_handlers
 from .events import EventEnvelope, EventType
+from .http import async_client
 from .logging import JSONFormatter, configure_logging
 from .metrics import Counter, Gauge, Histogram, configure_metrics
 
@@ -51,6 +52,7 @@ __all__ = [
     "register_error_handlers",
     "EventEnvelope",
     "EventType",
+    "async_client",
     "JSONFormatter",
     "configure_logging",
     "SUPPORTED_CURRENCIES",

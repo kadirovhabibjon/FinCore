@@ -10,6 +10,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import Header, status
 
 from .errors import DomainError
+from .http import async_client
 
 
 class InvalidTokenError(DomainError):
@@ -88,7 +89,7 @@ class JWTVerifier:
             raise InvalidTokenError(f"unknown signing key id: {kid!r}") from None
 
     async def _refresh(self) -> None:
-        async with httpx.AsyncClient(timeout=5.0, transport=self._transport) as client:
+        async with async_client(timeout=5.0, transport=self._transport) as client:
             response = await client.get(self._jwks_url)
             response.raise_for_status()
             jwks = response.json()

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 import httpx
+from fincore_common import async_client
 
 from app.core.config import settings
 
@@ -50,7 +51,7 @@ class MerchantClient:
         self._transport = transport
 
     async def get_merchant(self, merchant_id: UUID) -> MerchantLookupResult:
-        async with httpx.AsyncClient(
+        async with async_client(
             base_url=self._base_url, timeout=self._timeout_seconds, transport=self._transport
         ) as client:
             response = await client.get(

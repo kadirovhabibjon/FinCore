@@ -4,6 +4,7 @@ import time
 from datetime import UTC, datetime, timedelta
 
 import httpx
+from fincore_common import async_client
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import InvalidWebhookUrlError
@@ -51,7 +52,7 @@ async def attempt_delivery(
     try:
         await assert_safe_url(endpoint.url)
         start = time.monotonic()
-        async with httpx.AsyncClient(timeout=timeout_seconds, transport=transport) as client:
+        async with async_client(timeout=timeout_seconds, transport=transport) as client:
             response = await client.post(
                 endpoint.url,
                 content=body,
