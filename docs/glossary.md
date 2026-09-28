@@ -119,7 +119,7 @@ request body (rejected with `422`).
 **Internal idempotency**
 Idempotency enforced between services via database uniqueness, e.g. a
 posting's `UNIQUE (source_service, source_id, type)` constraint, or a
-consumer's `processed_events (event_id PRIMARY KEY)` table.
+consumer's `UNIQUE` event id (see **Processed events**).
 
 ---
 
@@ -149,10 +149,13 @@ consumer group so each gets every event independently.
 Where an event lands after exhausting its retry budget. Requires manual
 inspection/replay; triggers an alert.
 
-**Processed events table**
-A per-consumer table (`processed_events(event_id PRIMARY KEY)`) written in
-the same transaction as the event's side effect, making consumption
-idempotent under at-least-once delivery.
+**Processed events**
+How a consumer makes consumption idempotent under at-least-once delivery:
+the event id is stored `UNIQUE` in the same transaction as the event's side
+effect, so a redelivered event is a no-op. The spec names a separate
+`processed_events` table; FinCore puts the unique id on the table each
+consumer already writes instead — `notifications.event_id`,
+`audit_logs.event_id`, `webhook_deliveries(endpoint_id, event_id)`.
 
 ---
 

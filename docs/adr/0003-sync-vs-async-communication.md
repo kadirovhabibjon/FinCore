@@ -115,3 +115,23 @@ for an async event and poll/GET when it needs current state.
   making even this async would mean every transfer response to the client
   is "pending" with no way to synchronously report success, which
   contradicts the saga design in Section 10.
+
+## Implementation notes (2026-09-28)
+
+Recorded after the fact; the decision above stands.
+
+* **Recovery re-sends, it doesn't look up.** The recovery worker resolves
+  an unknown ledger outcome by re-sending the same idempotent call (same
+  `source_id`) — ledger-service returns the existing posting or hold if
+  the first attempt landed. `GET /internal/v1/postings/{source_id}`
+  exists on ledger-service for operators, but no service calls it.
+* **Only payment-service publishes events today.** `ledger.posting.completed`
+  (and identity's and fraud-service's events) are designed but not built;
+  see `docs/context-map.md` for the planned integrations.
+* **One more synchronous call than planned:** webhook-service calls
+  payment-service's `GET /internal/v1/merchants/{id}` to verify merchant
+  ownership when an endpoint is registered — it needs the answer to
+  decide, so it's synchronous by this ADR's own rule.
+* **Timeouts as configured:** fraud-service 0.3 s by default, though
+  `.env.example` and the generated docker-compose environment set 2 s;
+  ledger-service 5 s; webhook-service's merchant lookup 5 s.

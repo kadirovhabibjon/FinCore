@@ -10,51 +10,57 @@ tutorial. Every non-obvious decision is recorded as an [ADR](docs/adr/)
 rather than left implicit, and the full design rationale lives in
 [`docs/spec.md`](docs/spec.md).
 
-**Status: Phase 5 (Advanced Financial Features) in progress.**
-`identity-service`, `ledger-service`, `payment-service`,
-`notification-service`, and `fraud-service` are built, tested, and run
-together via Docker Compose — gateway, Kafka, and Jaeger included.
-`payment-service` now handles payments with holds/capture/refunds on
-top of transfers. Webhooks and audit are designed (see the ADRs and
-[`docs/context-map.md`](docs/context-map.md)) but not yet built. The
-table in [Roadmap](#roadmap) below tracks this precisely — nothing here
-is described as done unless it's tested and running.
+**Status: Phases 0–6 complete.** All seven services — identity,
+ledger, payment, fraud, notification, webhook and audit — are built,
+tested and run together via Docker Compose with the gateway, Kafka,
+Jaeger, Prometheus and Grafana. Every package has unit and integration
+tests against real PostgreSQL/Kafka, every API and event is covered by a
+committed contract, a 40-test end-to-end suite runs against the live
+stack in CI, and a load test gates on ledger reconciliation. Next: the
+frontend (Phase 7). Integrations designed but not yet built are listed
+in [`docs/context-map.md`](docs/context-map.md); the table in
+[Roadmap](#roadmap) tracks status precisely — nothing here is described
+as done unless it's tested and running.
 
 ---
 
 ## Architecture
 
-```text
-                          Client
-                            │
-                            ▼
-                ┌───────────────────────┐
-                │   Gateway (Nginx)     │
-                └───────────┬───────────┘
-                            │ HTTP (JWT)
-      ┌───────────┬─────────┼──────────────┬──────────────┐
-      ▼           ▼         ▼              ▼              ▼
- identity-    payment-   ledger-        webhook-      notification-
- service      service    service        service       service (read API)
-    │          │  │  │      │
-    │          │  │  └──────┘  internal sync call: postings / holds
-    │          │  │
-    │          │  └──► fraud-service   (internal sync call, timeout)
-    │          │
-    ▼          ▼          ▼             ▼
- [identity_db][payment_db][ledger_db] [fraud_db]   ... one DB per service
-    │          │          │             │
-    └──────────┴── outbox ┴─────────────┘
-                    │ (relay)
-                    ▼
-               ┌─────────┐
-               │  Kafka  │
-               └────┬────┘
-      ┌─────────────┼──────────────┬──────────────┐
-      ▼             ▼              ▼              ▼
- notification-   webhook-       audit-        payment-service
- service         service        service       (reacts to ledger events)
+```mermaid
+flowchart LR
+    CLIENT([Client]) -->|"HTTP + JWT<br/>/api/v1/*"| GW["gateway (Nginx)<br/>routing · auth rate limit<br/>correlation id"]
+
+    GW --> ID["identity-service<br/><i>identity_db</i>"]
+    GW --> LED["ledger-service<br/><i>ledger_db</i>"]
+    GW --> PAY["payment-service<br/><i>payment_db + outbox</i>"]
+    GW --> WH["webhook-service<br/><i>webhook_db</i>"]
+
+    PAY -->|"internal REST<br/>postings · holds"| LED
+    PAY -->|"internal REST<br/>risk checks"| FR["fraud-service<br/><i>fraud_db</i>"]
+    WH -->|"internal REST<br/>merchant lookup"| PAY
+
+    subgraph KAFKA["Kafka (KRaft)"]
+        TT[[transfers]]
+        TP[[payments]]
+    end
+
+    PAY -->|outbox relay| TT
+    PAY -->|outbox relay| TP
+    TT --> NO["notification-service<br/><i>notification_db</i>"]
+    TT --> AU["audit-service<br/><i>audit_db, append-only</i>"]
+    TP --> AU
+    TP --> WH
+    WH -->|"signed POST<br/>SSRF-checked"| MERCHANT([Merchant endpoints])
 ```
+
+Arrows between services are synchronous internal calls; everything
+through Kafka is asynchronous, published through payment-service's
+transactional outbox. Each service owns one PostgreSQL database (shown in
+its node). More diagrams, all drawn from the implementation:
+[architecture and runtime topology](docs/diagrams/architecture.md),
+[transfer saga](docs/diagrams/transfer-saga.md),
+[payment and refund sagas](docs/diagrams/payment-saga.md),
+[event flow](docs/diagrams/event-flow.md).
 
 Bold rule underlying every service boundary: **a service owns its API,
 its logic, and its data — no cross-service database access, no shared
@@ -147,11 +153,12 @@ for money (ADR-0002, spec Section 8).
   `ledger-service` verifies **entirely on its own**, using
   identity-service's JWKS endpoint (cached in memory, not fetched per
   request). No network call to identity-service on the hot path.
-* `POST /internal/v1/postings`, `GET /internal/v1/postings/{source_id}` —
-  the endpoint `payment-service` calls to move money, and the one its
-  recovery worker uses to resolve a timed-out call's real outcome. Never
-  routed through the gateway; requires the shared `X-Internal-Token`
-  header (Section 19 — mTLS is a later concern).
+* `POST /internal/v1/postings` — the endpoint `payment-service` calls to
+  move money; its recovery worker resolves a timed-out call by re-sending
+  the same idempotent request. `GET /internal/v1/postings/{source_id}`
+  looks a posting up for operators. Never routed through the gateway;
+  requires the shared `X-Internal-Token` header (Section 19 — mTLS is a
+  later concern).
 * `POST /internal/v1/holds`, `.../{id}/capture`, `.../{id}/release` — the
   reserve → capture/release flow `payment-service`'s Payment saga calls
   (spec Section 11) — built in Phase 2, its first real caller in Phase 5.
@@ -232,6 +239,9 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
   type-erased view merging Transfer *and* Payment into one newest-first
   list, exactly as `TransactionResponse.from_payment` was scaffolded to
   do back when only Transfer existed.
+* `GET /internal/v1/merchants/{id}` — a merchant's owner and status, for
+  webhook-service to verify ownership when an endpoint is registered.
+  Internal only, `X-Internal-Token` authenticated.
 
 **The saga** (`app/services/transfers.py`), per spec Section 10.1:
 
@@ -276,12 +286,14 @@ moving money twice.
 (or refund-affecting) status, an `outbox_events` row is written in the
 *same* database transaction as that status change — so a committed
 transition can never silently fail to get an event. A background relay
-(`app/services/outbox.py`) publishes unpublished rows to Kafka every
-`OUTBOX_RELAY_INTERVAL_SECONDS` (default 5s) — one topic per aggregate
-type (`transfers` for Transfer, `payments` for Payment — the row's own
-`aggregate_type` column decides), keyed by the operation's id for
-per-operation ordering, and marks each published only *after* a
-successful send. A race the outbox design doesn't prevent on its own —
+(`app/services/outbox.py`) wakes every `OUTBOX_RELAY_INTERVAL_SECONDS`
+(default 5s) and drains the outbox batch after batch until caught up —
+one topic per aggregate type (`transfers` for Transfer, `payments` for
+Payment — the row's own `aggregate_type` column decides), keyed by the
+operation's id for per-operation ordering. Each batch is sent as one unit
+and marked published in one UPDATE, only *after* every message in it is
+acknowledged; a failed send leaves the whole batch for the next pass. A
+race the outbox design doesn't prevent on its own —
 the recovery worker retrying an operation the original saga call is
 still mid-flight on — is closed by only letting whichever caller's
 `transition_status()` UPDATE actually applied write the outbox event
@@ -388,7 +400,7 @@ notification_db: notifications, dead_letters
 ### `fraud-service`
 
 A rule-based risk engine (spec Section 12) — `payment-service`'s
-transfer saga calls it synchronously on every transfer, and its
+sagas call it synchronously on every transfer and payment, and its
 fail-open/fail-closed policy (`app/services/fraud.py` in
 `payment-service`) was designed and tested against this service being
 genuinely unreachable *before* it existed; that failure path is now
@@ -965,8 +977,10 @@ from both sides:
   query parameter or `X-Internal-Token` header, invalid body), and only
   serves canned responses that themselves validate against the
   provider's documented response schema. payment-service's real
-  transfer, payment, refund and recovery sagas run against ledger- and
-  fraud-service fakes built this way; webhook-service's merchant lookup
+  transfer, payment and refund sagas (and its best-effort hold release)
+  run against ledger- and fraud-service fakes built this way — recovery
+  needs no call of its own, since it re-sends those same idempotent
+  calls; webhook-service's merchant lookup
   against payment-service's. Mutation-checked: making ledger's
   `CreateHoldRequest` require one more field fails payment-service's
   consumer test with exactly that message.
@@ -1187,7 +1201,7 @@ phases complete — not aspirational.
 | 3 — Transfers & Distributed Consistency | 7–9 | `payment-service`, sagas, idempotency, recovery worker | ✅ |
 | 4 — Async Architecture | 10–11 | Transactional outbox, Kafka, `notification-service`, tracing | ✅ |
 | 5 — Advanced Financial Features | 12–14 | `fraud-service` ✅, payment holds/refunds ✅, `webhook-service` ✅, `audit-service` ✅ | ✅ |
-| 6 — Production Readiness | 15–16 | Prometheus/Grafana ✅, full CI (contract checks, e2e on `main`) ✅, e2e ✅, load testing ✅, final documentation & architecture diagrams | 🚧 |
+| 6 — Production Readiness | 15–16 | Prometheus/Grafana ✅, full CI (contract checks, e2e on `main`) ✅, e2e ✅, load testing ✅, documentation & architecture diagrams ✅, deployment via Docker Compose ✅ | ✅ |
 | 7 — Frontend | after 6 | React/TypeScript dashboard + admin panel ([ADR-0005](docs/adr/0005-frontend-addition.md)) | ⏳ |
 
 Per the spec's own rule: if time runs short, webhook/dashboard scope

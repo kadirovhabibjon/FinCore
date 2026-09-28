@@ -2,45 +2,60 @@
 
 This document maps the bounded contexts (services) in FinCore, how they
 depend on each other, and — critically — what kind of integration connects
-them. It is the reference point every later ADR and saga diagram builds on.
+them. It is the reference point every ADR and diagram builds on.
 
-See [glossary.md](glossary.md) for term definitions and Section 3 of
-[spec.md](spec.md) for the full architecture rationale.
+It describes the system **as built**. Integrations that were designed in
+Phase 0 but not yet implemented are kept, marked *planned*, so the gap
+between target design (Section 3 of [spec.md](spec.md)) and reality stays
+visible instead of silently disappearing.
+
+See [glossary.md](glossary.md) for term definitions and
+[diagrams/architecture.md](diagrams/architecture.md) for the diagrams.
 
 ---
 
 ## 1. Bounded contexts
 
-| Context | Service | Owns | Consistency boundary |
+| Context | Service | Owns (database) | Consistency boundary |
 |---|---|---|---|
-| Authentication, Users, RBAC | `identity-service` | users, roles, sessions, refresh tokens | Independent — no other service needs strong consistency with it |
-| Wallets, Ledger, Balances | `ledger-service` | ledger accounts, postings, entries, balances, holds | **Core.** Wallet balance and its entries must always be consistent — they never split across services |
-| Transfers, Payments, Refunds, Merchants | `payment-service` | transfers, payments, refunds, merchants, idempotency keys | Owns the saga; consistent with itself only, treats ledger and fraud as external |
-| Fraud / Risk | `fraud-service` | fraud checks, rule configs, counters | Independent, stateless decision service |
-| Notifications | `notification-service` | notifications, delivery attempts | Independent, purely reactive |
-| Webhooks | `webhook-service` | endpoints, deliveries, attempts | Independent, purely reactive |
-| Audit Logs | `audit-service` | append-only audit records | Independent, purely reactive |
+| Authentication, Users, RBAC | `identity-service` | users, roles, sessions, refresh tokens (`identity_db`) | Independent — no other service needs strong consistency with it |
+| Wallets, Ledger, Balances | `ledger-service` | ledger accounts, postings, entries, balances, holds (`ledger_db`) | **Core.** Wallet balance and its entries must always be consistent — they never split across services |
+| Transfers, Payments, Refunds, Merchants | `payment-service` | transfers, payments, refunds, merchants, idempotency keys, outbox (`payment_db`) | Owns the sagas; consistent with itself only, treats ledger and fraud as external |
+| Fraud / Risk | `fraud-service` | fraud checks with their scores and triggered rules (`fraud_db`); rules live in code, thresholds in config | Independent decision service; its own check history feeds its frequency rules |
+| Notifications | `notification-service` | notifications, dead letters (`notification_db`) | Independent, purely reactive |
+| Webhooks | `webhook-service` | endpoints, deliveries, attempts (`webhook_db`) | Independent, reactive, plus its own registration API |
+| Audit Logs | `audit-service` | append-only audit logs, dead letters (`audit_db`) | Independent, purely reactive; append-only enforced by database privileges |
 
 `gateway` is not a bounded context — it owns no data and no business rules,
-only routing and cross-cutting concerns (TLS, rate limiting, correlation
-ID).
+only routing and cross-cutting concerns (auth-endpoint rate limiting,
+request size limits, correlation ID). It routes public `/api/v1/*` paths
+only; `/internal/*` and `/metrics` have no route through it at all.
 
 ---
 
 ## 2. Relationships
 
 For each pair of contexts that communicate, this table states the
-integration type and who depends on whom.
+integration type, who depends on whom, and whether it exists today.
 
-| Upstream | Downstream | Type | Why |
-|---|---|---|---|
-| `identity-service` | all other services | **Async (implicit) via JWT + JWKS** | Every service verifies JWTs locally using identity's public key. No per-request call to `identity-service`. |
-| `identity-service` | `audit-service` | Async (event) | `user.registered`, `user.blocked` are audited. |
-| `payment-service` | `ledger-service` | **Sync (internal REST)** | The saga cannot proceed without knowing whether a posting succeeded, failed, or is unknown (timeout). |
-| `payment-service` | `fraud-service` | **Sync (internal REST, timeout)** | A transfer/payment cannot proceed to the ledger step without a risk decision. |
-| `ledger-service` | `payment-service` | Async (event) | `ledger.posting.completed` lets payment-service confirm outcomes independently of the synchronous call's success (recovery path). |
-| `payment-service` | `notification-service`, `webhook-service`, `audit-service` | Async (event) | `transfer.completed`, `payment.completed`, etc. — pure reactions, no answer needed. |
-| `fraud-service` | `audit-service` | Async (event) | `fraud.detected`, `fraud.review_required` are audited. |
+| Upstream | Downstream | Type | Status | Why |
+|---|---|---|---|---|
+| `identity-service` | all services with a public API | JWT verified locally via published JWKS | Built | No per-request call to `identity-service` (ADR-0003). |
+| `payment-service` | `ledger-service` | **Sync (internal REST)**: postings, holds, capture, release, system accounts | Built | The saga can't proceed without knowing whether a posting succeeded, failed, or is unknown (timeout). The recovery worker resolves an unknown outcome by re-sending the same call with the same `source_id` — idempotent on ledger's side, which returns the existing posting or hold if the first attempt did land. |
+| `payment-service` | `ledger-service` | **Sync (public REST, caller's own JWT)**: `GET /api/v1/wallets/{id}` | Built | Wallet-ownership check reuses ledger's own authorization instead of duplicating it. |
+| `payment-service` | `fraud-service` | **Sync (internal REST, timeout + fail-open/closed policy)** | Built | A transfer/payment can't reach the ledger step without a risk decision. |
+| `webhook-service` | `payment-service` | **Sync (internal REST)**: `GET /internal/v1/merchants/{id}` | Built | Verifies merchant ownership when an endpoint is registered; webhook-service has no merchants table of its own. |
+| `payment-service` | `notification-service` | Async — `transfers` topic | Built | `transfer.completed` / `transfer.failed` — pure reactions. |
+| `payment-service` | `webhook-service` | Async — `payments` topic | Built | `payment.completed` / `failed` / `refunded` fan out to merchant endpoints. |
+| `payment-service` | `audit-service` | Async — `transfers` and `payments` topics | Built | Every published event becomes an audit record. |
+| `identity-service` | `audit-service` | Async (event) — `user.registered`, `user.blocked` | *Planned* | identity-service has no outbox yet; blocking a user has no API yet (admin panel, Phase 7). |
+| `ledger-service` | `payment-service` | Async (event) — `ledger.posting.completed` | *Planned* | Designed as a second recovery path; today recovery re-sends the idempotent call above, and ledger-service publishes no events. |
+| `fraud-service` | `audit-service` | Async (event) — `fraud.detected`, `fraud.review_required` | *Planned* | fraud-service publishes no events; every decision is persisted in `fraud_checks` and counted in `fincore_fraud_checks_total`. |
+
+Every event and every internal API above is covered by a committed
+contract (`contracts/events/`, `contracts/openapi/`) enforced from both
+the producer's and the consumer's side — see the README's "Contract
+tests".
 
 **Rule of thumb** (Section 3.1.4 of the spec): synchronous when the caller
 needs an answer to continue its own transaction; asynchronous when the
@@ -65,55 +80,28 @@ never has to change when payment logic changes.
 
 ## 4. Diagram
 
-```text
-                          Client
-                            │
-                            ▼
-                ┌───────────────────────┐
-                │   Gateway (Nginx)     │
-                └───────────┬───────────┘
-                            │ HTTP (JWT)
-      ┌───────────┬─────────┼──────────────┬──────────────┐
-      ▼           ▼         ▼              ▼              ▼
- identity-    payment-   ledger-        webhook-      notification-
- service      service    service        service       service (read API)
-    │          │  │  │      │
-    │          │  │  └──────┘  internal sync call: postings / holds
-    │          │  │
-    │          │  └──► fraud-service   (internal sync call, timeout)
-    │          │
-    ▼          ▼          ▼             ▼
- [identity_db][payment_db][ledger_db] [fraud_db]   ... one DB per service
-    │          │          │             │
-    └──────────┴── outbox ┴─────────────┘
-                    │ (relay)
-                    ▼
-               ┌─────────┐
-               │  Kafka  │
-               └────┬────┘
-      ┌─────────────┼──────────────┬──────────────┐
-      ▼             ▼              ▼              ▼
- notification-   webhook-       audit-        payment-service
- service         service        service       (reacts to ledger events)
-
- Redis: rate limits, OTP, token denylist, fraud counters (never money)
-```
-
-(Identical to Section 3.3 of the spec — reproduced here so the context map
-is self-contained.)
+See [diagrams/architecture.md](diagrams/architecture.md) for the system as
+built — services, databases, topics and observability. Section 3.3 of the
+spec shows the original target design, including the planned integrations
+above and Redis, which hasn't been introduced (nothing needs it yet, per
+the project's rule against speculative infrastructure).
 
 ---
 
 ## 5. Anti-corruption notes
 
 * No service stores a copy of another service's domain model. Where a
-  service needs a fact it doesn't own (e.g. user status), it reads it from
-  a JWT claim, an internal API call, or a domain event — never a shared
-  table or a cross-database join.
+  service needs a fact it doesn't own (e.g. user status, merchant owner),
+  it reads it from a JWT claim, an internal API call, or a domain event —
+  never a shared table or a cross-database join. webhook-service keeps the
+  merchant's owner id captured at registration time, a fact that doesn't
+  change in this system — not a copy of the merchant.
 * `payment-service` treats `ledger-service` as an opaque posting engine; it
   never reaches into ledger internals (account kinds, sign convention) —
-  it only sends amount + currency + source/destination account references
-  and interprets the result (success / business rejection / unknown).
+  it only sends amounts, currency and account references, and interprets
+  the result (success / business rejection / unknown).
 * `fraud-service` receives only the facts it needs to score a request
-  (amount, user id, device/IP signals) — never full user profiles or
-  wallet balances.
+  (user id, amount, currency, operation type and id) — never user
+  profiles or wallet balances. Device and IP signals aren't sent because
+  nothing captures them yet, which is why the spec's "new device" and
+  "suspicious IP" rules aren't implemented.

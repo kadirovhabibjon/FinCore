@@ -235,3 +235,20 @@ Any violation is an incident, not a value to silently correct.
   rejected: it would create a posting for money that never actually moved,
   muddying "postings are real money movements" and complicating
   reconciliation (`SUSPENSE` would never be empty in normal operation).
+
+## Implementation notes (2026-09-28)
+
+Recorded after the fact; the decision above stands.
+
+* **`SUSPENSE` is defined but unused.** The account kind and its sign
+  convention exist, but no process posts to it yet, so the reconciliation
+  job has no "aged non-zero `SUSPENSE` balance" check — it would always
+  pass. It belongs with whichever process first needs a suspense leg.
+* **Reconciliation reads one snapshot.** The job (spec Section 8.4) runs
+  each pass inside a single `REPEATABLE READ` transaction. Under the
+  default `READ COMMITTED`, a posting committed between its entries query
+  and its balances query was reported as a balance mismatch on a
+  consistent ledger — found by the load test, fixed with a regression
+  test that forces the interleaving.
+* **Holds are expired lazily**, when next touched (a capture of an expired
+  hold releases it and is rejected), not by a sweeper.

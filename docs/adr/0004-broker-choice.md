@@ -109,3 +109,25 @@ Use **Kafka**.
   availability, directly violating the sync/async separation in ADR-0003
   and losing durability entirely (an event to a down consumer would simply
   be lost).
+
+## Implementation notes (2026-09-28)
+
+Recorded after the fact; the decision above stands.
+
+* **No separate `processed_events` table.** Each consumer deduplicates on
+  a `UNIQUE` event id in the table it already writes —
+  `notifications.event_id`, `audit_logs.event_id`,
+  `webhook_deliveries(endpoint_id, event_id)` — in the same transaction
+  as its side effect. Same guarantee, one table fewer per consumer.
+* **Topics:** `transfers` and `payments` (one per aggregate type, keyed by
+  aggregate id), plus `transfers-retry` / `transfers-dlt` and
+  `audit-retry` / `audit-dlt` for consumers that route failures instead
+  of blocking a partition. webhook-service retries deliveries from its
+  own table rather than a retry topic.
+* **The relay publishes in batches.** Each batch is sent as one unit and
+  marked published in one UPDATE, draining until caught up — relaying one
+  batch per tick capped throughput at 20 events/s and let the backlog
+  reach 4,089 under load. A failed send republishes the whole batch,
+  which at-least-once delivery already covers.
+* **No `kafka-ui`**; consumer lag is exported as a Prometheus metric
+  (`fincore_kafka_consumer_lag`) instead.
