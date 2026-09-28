@@ -1,0 +1,1293 @@
+{
+  "components": {
+    "schemas": {
+      "CreateMerchantRequest": {
+        "properties": {
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CreateMerchantRequest",
+        "type": "object"
+      },
+      "CreatePaymentRequest": {
+        "properties": {
+          "amount": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Amount",
+            "type": "string"
+          },
+          "currency": {
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "merchant_id": {
+            "format": "uuid",
+            "title": "Merchant Id",
+            "type": "string"
+          },
+          "source_wallet_id": {
+            "format": "uuid",
+            "title": "Source Wallet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_wallet_id",
+          "merchant_id",
+          "amount",
+          "currency"
+        ],
+        "title": "CreatePaymentRequest",
+        "type": "object"
+      },
+      "CreateRefundRequest": {
+        "properties": {
+          "amount": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Amount",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "title": "CreateRefundRequest",
+        "type": "object"
+      },
+      "CreateTransferRequest": {
+        "properties": {
+          "amount": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Amount",
+            "type": "string"
+          },
+          "currency": {
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "destination_wallet_id": {
+            "format": "uuid",
+            "title": "Destination Wallet Id",
+            "type": "string"
+          },
+          "source_wallet_id": {
+            "format": "uuid",
+            "title": "Source Wallet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_wallet_id",
+          "destination_wallet_id",
+          "amount",
+          "currency"
+        ],
+        "title": "CreateTransferRequest",
+        "type": "object"
+      },
+      "FraudDecision": {
+        "enum": [
+          "ALLOW",
+          "REVIEW",
+          "BLOCK"
+        ],
+        "title": "FraudDecision",
+        "type": "string"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "MerchantOwnershipResponse": {
+        "description": "Lets a caller (webhook-service, registering a webhook endpoint)\nverify who owns a merchant and whether it's active, without needing\nits own copy of the merchants table \u2014 same reasoning as\nledger-service's SystemAccountResponse.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "format": "uuid",
+            "title": "Owner User Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MerchantStatus"
+          }
+        },
+        "required": [
+          "id",
+          "owner_user_id",
+          "status"
+        ],
+        "title": "MerchantOwnershipResponse",
+        "type": "object"
+      },
+      "MerchantResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "format": "uuid",
+            "title": "Owner User Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MerchantStatus"
+          }
+        },
+        "required": [
+          "id",
+          "owner_user_id",
+          "name",
+          "status",
+          "created_at"
+        ],
+        "title": "MerchantResponse",
+        "type": "object"
+      },
+      "MerchantStatus": {
+        "enum": [
+          "ACTIVE",
+          "SUSPENDED"
+        ],
+        "title": "MerchantStatus",
+        "type": "string"
+      },
+      "PaymentResponse": {
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "fraud_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FraudDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "merchant_id": {
+            "format": "uuid",
+            "title": "Merchant Id",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "refunded_amount_minor": {
+            "title": "Refunded Amount Minor",
+            "type": "integer"
+          },
+          "source_wallet_id": {
+            "format": "uuid",
+            "title": "Source Wallet Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PaymentStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "source_wallet_id",
+          "merchant_id",
+          "amount_minor",
+          "currency",
+          "status",
+          "failure_reason",
+          "fraud_decision",
+          "refunded_amount_minor",
+          "description",
+          "created_at",
+          "updated_at",
+          "completed_at"
+        ],
+        "title": "PaymentResponse",
+        "type": "object"
+      },
+      "PaymentStatus": {
+        "description": "State machine (spec Section 11), enforced the same way Transfer's\nis: every transition is an atomic `UPDATE ... WHERE status =\n:expected` (`PaymentRepository.transition_status`), never assumed\nfrom in-memory state.\n\nCREATED             -> PROCESSING | FAILED | EXPIRED\nPROCESSING          -> SUCCESS | FAILED\nSUCCESS             -> REFUNDED (full) | PARTIALLY_REFUNDED\nPARTIALLY_REFUNDED  -> REFUNDED\nFAILED, EXPIRED, REFUNDED -> terminal",
+        "enum": [
+          "CREATED",
+          "PROCESSING",
+          "SUCCESS",
+          "FAILED",
+          "EXPIRED",
+          "PARTIALLY_REFUNDED",
+          "REFUNDED"
+        ],
+        "title": "PaymentStatus",
+        "type": "string"
+      },
+      "RefundResponse": {
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "payment_id": {
+            "format": "uuid",
+            "title": "Payment Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RefundStatus"
+          }
+        },
+        "required": [
+          "id",
+          "payment_id",
+          "amount_minor",
+          "reason",
+          "status",
+          "failure_reason",
+          "created_at"
+        ],
+        "title": "RefundResponse",
+        "type": "object"
+      },
+      "RefundStatus": {
+        "description": "A minimal state machine \u2014 not the full Payment/Transfer saga\ntreatment, but the same underlying reason those have one: the\nledger posting a refund makes is itself only reachable over the\nnetwork, so an unknown outcome (timeout, 5xx) has to leave *some*\ndurable, retriable state rather than nothing at all \u2014 otherwise a\nretried refund request would mint a fresh id each time and risk a\nduplicate posting instead of safely retrying the same one.",
+        "enum": [
+          "PENDING",
+          "COMPLETED",
+          "FAILED"
+        ],
+        "title": "RefundStatus",
+        "type": "string"
+      },
+      "TransactionResponse": {
+        "description": "A type-erased view over any business operation (Transfer or\nPayment) for the user-facing history endpoints\n(`GET /api/v1/transactions[/{id}]`) \u2014 distinct from\n`TransferResponse`/`PaymentResponse`, which are type-specific and\nused by their own APIs.",
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TransactionType"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "reference",
+          "status",
+          "amount_minor",
+          "currency",
+          "description",
+          "created_at",
+          "completed_at"
+        ],
+        "title": "TransactionResponse",
+        "type": "object"
+      },
+      "TransactionType": {
+        "description": "The kind of business operation a transaction summarizes (spec\nSection 20's API map).",
+        "enum": [
+          "TRANSFER",
+          "PAYMENT"
+        ],
+        "title": "TransactionType",
+        "type": "string"
+      },
+      "TransferResponse": {
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "destination_wallet_id": {
+            "format": "uuid",
+            "title": "Destination Wallet Id",
+            "type": "string"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "fraud_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FraudDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "source_wallet_id": {
+            "format": "uuid",
+            "title": "Source Wallet Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TransferStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "source_wallet_id",
+          "destination_wallet_id",
+          "amount_minor",
+          "currency",
+          "status",
+          "failure_reason",
+          "fraud_decision",
+          "description",
+          "created_at",
+          "updated_at",
+          "completed_at"
+        ],
+        "title": "TransferResponse",
+        "type": "object"
+      },
+      "TransferStatus": {
+        "description": "State machine (spec Section 7.3). Allowed transitions:\n\nPENDING     -> PROCESSING | CANCELLED | FAILED\nPROCESSING  -> COMPLETED  | FAILED\nCOMPLETED   -> (terminal)\nFAILED      -> (terminal)\nCANCELLED   -> (terminal)\n\nEnforced in app/services/transfers.py, and guarded at the database\nupdate with `WHERE status = :expected` \u2014 never assumed from\nin-memory state alone.",
+        "enum": [
+          "PENDING",
+          "PROCESSING",
+          "COMPLETED",
+          "FAILED",
+          "CANCELLED"
+        ],
+        "title": "TransferStatus",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "FinCore Payment Service",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/merchants": {
+      "get": {
+        "operationId": "list_my_merchants_api_v1_merchants_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MerchantResponse"
+                  },
+                  "title": "Response List My Merchants Api V1 Merchants Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List My Merchants",
+        "tags": [
+          "merchants"
+        ]
+      },
+      "post": {
+        "operationId": "create_merchant_api_v1_merchants_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMerchantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Merchant",
+        "tags": [
+          "merchants"
+        ]
+      }
+    },
+    "/api/v1/merchants/{merchant_id}": {
+      "get": {
+        "operationId": "get_merchant_api_v1_merchants__merchant_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "merchant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Merchant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Merchant",
+        "tags": [
+          "merchants"
+        ]
+      }
+    },
+    "/api/v1/payments": {
+      "post": {
+        "description": "Spec Section 11's flow, in the same order transfers use: authorize\n-> validate -> idempotency check -> create + run the saga.",
+        "operationId": "post_payment_api_v1_payments_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Post Payment",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/api/v1/payments/{payment_id}": {
+      "get": {
+        "operationId": "get_payment_api_v1_payments__payment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Payment",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/api/v1/payments/{payment_id}/refunds": {
+      "post": {
+        "description": "Refunds are merchant-initiated (spec Section 11 doesn't say so\nexplicitly, but a refund is a merchant deciding to give money back \u2014\nthe same real-world shape as every payment platform's own refund\nAPI), so the caller must own the merchant the payment was made to,\nnot be the payer.",
+        "operationId": "post_refund_api_v1_payments__payment_id__refunds_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRefundRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Post Refund",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/api/v1/transactions": {
+      "get": {
+        "description": "The caller's own business-operation history (spec Section 20),\nnewest first across *both* Transfer and Payment. Only ever the\noperations they *initiated* \u2014 the other side of a transfer or\npayment sees it via ledger-service's\n`GET /api/v1/wallets/{id}/entries` instead, which is scoped by\nwallet rather than by who started the operation.\n\nMerged and sorted in Python rather than a single SQL query, since\nTransfer and Payment are two separate tables (each operation type\ngets its own table, spec Section 7.1) \u2014 a reasonable v1 approach at\nthis scale; a UNION query would be the next step if this list ever\nneeds to paginate over a serious volume of rows.",
+        "operationId": "list_transactions_api_v1_transactions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TransactionResponse"
+                  },
+                  "title": "Response List Transactions Api V1 Transactions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Transactions",
+        "tags": [
+          "transactions"
+        ]
+      }
+    },
+    "/api/v1/transactions/{transaction_id}": {
+      "get": {
+        "operationId": "get_transaction_api_v1_transactions__transaction_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "transaction_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Transaction Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Transaction",
+        "tags": [
+          "transactions"
+        ]
+      }
+    },
+    "/api/v1/transfers": {
+      "post": {
+        "description": "Spec Section 10.1's flow, in the order the spec states it:\nauthorize -> validate -> idempotency check -> create + run the saga.",
+        "operationId": "post_transfer_api_v1_transfers_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTransferRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Post Transfer",
+        "tags": [
+          "transfers"
+        ]
+      }
+    },
+    "/api/v1/transfers/{transfer_id}": {
+      "get": {
+        "operationId": "get_transfer_api_v1_transfers__transfer_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "transfer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Transfer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Transfer",
+        "tags": [
+          "transfers"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Liveness: is the process up. No dependency checks.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/internal/v1/merchants/{merchant_id}": {
+      "get": {
+        "description": "Lets webhook-service verify a merchant's owner and status before\nregistering a webhook endpoint for it, reusing this service's own\nmerchants table instead of webhook-service duplicating it.",
+        "operationId": "get_merchant_internal_v1_merchants__merchant_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "merchant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Merchant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-internal-token",
+            "required": true,
+            "schema": {
+              "title": "X-Internal-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantOwnershipResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Merchant",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/ready": {
+      "get": {
+        "description": "Readiness: can the service actually serve traffic (spec Section\n24: DB and Kafka connectivity, not just liveness).",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Ready Ready Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ready"
+      }
+    }
+  }
+}

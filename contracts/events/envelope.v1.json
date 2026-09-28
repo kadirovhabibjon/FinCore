@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fincore.local/contracts/events/envelope.v1.json",
+  "title": "EventEnvelope (v1)",
+  "description": "The wire format every Kafka event takes (spec Section 14.2; fincore_common.events.EventEnvelope). `data` is validated separately, against `<event_type>.v<event_version>.json`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "occurred_at",
+    "producer",
+    "correlation_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "payment.completed",
+        "payment.failed",
+        "payment.refunded",
+        "transfer.completed",
+        "transfer.failed"
+      ]
+    },
+    "event_version": {
+      "const": 1
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "producer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlation_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data": {
+      "type": "object"
+    }
+  }
+}

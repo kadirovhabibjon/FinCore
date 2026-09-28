@@ -1,0 +1,656 @@
+{
+  "components": {
+    "schemas": {
+      "CreateWebhookEndpointRequest": {
+        "properties": {
+          "merchant_id": {
+            "format": "uuid",
+            "title": "Merchant Id",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "merchant_id",
+          "url"
+        ],
+        "title": "CreateWebhookEndpointRequest",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WebhookAttemptResponse": {
+        "properties": {
+          "attempt_number": {
+            "title": "Attempt Number",
+            "type": "integer"
+          },
+          "attempted_at": {
+            "format": "date-time",
+            "title": "Attempted At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "status_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Code"
+          }
+        },
+        "required": [
+          "id",
+          "attempt_number",
+          "status_code",
+          "latency_ms",
+          "error",
+          "attempted_at"
+        ],
+        "title": "WebhookAttemptResponse",
+        "type": "object"
+      },
+      "WebhookDeliveryResponse": {
+        "properties": {
+          "attempt_history": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WebhookAttemptResponse"
+            },
+            "title": "Attempt History",
+            "type": "array"
+          },
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "event_id": {
+            "format": "uuid",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_id",
+          "event_type",
+          "status",
+          "attempts",
+          "last_error",
+          "created_at"
+        ],
+        "title": "WebhookDeliveryResponse",
+        "type": "object"
+      },
+      "WebhookEndpointResponse": {
+        "description": "Never includes `secret` \u2014 a plain GET/list must not be able to\nread back the signing key, only see that an endpoint exists and\nwhat state it's in.",
+        "properties": {
+          "consecutive_failures": {
+            "title": "Consecutive Failures",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "merchant_id": {
+            "format": "uuid",
+            "title": "Merchant Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "merchant_id",
+          "url",
+          "status",
+          "consecutive_failures",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "WebhookEndpointResponse",
+        "type": "object"
+      },
+      "WebhookEndpointWithSecretResponse": {
+        "description": "Returned only once, at creation and at rotation time (spec\nSection 17: \"per-endpoint secrets, stored securely, rotatable\") \u2014\nthe caller must save it then, since no later call ever returns it\nagain.",
+        "properties": {
+          "consecutive_failures": {
+            "title": "Consecutive Failures",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "merchant_id": {
+            "format": "uuid",
+            "title": "Merchant Id",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "merchant_id",
+          "url",
+          "status",
+          "consecutive_failures",
+          "created_at",
+          "updated_at",
+          "secret"
+        ],
+        "title": "WebhookEndpointWithSecretResponse",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "FinCore Webhook Service",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/webhooks/endpoints": {
+      "get": {
+        "operationId": "list_my_endpoints_api_v1_webhooks_endpoints_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookEndpointResponse"
+                  },
+                  "title": "Response List My Endpoints Api V1 Webhooks Endpoints Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List My Endpoints",
+        "tags": [
+          "webhooks"
+        ]
+      },
+      "post": {
+        "operationId": "create_endpoint_api_v1_webhooks_endpoints_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebhookEndpointRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointWithSecretResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Endpoint",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/endpoints/{endpoint_id}": {
+      "get": {
+        "operationId": "get_endpoint_api_v1_webhooks_endpoints__endpoint_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpoint_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Endpoint Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Endpoint",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/endpoints/{endpoint_id}/deliveries": {
+      "get": {
+        "description": "Delivery history (spec Section 17: \"every attempt with status\ncode and latency\") \u2014 each delivery's own attempts embedded, so a\nmerchant can see the full retry sequence for one event without a\nsecond call per delivery.",
+        "operationId": "list_deliveries_api_v1_webhooks_endpoints__endpoint_id__deliveries_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpoint_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Endpoint Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookDeliveryResponse"
+                  },
+                  "title": "Response List Deliveries Api V1 Webhooks Endpoints  Endpoint Id  Deliveries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Deliveries",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/endpoints/{endpoint_id}/enable": {
+      "post": {
+        "operationId": "enable_endpoint_api_v1_webhooks_endpoints__endpoint_id__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpoint_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Endpoint Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Enable Endpoint",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/endpoints/{endpoint_id}/rotate-secret": {
+      "post": {
+        "operationId": "rotate_secret_api_v1_webhooks_endpoints__endpoint_id__rotate_secret_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpoint_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Endpoint Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpointWithSecretResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rotate Secret",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Liveness: is the process up. No dependency checks.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/ready": {
+      "get": {
+        "description": "Readiness: can the service actually serve traffic (spec Section\n24: DB and Kafka connectivity, not just liveness).",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Ready Ready Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ready"
+      }
+    }
+  }
+}

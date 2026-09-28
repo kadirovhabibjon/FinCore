@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fincore.local/contracts/events/payment.completed.v1.json",
+  "title": "payment.completed (v1) \u2014 EventEnvelope.data",
+  "description": "Payload of the `data` field for this event type (spec Section 14.2's envelope, Section 14.3's event list). Producer: payment-service. Strict (additionalProperties: false) so any change to the payload is a reviewed contract change, never a silent one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "amount_minor",
+    "completed_at",
+    "currency",
+    "failure_reason",
+    "initiator_user_id",
+    "merchant_id",
+    "payment_id",
+    "reference",
+    "status"
+  ],
+  "properties": {
+    "payment_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reference": {
+      "type": "string",
+      "minLength": 1
+    },
+    "initiator_user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "amount_minor": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "failure_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "completed_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "merchant_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "enum": [
+        "SUCCESS"
+      ]
+    }
+  },
+  "examples": [
+    {
+      "payment_id": "5d41402a-bc4b-4a76-b971-9d911017c592",
+      "reference": "PAY-0A1B2C3D4E5F",
+      "initiator_user_id": "1c9a7e2b-3d4f-4a5b-8c6d-7e8f9a0b1c2d",
+      "merchant_id": "7b3e1f0a-2c4d-4e6f-8a0b-1c2d3e4f5a6b",
+      "amount_minor": 12000,
+      "currency": "UZS",
+      "failure_reason": null,
+      "status": "SUCCESS",
+      "completed_at": "2026-01-01T12:00:00+00:00"
+    }
+  ]
+}
