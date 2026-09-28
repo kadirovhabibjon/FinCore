@@ -52,6 +52,14 @@ class ReconciliationReport:
 
 
 async def run_reconciliation(session: AsyncSession) -> ReconciliationReport:
+    # One REPEATABLE READ snapshot for the whole pass. Under the default
+    # READ COMMITTED each statement sees its own snapshot, so a posting
+    # committed between the entries query and the balances query
+    # (below) was counted in one and not the other — a false violation
+    # on a consistent ledger, found by the load test. Reads never hit
+    # serialization failures under REPEATABLE READ, and a snapshot
+    # blocks no concurrent writer.
+    await session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
     report = ReconciliationReport(
         unbalanced_postings=await _find_unbalanced_postings(session),
         balance_mismatches=await _find_balance_mismatches(session),

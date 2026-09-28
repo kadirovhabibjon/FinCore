@@ -225,3 +225,34 @@ async def test_detects_duplicate_source_postings() -> None:
 
     assert report.duplicate_source_postings == [("test", "dup-1", "DEPOSIT")]
     assert not report.is_clean
+
+
+async def test_a_posting_committed_mid_pass_is_not_reported_as_a_mismatch() -> None:
+    """Regression, found by the load test (tests/load): the job used to
+    read entries and cached balances in two statements under READ
+    COMMITTED, so a posting committed between them showed up in the
+    balances but not the entries — a false "incident" on a ledger that
+    was perfectly consistent. This forces exactly that interleaving: a
+    real posting commits on its own session right after the entries
+    query returns, mid-pass.
+    """
+    wallet = await _create_wallet()
+    await _deposit(wallet.id, 100_00, "before-pass")
+    injected = False
+
+    async with db_session.async_session_factory() as session:
+        original_execute = session.execute
+
+        async def execute_then_commit_a_posting_elsewhere(statement, *args, **kwargs):
+            nonlocal injected
+            result = await original_execute(statement, *args, **kwargs)
+            if not injected and "JOIN ledger_accounts" in str(statement):
+                injected = True
+                await _deposit(wallet.id, 50_00, "during-pass")
+            return result
+
+        session.execute = execute_then_commit_a_posting_elsewhere  # type: ignore[method-assign]
+        report = await run_reconciliation(session)
+
+    assert injected, "the concurrent posting was never injected — test is not exercising the race"
+    assert report.is_clean, report
