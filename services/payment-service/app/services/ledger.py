@@ -130,36 +130,6 @@ class LedgerClient:
         response.raise_for_status()
         raise AssertionError("unreachable")  # raise_for_status always raises for non-2xx here
 
-    async def get_posting(
-        self, *, source_service: str, source_id: str, type: str
-    ) -> PostingResult:
-        """Used by the recovery worker to resolve a posting whose
-        original create call returned UNKNOWN (spec Section 10.1).
-        """
-        try:
-            async with async_client(
-                base_url=self._base_url,
-                timeout=self._timeout_seconds,
-                transport=self._transport,
-            ) as client:
-                response = await client.get(
-                    f"/internal/v1/postings/{source_id}",
-                    params={"source_service": source_service, "type": type},
-                    headers={"X-Internal-Token": self._internal_token},
-                )
-        except httpx.RequestError as exc:
-            logger.warning("ledger-service unreachable (%s); posting still unknown", exc)
-            return PostingResult(outcome=PostingOutcome.UNKNOWN)
-
-        if response.status_code == 404:
-            return PostingResult(outcome=PostingOutcome.UNKNOWN)
-        if response.status_code >= 500:
-            return PostingResult(outcome=PostingOutcome.UNKNOWN)
-
-        response.raise_for_status()
-        data = response.json()
-        return PostingResult(outcome=PostingOutcome.SUCCESS, posting_id=UUID(data["id"]))
-
     async def create_hold(
         self,
         *,

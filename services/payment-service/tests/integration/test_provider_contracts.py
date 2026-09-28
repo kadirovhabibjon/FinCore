@@ -67,7 +67,6 @@ def _ledger_fake(source_wallet: str) -> ContractFake:
         responses={
             ("GET", "/api/v1/wallets/{wallet_id}"): (200, _wallet(source_wallet)),
             ("POST", "/internal/v1/postings"): (201, _posting()),
-            ("GET", "/internal/v1/postings/{source_id}"): (200, _posting()),
             ("POST", "/internal/v1/holds"): (201, _hold()),
             ("POST", "/internal/v1/holds/{hold_id}/capture"): (200, _posting(type_="PAYMENT")),
             ("POST", "/internal/v1/holds/{hold_id}/release"): (200, _hold("RELEASED")),
@@ -205,23 +204,17 @@ async def test_the_payment_and_refund_sagas_speak_the_ledger_contract(
     ]
 
 
-async def test_recovery_and_cleanup_calls_speak_the_ledger_contract(
+async def test_hold_release_speaks_the_ledger_contract(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The two calls no happy-path saga makes: the recovery worker's
-    posting lookup (spec Section 10.1) and the best-effort hold release
-    after a failed capture.
+    """The one ledger call no happy-path saga makes: the best-effort hold
+    release after a failed capture. (Recovery needs no call of its own —
+    it re-sends the same idempotent posting/hold/capture calls covered
+    above.)
     """
     ledger_fake = _ledger_fake(str(uuid.uuid4()))
     _wire(monkeypatch, ledger_fake, _fraud_fake())
 
-    found = await ledger.ledger_client.get_posting(
-        source_service="payment-service", source_id=str(uuid.uuid4()), type="TRANSFER"
-    )
     await ledger.ledger_client.release_hold(uuid.UUID(_HOLD_ID))
 
-    assert found.posting_id is not None
-    assert ledger_fake.calls == [
-        ("GET", "/internal/v1/postings/{source_id}"),
-        ("POST", "/internal/v1/holds/{hold_id}/release"),
-    ]
+    assert ledger_fake.calls == [("POST", "/internal/v1/holds/{hold_id}/release")]
