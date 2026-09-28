@@ -22,6 +22,10 @@ services:
       # (fincore_common.tracing) — no separate collector needed in
       # front of Jaeger for a single-node dev setup.
       COLLECTOR_OTLP_ENABLED: "true"
+      # The all-in-one image keeps traces in memory with no limit by
+      # default — a load test (tests/load) grew it past 700 MB. Oldest
+      # traces are evicted past this cap.
+      MEMORY_MAX_TRACES: "20000"
     ports:
       - "16686:16686" # UI
       - "4318:4318" # OTLP HTTP receiver
