@@ -17,7 +17,7 @@ Jaeger, Prometheus and Grafana, plus a React + TypeScript web app (user
 dashboard and support/admin panel) served through the same gateway.
 Every package has unit and integration tests against real
 PostgreSQL/Kafka, every API and event is covered by a committed
-contract, a 45-test end-to-end suite runs against the live stack in CI,
+contract, a 46-test end-to-end suite runs against the live stack in CI,
 and a load test gates on ledger reconciliation. Integrations designed but not yet built are listed
 in [`docs/context-map.md`](docs/context-map.md); the table in
 [Roadmap](#roadmap) tracks status precisely — nothing here is described
@@ -131,6 +131,12 @@ Authentication, users, and RBAC — spec Sections 5 and 19.
   cookie instead of in the body, and refresh/logout read it from there.
   Without the header the cookie is ignored (CSRF defence in depth).
 * `GET /api/v1/users/me` — the caller's profile and roles.
+* `POST /api/v1/users/me/password` — requires the current password;
+  revokes every other session in the same transaction (the calling
+  device stays signed in) and writes `user.password_changed` (spec
+  Section 18's PASSWORD_CHANGED). A wrong current password is a `422`,
+  not a `401`, so a browser client doesn't read it as a lost session.
+  Rate-limited at the gateway like login.
 * `GET /api/v1/users/me/sessions`, `DELETE /api/v1/users/me/sessions/{id}`
   — the caller's active sessions (user agent, IP, last use, which one is
   the current device via the access token's `sid` claim) and revoking
@@ -627,6 +633,19 @@ service.
 
 ### Web app (`frontend/`)
 
+| Wallets | Merchant: received payments, refunds, webhooks |
+|---|---|
+| ![Wallets](docs/screenshots/wallets.png) | ![Merchant](docs/screenshots/merchant.png) |
+| **Admin: fraud review queue** | **Admin: all transactions** |
+| ![Review queue](docs/screenshots/admin-reviews.png) | ![All transactions](docs/screenshots/admin-transactions.png) |
+
+More: [wallet ledger entries](docs/screenshots/wallet.png),
+[history](docs/screenshots/history.png),
+[account and sessions](docs/screenshots/settings.png),
+[admin user search](docs/screenshots/admin-users.png),
+[dark mode](docs/screenshots/wallets-dark.png). Captured from the running
+stack with demo data seeded through the public API.
+
 React 19 + TypeScript + Vite single-page app
 ([ADR-0005](docs/adr/0005-frontend-addition.md)), served by its own
 Nginx container behind the gateway, so the UI and the API share one
@@ -639,7 +658,8 @@ refresh cookie.
   why something is `PENDING` or `FAILED`); merchants with received
   payments, refunds, and webhook endpoints (secret shown once, rotate,
   re-enable, delivery history with every attempt); account page with
-  active sessions and remote sign-out.
+  active sessions and remote sign-out, and password change (signs out
+  every other device; audited as `user.password_changed`).
 * **Admin panel** (shown to SUPPORT and ADMIN, actions only to ADMIN):
   user search and status changes, the fraud review queue, all
   transactions with filters, and every webhook endpoint with its
@@ -999,7 +1019,7 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 50 tests
-cd services/identity-service && .venv/bin/pytest -v     # 88 tests
+cd services/identity-service && .venv/bin/pytest -v     # 92 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 58 tests
 cd services/payment-service && .venv/bin/pytest -v      # 126 tests
 cd services/notification-service && .venv/bin/pytest -v # 28 tests
@@ -1064,7 +1084,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 41 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 42 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1112,7 +1132,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-45 tests that run against a live `docker compose` stack, through the
+46 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit
@@ -1147,7 +1167,8 @@ a blocked user losing refresh, login and `/users/me`; the login, the
 block and a CLI role grant reaching audit-service through
 identity-service's outbox and the `users` topic, and a fraud REVIEW
 filed under its transfer via fraud-service's outbox and the `fraud`
-topic. The webhook delivery test is
+topic; a password change signing out the other device and being
+audited. The webhook delivery test is
 marked `external_network` and skips (never fails) if the stack has no
 internet access or the public receiver itself is down.
 
