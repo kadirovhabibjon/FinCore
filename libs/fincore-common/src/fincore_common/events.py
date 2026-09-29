@@ -16,6 +16,14 @@ class EventType(enum.StrEnum):
     every member here is actually produced by some service.
     """
 
+    # identity-service, on the `users` topic.
+    USER_REGISTERED = "user.registered"
+    USER_BLOCKED = "user.blocked"
+    USER_SUSPENDED = "user.suspended"
+    USER_REACTIVATED = "user.reactivated"
+    USER_ROLE_GRANTED = "user.role_granted"
+    USER_ROLE_REVOKED = "user.role_revoked"
+
     TRANSFER_COMPLETED = "transfer.completed"
     TRANSFER_FAILED = "transfer.failed"
     PAYMENT_COMPLETED = "payment.completed"

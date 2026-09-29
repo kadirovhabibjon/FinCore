@@ -8,7 +8,7 @@ WORKDIR /app
 # fincore-common as its own layer: rebuilds only when the shared library
 # itself changes, not on every identity-service code edit.
 COPY libs/fincore-common ./libs/fincore-common
-RUN pip install --no-cache-dir ./libs/fincore-common
+RUN pip install --no-cache-dir "./libs/fincore-common[kafka]"
 
 COPY services/identity-service ./services/identity-service
 RUN pip install --no-cache-dir ./services/identity-service

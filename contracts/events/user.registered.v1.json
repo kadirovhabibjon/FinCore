@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fincore.local/contracts/events/user.registered.v1.json",
+  "title": "user.registered (v1) \u2014 EventEnvelope.data",
+  "description": "A new account was created (spec Section 14.3). Producer: identity-service, topic `users`. Carries ids and status only, never email, phone or name (spec Section 14.2). Strict (additionalProperties: false) so any change to the payload is a reviewed contract change, never a silent one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actor_user_id",
+    "status",
+    "user_id"
+  ],
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "actor_user_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Who did it: the user themselves for registration, the ADMIN for a status change, null for the operator CLI (app/cli.py)."
+    },
+    "status": {
+      "enum": [
+        "ACTIVE"
+      ]
+    }
+  },
+  "examples": [
+    {
+      "user_id": "5b1e0c2a-9f3d-4c1e-8a7b-2d4f6e8a0c1e",
+      "actor_user_id": "5b1e0c2a-9f3d-4c1e-8a7b-2d4f6e8a0c1e",
+      "status": "ACTIVE"
+    }
+  ]
+}

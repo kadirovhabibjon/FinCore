@@ -6,7 +6,7 @@ through the admin API.
 
 import httpx
 
-from e2e_client import FinCoreClient, User
+from e2e_client import FinCoreClient, User, wait_until
 from test_fraud_flow import _HIGH_FREQUENCY_THRESHOLD, _LARGE_AMOUNT
 
 _COOKIE_MODE = {"X-Refresh-Token-Transport": "cookie"}
@@ -127,3 +127,29 @@ def test_support_can_look_but_blocking_needs_admin_and_ends_the_session(
         "/api/v1/admin/transactions", params={"user_id": user.id}, headers=support.auth
     )
     assert listing.status_code == 200
+
+
+def test_account_events_reach_the_audit_trail(api: FinCoreClient, user: User) -> None:
+    """identity-service's outbox -> Kafka `users` topic -> audit-service
+    (spec Section 18: USER_BLOCKED and admin actions are auditable)."""
+    admin = api.grant_role(api.register_and_login(), "ADMIN")
+    api.gateway.post(
+        f"/api/v1/admin/users/{user.id}/status", json={"status": "BLOCKED"}, headers=admin.auth
+    ).raise_for_status()
+
+    def user_actions() -> list[dict] | None:
+        logs = api.audit_logs_for(user.id)
+        actions = {log["action"] for log in logs}
+        return logs if {"USER_REGISTERED", "USER_BLOCKED"} <= actions else None
+
+    logs = wait_until(user_actions)
+    blocked = next(log for log in logs if log["action"] == "USER_BLOCKED")
+    assert blocked["actor_id"] == admin.id
+    assert blocked["result"] == "BLOCKED"
+    assert blocked["resource_type"] == "User"
+
+    def role_grants() -> list[dict] | None:
+        logs = api.audit_logs_for(admin.id)
+        return [log for log in logs if log["action"] == "USER_ROLE_GRANTED"] or None
+
+    assert wait_until(role_grants)[0]["actor_id"] is None  # granted by the operator CLI

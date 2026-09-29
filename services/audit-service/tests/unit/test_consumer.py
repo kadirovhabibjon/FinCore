@@ -106,3 +106,46 @@ def test_actor_id_is_none_when_not_present_rather_than_raising() -> None:
     audit_log = handle_domain_event(envelope)
 
     assert audit_log.actor_id is None
+
+
+def test_an_admin_blocking_a_user_is_audited_against_the_user_with_the_admin_as_actor() -> None:
+    user_id, admin_id = uuid.uuid4(), uuid.uuid4()
+    envelope = EventEnvelope(
+        event_type=EventType.USER_BLOCKED,
+        producer="identity-service",
+        correlation_id="corr-audit-user",
+        data={
+            "user_id": str(user_id),
+            "actor_user_id": str(admin_id),
+            "status": "BLOCKED",
+            "previous_status": "ACTIVE",
+        },
+    )
+
+    audit_log = handle_domain_event(envelope)
+
+    assert audit_log.action == "USER_BLOCKED"  # spec Section 18's own example name
+    assert audit_log.resource_type == "User"
+    assert audit_log.resource_id == str(user_id)
+    assert audit_log.actor_id == admin_id
+    assert audit_log.result == "BLOCKED"
+    assert audit_log.details == {"previous_status": "ACTIVE"}
+
+
+def test_a_cli_role_grant_has_no_actor() -> None:
+    envelope = EventEnvelope(
+        event_type=EventType.USER_ROLE_GRANTED,
+        producer="identity-service",
+        data={
+            "user_id": str(uuid.uuid4()),
+            "actor_user_id": None,
+            "status": "ACTIVE",
+            "role": "ADMIN",
+        },
+    )
+
+    audit_log = handle_domain_event(envelope)
+
+    assert audit_log.action == "USER_ROLE_GRANTED"
+    assert audit_log.actor_id is None
+    assert audit_log.details == {"role": "ADMIN"}

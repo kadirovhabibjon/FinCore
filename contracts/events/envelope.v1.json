@@ -25,7 +25,13 @@
         "payment.failed",
         "payment.refunded",
         "transfer.completed",
-        "transfer.failed"
+        "transfer.failed",
+        "user.blocked",
+        "user.reactivated",
+        "user.registered",
+        "user.role_granted",
+        "user.role_revoked",
+        "user.suspended"
       ]
     },
     "event_version": {

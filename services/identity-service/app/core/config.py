@@ -31,6 +31,14 @@ class Settings(BaseServiceSettings):
     refresh_cookie_path: str = "/api/v1/auth"
     refresh_cookie_secure: bool = True
 
+    # Outbox relay (spec Section 14.1): account events (registration,
+    # status and role changes) go to audit-service through Kafka, written
+    # in the same transaction as the change so none can be lost.
+    kafka_bootstrap_servers: str = "localhost:9094"
+    users_topic: str = "users"
+    outbox_relay_interval_seconds: float = 5.0
+    outbox_relay_batch_size: int = 100
+
 
 # Required fields (database_url, jwt_private_key) have no defaults on
 # purpose — pydantic-settings fills them from the environment/.env at

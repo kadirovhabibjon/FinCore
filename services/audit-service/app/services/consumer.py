@@ -15,8 +15,23 @@ logger = logging.getLogger(__name__)
 # card number or secret key (spec Section 18), since none of this
 # service's source events carry any of those in the first place.
 _LIFTED_FIELDS = frozenset(
-    {"transfer_id", "payment_id", "initiator_user_id", "status", "reference"}
+    {
+        "transfer_id",
+        "payment_id",
+        "user_id",
+        "initiator_user_id",
+        "actor_user_id",
+        "status",
+        "reference",
+    }
 )
+
+# Where each topic's events name the aggregate they're about, and who
+# acted: payment-service's carry the initiating user, identity-service's
+# (the `users` topic) name the account and, separately, who changed it —
+# an ADMIN, the user themselves, or nobody (the operator CLI).
+_RESOURCE_ID_FIELDS = ("transfer_id", "payment_id", "user_id")
+_ACTOR_FIELDS = ("initiator_user_id", "actor_user_id")
 
 
 class MalformedEventError(Exception):
@@ -33,10 +48,17 @@ def _resource_type(event_type: str) -> str:
 
 
 def _resource_id(data: dict) -> str:
-    resource_id = data.get("transfer_id") or data.get("payment_id")
-    if not resource_id:
-        raise MalformedEventError("event data has neither transfer_id nor payment_id")
-    return str(resource_id)
+    for field in _RESOURCE_ID_FIELDS:
+        if data.get(field):
+            return str(data[field])
+    raise MalformedEventError(f"event data has none of {', '.join(_RESOURCE_ID_FIELDS)}")
+
+
+def _actor_id(data: dict) -> UUID | None:
+    for field in _ACTOR_FIELDS:
+        if data.get(field):
+            return UUID(data[field])
+    return None
 
 
 def handle_domain_event(envelope: EventEnvelope) -> AuditLog:
@@ -53,7 +75,7 @@ def handle_domain_event(envelope: EventEnvelope) -> AuditLog:
     """
     data = envelope.data
     try:
-        actor_id = UUID(data["initiator_user_id"]) if data.get("initiator_user_id") else None
+        actor_id = _actor_id(data)
         result = data["status"]
     except KeyError as exc:
         raise MalformedEventError(f"event missing required field: {exc}") from exc

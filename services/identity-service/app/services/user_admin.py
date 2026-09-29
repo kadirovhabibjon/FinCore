@@ -7,6 +7,7 @@ from app.core.exceptions import CannotChangeOwnStatusError, UserNotFoundError
 from app.domain.user import User, UserStatus
 from app.repositories.session_repository import SessionRepository
 from app.repositories.user_repository import UserRepository
+from app.services.outbox import STATUS_EVENTS, user_outbox_event
 
 
 async def change_user_status(
@@ -27,11 +28,25 @@ async def change_user_status(
     if user is None:
         raise UserNotFoundError(str(user_id))
 
+    previous_status = user.status
+    if previous_status == new_status:
+        return user  # nothing changed, so nothing to revoke or audit
+
     user.status = new_status
     if new_status != UserStatus.ACTIVE:
         # Same transaction as the status change: never a blocked account
         # with sessions still open, even briefly.
         await SessionRepository(session).revoke_all_for_user(user.id, now=datetime.now(UTC))
+    # ...and the audit event too (spec Section 18: an action that
+    # committed can't silently lose its audit record).
+    session.add(
+        user_outbox_event(
+            user,
+            STATUS_EVENTS[new_status],
+            actor_user_id=actor_id,
+            previous_status=previous_status.value,
+        )
+    )
     await session.commit()
     await session.refresh(user)
     return user

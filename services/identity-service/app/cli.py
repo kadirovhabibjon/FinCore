@@ -12,11 +12,13 @@ import argparse
 import asyncio
 import sys
 
+from fincore_common import EventType
 from sqlalchemy import delete, select
 
 from app.db import session as db_session
 from app.domain.role import RoleName, UserRole
 from app.repositories.user_repository import UserRepository
+from app.services.outbox import user_outbox_event
 
 
 async def _change_role(email: str, role: RoleName, *, grant: bool) -> str:
@@ -38,6 +40,11 @@ async def _change_role(email: str, role: RoleName, *, grant: bool) -> str:
                     UserRole.user_id == user.id, UserRole.role_name == role.value
                 )
             )
+        if grant != has_role:
+            # Audited in the same transaction; actor_user_id is None
+            # because an operator at a shell, not a signed-in user, did it.
+            event = EventType.USER_ROLE_GRANTED if grant else EventType.USER_ROLE_REVOKED
+            session.add(user_outbox_event(user, event, actor_user_id=None, role=role.value))
         await session.commit()
         roles = sorted(await UserRepository(session).get_role_names(user.id))
     await db_session.engine.dispose()

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from fincore_common import EventType
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +9,7 @@ from app.core.security import hash_password
 from app.domain.role import RoleName, UserRole
 from app.domain.user import User
 from app.repositories.user_repository import UserRepository
+from app.services.outbox import user_outbox_event
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,8 @@ async def register_user(session: AsyncSession, data: RegistrationData) -> User:
         raise _duplicate_error_for(exc) from exc
 
     session.add(UserRole(user_id=user.id, role_name=RoleName.USER.value))
+    await session.refresh(user)  # server-side defaults (status) for the event
+    session.add(user_outbox_event(user, EventType.USER_REGISTERED, actor_user_id=user.id))
     await session.commit()
     await session.refresh(user)
     return user

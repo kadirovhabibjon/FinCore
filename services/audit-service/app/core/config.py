@@ -17,6 +17,9 @@ class Settings(BaseServiceSettings):
     kafka_bootstrap_servers: str = "localhost:9094"
     transfers_topic: str = "transfers"
     payments_topic: str = "payments"
+    # identity-service's account events (registration, status and role
+    # changes) — spec Section 18's USER_BLOCKED / ADMIN_ACTION.
+    users_topic: str = "users"
     consumer_group_id: str = "audit-service"
 
     # Retry / DLT (spec Section 16) — losing an audit record silently is

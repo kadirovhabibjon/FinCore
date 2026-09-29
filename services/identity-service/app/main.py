@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -15,16 +17,55 @@ from app.api.v1.admin import router as admin_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.users import router as users_router
 from app.api.well_known import router as well_known_router
+from app.core import kafka as kafka_module
 from app.core.config import settings
 from app.db import session as db_session
+from app.services.outbox import drain_outbox
 
 configure_logging(service_name=settings.service_name, level=settings.log_level)
 logger = logging.getLogger(__name__)
 
 
+async def _outbox_relay_loop() -> None:
+    """Publishes account events for the life of the process.
+
+    Unlike payment-service, the Kafka producer is started here, with
+    retries, rather than in the lifespan: identity-service is the front
+    door (login, refresh, JWKS), and it must keep serving while Kafka is
+    down. Events just wait in the outbox until the broker is back —
+    already committed, so none is lost.
+    """
+    producer = kafka_module.event_producer
+    started = False
+    try:
+        while True:
+            await asyncio.sleep(settings.outbox_relay_interval_seconds)
+            try:
+                if not started:
+                    await producer.start()
+                    started = True
+                published = await drain_outbox(producer)
+                if published:
+                    logger.info("outbox relay published %d event(s)", published)
+            except Exception:
+                logger.exception("outbox relay iteration failed")
+                if started:
+                    continue
+                # A failed start can leave a half-built client behind.
+                with contextlib.suppress(Exception):
+                    await producer.stop()
+    finally:
+        if started:
+            await producer.stop()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    relay_task = asyncio.create_task(_outbox_relay_loop())
     yield
+    relay_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await relay_task
     await db_session.engine.dispose()
 
 

@@ -65,6 +65,7 @@ JWT_ISSUER=fincore-identity-service
 JWT_KEY_ID=identity-dev
 JWT_ACCESS_TOKEN_TTL_SECONDS=900
 JWT_PRIVATE_KEY="$JWT_PRIVATE_KEY"
+KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 EOF
 
 write_env ledger-service <<EOF

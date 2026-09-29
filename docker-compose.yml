@@ -66,6 +66,11 @@ services:
       # Overrides the .env value: inside the compose network, the
       # database is reached by service name, not localhost.
       DATABASE_URL: postgresql+asyncpg://identity:identity@postgres:5432/identity_db
+      # Also an override, so a .env generated before identity-service
+      # published events still works. Not a health dependency: the
+      # outbox relay retries until Kafka is reachable, and login must
+      # not wait on it.
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       postgres:
         condition: service_healthy
