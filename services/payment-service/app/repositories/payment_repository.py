@@ -29,6 +29,19 @@ class PaymentRepository:
         )
         return list(result.scalars().all())
 
+    async def list_for_merchant(
+        self, merchant_id: UUID, *, limit: int, offset: int
+    ) -> list[Payment]:
+        """Newest first — payments a merchant received."""
+        result = await self._session.execute(
+            select(Payment)
+            .where(Payment.merchant_id == merchant_id)
+            .order_by(Payment.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.scalars().all())
+
     async def list_stuck_processing(self, *, older_than: datetime) -> list[Payment]:
         """Payments left in PROCESSING by an unknown ledger outcome (a
         hold or capture call that timed out) whose last update is older

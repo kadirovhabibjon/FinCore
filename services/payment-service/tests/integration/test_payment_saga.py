@@ -383,3 +383,34 @@ async def test_getting_someone_elses_payment_returns_not_found(
         )
 
     assert response.status_code == 404
+
+
+async def test_a_merchant_owner_lists_the_payments_their_merchant_received(
+    monkeypatch: pytest.MonkeyPatch, issue_access_token
+) -> None:
+    _wire_ledger(monkeypatch, _ledger_app())
+    _wire_fraud(monkeypatch, "ALLOW")
+    owner_id = uuid.uuid4()
+    merchant_id = await _create_active_merchant(owner_id)
+    other_merchant_id = await _create_active_merchant(owner_id)
+    payer = issue_access_token(uuid.uuid4())
+    owner = issue_access_token(owner_id)
+    stranger = issue_access_token(uuid.uuid4())
+
+    async with await _client() as client:
+        first = (await _post_payment(client, payer, merchant_id, amount="10.00")).json()
+        second = (await _post_payment(client, payer, merchant_id, amount="20.00")).json()
+        await _post_payment(client, payer, other_merchant_id)
+
+        received = await client.get(
+            f"/api/v1/merchants/{merchant_id}/payments",
+            headers={"Authorization": f"Bearer {owner}"},
+        )
+        by_stranger = await client.get(
+            f"/api/v1/merchants/{merchant_id}/payments",
+            headers={"Authorization": f"Bearer {stranger}"},
+        )
+
+    assert received.status_code == 200
+    assert [p["id"] for p in received.json()] == [second["id"], first["id"]]
+    assert by_stranger.status_code == 404

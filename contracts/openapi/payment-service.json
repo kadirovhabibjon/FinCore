@@ -1183,6 +1183,82 @@
         ]
       }
     },
+    "/api/v1/merchants/{merchant_id}/payments": {
+      "get": {
+        "description": "Payments *received* by one of the caller's merchants, newest\nfirst. The merchant side's counterpart to `GET /api/v1/payments/{id}`\n(which only the payer can read), and how an owner finds the payment\nid that `POST /api/v1/payments/{id}/refunds` needs.",
+        "operationId": "list_merchant_payments_api_v1_merchants__merchant_id__payments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "merchant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Merchant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentResponse"
+                  },
+                  "title": "Response List Merchant Payments Api V1 Merchants  Merchant Id  Payments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Merchant Payments",
+        "tags": [
+          "merchants"
+        ]
+      }
+    },
     "/api/v1/payments": {
       "post": {
         "description": "Spec Section 11's flow, in the same order transfers use: authorize\n-> validate -> idempotency check -> create + run the saga.",
