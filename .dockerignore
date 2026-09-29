@@ -7,3 +7,5 @@
 **/.ruff_cache/
 **/tests/
 **/.env
+**/node_modules/
+frontend/dist/

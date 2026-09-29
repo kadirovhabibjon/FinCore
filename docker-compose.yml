@@ -261,10 +261,20 @@ services:
     ports:
       - "8098:8000"
 
+  # React SPA (ADR-0005), built into static files served by Nginx. Not
+  # published on its own port: the browser reaches it through the gateway,
+  # on the same origin as the API (ADR-0006).
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+
   gateway:
     build:
       context: ./gateway/nginx
     depends_on:
+      frontend:
+        condition: service_healthy
       identity-service:
         condition: service_healthy
       ledger-service:
