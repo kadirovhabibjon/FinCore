@@ -38,6 +38,33 @@ class UserResponse(BaseModel):
     created_at: datetime
 
 
+class CurrentUserResponse(UserResponse):
+    """`GET /users/me`: the caller's own profile plus their roles, so a
+    client can decide what to show (e.g. the admin panel) without
+    decoding the JWT itself. Server-side checks never rely on this."""
+
+    roles: list[str]
+
+
+class SessionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    created_at: datetime
+    last_used_at: datetime | None
+    user_agent: str | None
+    ip_address: str | None
+    current: bool = False
+
+
+class AdminUserResponse(UserResponse):
+    roles: list[str]
+
+
+class UserStatusUpdateRequest(BaseModel):
+    status: UserStatus
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=128)
@@ -50,7 +77,10 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str
+    # null when the caller asked for cookie transport (ADR-0006): the
+    # refresh token is then set as an httpOnly cookie and deliberately
+    # kept out of anything JavaScript can read.
+    refresh_token: str | None
     token_type: str = "bearer"
     expires_in: int
 

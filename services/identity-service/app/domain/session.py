@@ -34,6 +34,15 @@ class Session(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Shown on the user's own "active sessions" page so they can tell
+    # their sessions apart and revoke one they don't recognize. Captured
+    # at login; informational only — never used for an access decision,
+    # since both are client-controlled or proxy-dependent.
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class RefreshToken(Base):

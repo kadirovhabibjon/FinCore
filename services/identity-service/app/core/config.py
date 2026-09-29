@@ -22,6 +22,15 @@ class Settings(BaseServiceSettings):
     # stored as anything but a hash.
     refresh_token_ttl_seconds: int = 60 * 60 * 24 * 30
 
+    # Browser clients (the frontend, ADR-0006) opt into receiving the
+    # refresh token as an httpOnly cookie instead of in the JSON body, by
+    # sending `X-Refresh-Token-Transport: cookie`. `Secure` should only
+    # be switched off for plain-http access from something other than
+    # localhost, which browsers treat as a secure context anyway.
+    refresh_cookie_name: str = "fincore_refresh"
+    refresh_cookie_path: str = "/api/v1/auth"
+    refresh_cookie_secure: bool = True
+
 
 # Required fields (database_url, jwt_private_key) have no defaults on
 # purpose — pydantic-settings fills them from the environment/.env at

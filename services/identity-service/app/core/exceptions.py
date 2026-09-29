@@ -30,3 +30,32 @@ class InvalidTokenError(DomainError):
 
     status_code = status.HTTP_401_UNAUTHORIZED
     title = "Invalid Token"
+
+
+class InsufficientRoleError(DomainError):
+    """Authenticated, but without a role the endpoint requires (RBAC,
+    spec Section 5)."""
+
+    status_code = status.HTTP_403_FORBIDDEN
+    title = "Insufficient Role"
+
+
+class UserNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "User Not Found"
+
+
+class SessionNotFoundError(DomainError):
+    """Also covers "exists but isn't yours" — never reveals another
+    user's session ids."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Session Not Found"
+
+
+class CannotChangeOwnStatusError(DomainError):
+    """An admin blocking or suspending their own account would lock the
+    system out of the one role able to undo it."""
+
+    status_code = status.HTTP_409_CONFLICT
+    title = "Cannot Change Own Status"

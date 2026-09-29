@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import exists, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.session import RefreshToken, Session
@@ -12,6 +13,31 @@ class SessionRepository:
 
     async def get_session(self, session_id: UUID) -> Session | None:
         return await self._session.get(Session, session_id)
+
+    async def list_active_for_user(self, user_id: UUID, *, now: datetime) -> list[Session]:
+        """Most recently used first. "Active" means refreshable right now:
+        not revoked, with an unused refresh token that hasn't expired —
+        a session whose last token simply lapsed is not listed, since
+        nothing could use it anymore."""
+        refreshable = exists().where(
+            RefreshToken.session_id == Session.id,
+            RefreshToken.used_at.is_(None),
+            RefreshToken.expires_at > now,
+        )
+        result = await self._session.execute(
+            select(Session)
+            .where(Session.user_id == user_id, Session.revoked_at.is_(None), refreshable)
+            .order_by(Session.last_used_at.desc().nulls_last(), Session.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def revoke_all_for_user(self, user_id: UUID, *, now: datetime) -> int:
+        result = await self._session.execute(
+            update(Session)
+            .where(Session.user_id == user_id, Session.revoked_at.is_(None))
+            .values(revoked_at=now)
+        )
+        return result.rowcount  # type: ignore[attr-defined]
 
     async def get_refresh_token_by_hash(self, token_hash: str) -> RefreshToken | None:
         result = await self._session.execute(

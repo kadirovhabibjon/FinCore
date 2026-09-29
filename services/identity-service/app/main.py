@@ -11,6 +11,7 @@ from fincore_common import (
     register_error_handlers,
 )
 
+from app.api.v1.admin import router as admin_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.users import router as users_router
 from app.api.well_known import router as well_known_router
@@ -40,6 +41,7 @@ configure_tracing(
 configure_metrics(app, service_name=settings.service_name)
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(admin_router)
 app.include_router(well_known_router)
 
 
