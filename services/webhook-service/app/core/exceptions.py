@@ -20,6 +20,11 @@ class MerchantNotActiveError(DomainError):
     title = "Merchant Not Active"
 
 
+class InsufficientRoleError(DomainError):
+    status_code = status.HTTP_403_FORBIDDEN
+    title = "Insufficient Role"
+
+
 class WebhookEndpointNotFoundError(DomainError):
     status_code = status.HTTP_404_NOT_FOUND
     title = "Webhook Endpoint Not Found"

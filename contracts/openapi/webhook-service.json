@@ -1,6 +1,60 @@
 {
   "components": {
     "schemas": {
+      "AdminWebhookEndpointResponse": {
+        "description": "Staff view: adds who owns the endpoint. Still never the secret \u2014\nnot even an admin can read a merchant's signing key back.",
+        "properties": {
+          "consecutive_failures": {
+            "title": "Consecutive Failures",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "merchant_id": {
+            "format": "uuid",
+            "title": "Merchant Id",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "format": "uuid",
+            "title": "Owner User Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "merchant_id",
+          "url",
+          "status",
+          "consecutive_failures",
+          "created_at",
+          "updated_at",
+          "owner_user_id"
+        ],
+        "title": "AdminWebhookEndpointResponse",
+        "type": "object"
+      },
       "CreateWebhookEndpointRequest": {
         "properties": {
           "merchant_id": {
@@ -245,6 +299,14 @@
         "title": "WebhookEndpointResponse",
         "type": "object"
       },
+      "WebhookEndpointStatus": {
+        "enum": [
+          "ACTIVE",
+          "DISABLED"
+        ],
+        "title": "WebhookEndpointStatus",
+        "type": "string"
+      },
       "WebhookEndpointWithSecretResponse": {
         "description": "Returned only once, at creation and at rotation time (spec\nSection 17: \"per-endpoint secrets, stored securely, rotatable\") \u2014\nthe caller must save it then, since no later call ever returns it\nagain.",
         "properties": {
@@ -312,6 +374,275 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/webhooks/endpoints": {
+      "get": {
+        "operationId": "list_endpoints_api_v1_admin_webhooks_endpoints_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/WebhookEndpointStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "merchant_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Merchant Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminWebhookEndpointResponse"
+                  },
+                  "title": "Response List Endpoints Api V1 Admin Webhooks Endpoints Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Endpoints",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/webhooks/endpoints/{endpoint_id}/deliveries": {
+      "get": {
+        "operationId": "list_endpoint_deliveries_api_v1_admin_webhooks_endpoints__endpoint_id__deliveries_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpoint_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Endpoint Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookDeliveryResponse"
+                  },
+                  "title": "Response List Endpoint Deliveries Api V1 Admin Webhooks Endpoints  Endpoint Id  Deliveries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Endpoint Deliveries",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/webhooks/endpoints/{endpoint_id}/disable": {
+      "post": {
+        "operationId": "disable_endpoint_api_v1_admin_webhooks_endpoints__endpoint_id__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpoint_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Endpoint Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWebhookEndpointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Disable Endpoint",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/webhooks/endpoints/{endpoint_id}/enable": {
+      "post": {
+        "operationId": "enable_endpoint_api_v1_admin_webhooks_endpoints__endpoint_id__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "endpoint_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Endpoint Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWebhookEndpointResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Enable Endpoint",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/webhooks/endpoints": {
       "get": {
         "operationId": "list_my_endpoints_api_v1_webhooks_endpoints_get",

@@ -67,6 +67,19 @@ async def rotate_secret(session: AsyncSession, endpoint: WebhookEndpoint) -> Web
     return endpoint
 
 
+async def disable_endpoint(session: AsyncSession, endpoint: WebhookEndpoint) -> WebhookEndpoint:
+    """Staff kill switch (the admin panel, ADR-0005): stops deliveries
+    to an endpoint that is misbehaving or abusive without deleting it,
+    so its history stays inspectable. Uses the same DISABLED state the
+    delivery worker's auto-disable does, so the owner's usual re-enable
+    call brings it back once the problem is fixed.
+    """
+    endpoint.status = WebhookEndpointStatus.DISABLED
+    await session.commit()
+    await session.refresh(endpoint)
+    return endpoint
+
+
 async def enable_endpoint(session: AsyncSession, endpoint: WebhookEndpoint) -> WebhookEndpoint:
     """Reverses the delivery worker's auto-disable (spec Section 17) —
     the merchant has presumably fixed whatever was rejecting deliveries.

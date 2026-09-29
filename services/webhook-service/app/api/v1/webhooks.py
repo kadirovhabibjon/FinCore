@@ -111,7 +111,15 @@ async def list_deliveries(
     second call per delivery.
     """
     await _get_owned_endpoint(endpoint_id, user.user_id, session)
+    return await load_delivery_history(session, endpoint_id, limit=limit, offset=offset)
 
+
+async def load_delivery_history(
+    session: AsyncSession, endpoint_id: UUID, *, limit: int, offset: int
+) -> list[WebhookDeliveryResponse]:
+    """Shared with the admin API (app/api/v1/admin.py), which shows the
+    same history for any endpoint rather than only the caller's own.
+    """
     delivery_repository = WebhookDeliveryRepository(session)
     deliveries = await delivery_repository.list_for_endpoint(
         endpoint_id, limit=limit, offset=offset

@@ -13,6 +13,7 @@ from fincore_common import (
     register_error_handlers,
 )
 
+from app.api.v1.admin import router as admin_router
 from app.api.v1.webhooks import router as webhooks_router
 from app.core import kafka as kafka_module
 from app.core.config import settings
@@ -98,6 +99,7 @@ configure_tracing(
 )
 configure_metrics(app, service_name=settings.service_name)
 app.include_router(webhooks_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")

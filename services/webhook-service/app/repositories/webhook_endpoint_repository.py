@@ -21,6 +21,25 @@ class WebhookEndpointRepository:
         )
         return list(result.scalars().all())
 
+    async def list_all(
+        self,
+        *,
+        status: WebhookEndpointStatus | None,
+        merchant_id: UUID | None,
+        limit: int,
+        offset: int,
+    ) -> list[WebhookEndpoint]:
+        """Every owner's endpoints, newest first — the admin view."""
+        query = select(WebhookEndpoint)
+        if status is not None:
+            query = query.where(WebhookEndpoint.status == status)
+        if merchant_id is not None:
+            query = query.where(WebhookEndpoint.merchant_id == merchant_id)
+        result = await self._session.execute(
+            query.order_by(WebhookEndpoint.created_at.desc()).limit(limit).offset(offset)
+        )
+        return list(result.scalars().all())
+
     async def list_active_for_merchant(self, merchant_id: UUID) -> list[WebhookEndpoint]:
         """Used by the Kafka consumer (app/services/consumer.py) to fan
         an incoming event out to every endpoint currently eligible to

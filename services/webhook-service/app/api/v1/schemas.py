@@ -26,6 +26,14 @@ class WebhookEndpointResponse(BaseModel):
     updated_at: datetime
 
 
+class AdminWebhookEndpointResponse(WebhookEndpointResponse):
+    """Staff view: adds who owns the endpoint. Still never the secret —
+    not even an admin can read a merchant's signing key back.
+    """
+
+    owner_user_id: UUID
+
+
 class WebhookEndpointWithSecretResponse(WebhookEndpointResponse):
     """Returned only once, at creation and at rotation time (spec
     Section 17: "per-endpoint secrets, stored securely, rotatable") —
