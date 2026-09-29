@@ -217,7 +217,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install fincore-common
-        run: pip install -e ../../libs/fincore-common
+        run: pip install -e "../../libs/fincore-common[kafka]"
 
       - name: Install fraud-service
         run: pip install -e ".[dev]"
@@ -234,7 +234,7 @@ jobs:
         # same tests also run again inside the full suite below.
         run: pytest -v -k contract
 
-      - name: Test (unit + integration — real PostgreSQL via testcontainers)
+      - name: Test (unit + integration — real PostgreSQL and Kafka via testcontainers)
         # DATABASE_URL / INTERNAL_SERVICE_TOKEN: no env vars needed
         # here, same reasoning as the other services — tests/conftest.py
         # sets placeholders, integration tests point at a real

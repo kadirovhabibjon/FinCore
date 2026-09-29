@@ -2,15 +2,17 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from fincore_common import EventType
 from sqlalchemy.ext.asyncio import AsyncSession as DbSession
 
 from app.core.config import settings
 from app.core.exceptions import InvalidTokenError
 from app.core.security import generate_refresh_token, hash_refresh_token
 from app.domain.session import RefreshToken, Session
-from app.domain.user import UserStatus
+from app.domain.user import User, UserStatus
 from app.repositories.session_repository import SessionRepository
 from app.repositories.user_repository import UserRepository
+from app.services.outbox import user_outbox_event
 
 
 @dataclass(frozen=True)
@@ -23,15 +25,17 @@ class IssuedRefreshToken:
 
 async def start_session(
     db: DbSession,
-    user_id: UUID,
+    user: User,
     *,
     user_agent: str | None = None,
     ip_address: str | None = None,
 ) -> IssuedRefreshToken:
     """Called on login: opens a new session and issues its first refresh
-    token."""
+    token. The login is audited (spec Section 18's USER_LOGIN, "from
+    where (IP, user agent)") through the outbox, in the same transaction
+    that creates the session."""
     session = Session(
-        user_id=user_id,
+        user_id=user.id,
         user_agent=user_agent[:255] if user_agent else None,
         ip_address=ip_address[:64] if ip_address else None,
         last_used_at=datetime.now(UTC),
@@ -39,7 +43,17 @@ async def start_session(
     db.add(session)
     await db.flush()  # assign session.id before the refresh token references it
 
-    issued = await _issue_refresh_token(db, session.id, user_id)
+    issued = await _issue_refresh_token(db, session.id, user.id)
+    db.add(
+        user_outbox_event(
+            user,
+            EventType.USER_LOGIN,
+            actor_user_id=user.id,
+            session_id=str(session.id),
+            ip_address=session.ip_address,
+            user_agent=session.user_agent,
+        )
+    )
     await db.commit()
     return issued
 

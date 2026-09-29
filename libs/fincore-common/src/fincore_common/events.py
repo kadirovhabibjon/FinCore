@@ -18,11 +18,17 @@ class EventType(enum.StrEnum):
 
     # identity-service, on the `users` topic.
     USER_REGISTERED = "user.registered"
+    # spec Section 18's USER_LOGIN.
+    USER_LOGIN = "user.login"
     USER_BLOCKED = "user.blocked"
     USER_SUSPENDED = "user.suspended"
     USER_REACTIVATED = "user.reactivated"
     USER_ROLE_GRANTED = "user.role_granted"
     USER_ROLE_REVOKED = "user.role_revoked"
+
+    # fraud-service, on the `fraud` topic.
+    FRAUD_DETECTED = "fraud.detected"
+    FRAUD_REVIEW_REQUIRED = "fraud.review_required"
 
     TRANSFER_COMPLETED = "transfer.completed"
     TRANSFER_FAILED = "transfer.failed"

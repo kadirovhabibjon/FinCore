@@ -37,7 +37,7 @@ async def test_start_session_issues_a_usable_refresh_token() -> None:
     user = await _new_user()
 
     async with db_session.async_session_factory() as session:
-        issued = await start_session(session, user.id)
+        issued = await start_session(session, user)
 
     assert issued.user_id == user.id
     assert issued.expires_at > datetime.now(UTC)
@@ -46,7 +46,7 @@ async def test_start_session_issues_a_usable_refresh_token() -> None:
 async def test_rotate_refresh_token_issues_a_new_token_and_invalidates_the_old_one() -> None:
     user = await _new_user()
     async with db_session.async_session_factory() as session:
-        first = await start_session(session, user.id)
+        first = await start_session(session, user)
 
     async with db_session.async_session_factory() as session:
         second = await rotate_refresh_token(session, first.token)
@@ -64,7 +64,7 @@ async def test_rotate_refresh_token_issues_a_new_token_and_invalidates_the_old_o
 async def test_reusing_an_already_rotated_token_revokes_the_whole_session() -> None:
     user = await _new_user()
     async with db_session.async_session_factory() as session:
-        first = await start_session(session, user.id)
+        first = await start_session(session, user)
 
     async with db_session.async_session_factory() as session:
         second = await rotate_refresh_token(session, first.token)
@@ -88,7 +88,7 @@ async def test_concurrent_redemption_of_the_same_token_lets_only_one_succeed() -
     """
     user = await _new_user()
     async with db_session.async_session_factory() as session:
-        first = await start_session(session, user.id)
+        first = await start_session(session, user)
 
     async def attempt() -> str:
         async with db_session.async_session_factory() as session:
@@ -106,7 +106,7 @@ async def test_concurrent_redemption_of_the_same_token_lets_only_one_succeed() -
 async def test_rotate_refresh_token_rejects_an_expired_token() -> None:
     user = await _new_user()
     async with db_session.async_session_factory() as session:
-        issued = await start_session(session, user.id)
+        issued = await start_session(session, user)
 
     async with db_session.async_session_factory() as session:
         result = await session.execute(
@@ -126,7 +126,7 @@ async def test_rotate_refresh_token_rejects_an_expired_token() -> None:
 async def test_revoke_session_by_refresh_token_prevents_future_rotation() -> None:
     user = await _new_user()
     async with db_session.async_session_factory() as session:
-        issued = await start_session(session, user.id)
+        issued = await start_session(session, user)
 
     async with db_session.async_session_factory() as session:
         await revoke_session_by_refresh_token(session, issued.token)
@@ -147,7 +147,7 @@ async def test_revoke_session_by_refresh_token_is_idempotent_for_unknown_tokens(
 async def test_reuse_detection_sets_revoked_at_on_the_session_row() -> None:
     user = await _new_user()
     async with db_session.async_session_factory() as session:
-        first = await start_session(session, user.id)
+        first = await start_session(session, user)
     async with db_session.async_session_factory() as session:
         await rotate_refresh_token(session, first.token)
 

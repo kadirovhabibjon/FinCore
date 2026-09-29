@@ -149,3 +149,32 @@ def test_a_cli_role_grant_has_no_actor() -> None:
     assert audit_log.action == "USER_ROLE_GRANTED"
     assert audit_log.actor_id is None
     assert audit_log.details == {"role": "ADMIN"}
+
+
+def test_a_fraud_review_is_filed_under_the_operation_it_was_about() -> None:
+    operation_id, user_id = uuid.uuid4(), uuid.uuid4()
+    envelope = EventEnvelope(
+        event_type=EventType.FRAUD_REVIEW_REQUIRED,
+        producer="fraud-service",
+        data={
+            "check_id": str(uuid.uuid4()),
+            "operation_id": str(operation_id),
+            "operation_type": "TRANSFER",
+            "initiator_user_id": str(user_id),
+            "amount_minor": 60_000_000,
+            "currency": "UZS",
+            "score": 55,
+            "decision": "REVIEW",
+            "rules_triggered": ["LARGE_AMOUNT", "HIGH_FREQUENCY"],
+        },
+    )
+
+    audit_log = handle_domain_event(envelope)
+
+    assert audit_log.action == "FRAUD_REVIEW_REQUIRED"
+    assert audit_log.resource_type == "Fraud"
+    assert audit_log.resource_id == str(operation_id)  # next to the transfer's own events
+    assert audit_log.actor_id == user_id
+    assert audit_log.result == "REVIEW"
+    assert audit_log.details["score"] == 55
+    assert audit_log.details["rules_triggered"] == ["LARGE_AMOUNT", "HIGH_FREQUENCY"]

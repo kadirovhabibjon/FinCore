@@ -21,12 +21,15 @@
     },
     "event_type": {
       "enum": [
+        "fraud.detected",
+        "fraud.review_required",
         "payment.completed",
         "payment.failed",
         "payment.refunded",
         "transfer.completed",
         "transfer.failed",
         "user.blocked",
+        "user.login",
         "user.reactivated",
         "user.registered",
         "user.role_granted",

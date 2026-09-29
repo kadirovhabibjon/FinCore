@@ -96,6 +96,14 @@ def test_an_admin_approves_a_reviewed_transfer_and_the_money_moves(
     assert again.status_code == 409
     assert api.reconciliation_report()["balance_mismatches"] == []
 
+    # fraud-service's REVIEW decision is filed under the transfer itself,
+    # next to the transfer's own completion event.
+    def trail() -> set[str] | None:
+        actions = {log["action"] for log in api.audit_logs_for(transfer["id"])}
+        return actions if {"FRAUD_REVIEW_REQUIRED", "TRANSFER_COMPLETED"} <= actions else None
+
+    wait_until(trail)
+
 
 def test_support_can_look_but_blocking_needs_admin_and_ends_the_session(
     api: FinCoreClient, user: User
@@ -140,13 +148,16 @@ def test_account_events_reach_the_audit_trail(api: FinCoreClient, user: User) ->
     def user_actions() -> list[dict] | None:
         logs = api.audit_logs_for(user.id)
         actions = {log["action"] for log in logs}
-        return logs if {"USER_REGISTERED", "USER_BLOCKED"} <= actions else None
+        return logs if {"USER_REGISTERED", "USER_LOGIN", "USER_BLOCKED"} <= actions else None
 
     logs = wait_until(user_actions)
     blocked = next(log for log in logs if log["action"] == "USER_BLOCKED")
     assert blocked["actor_id"] == admin.id
     assert blocked["result"] == "BLOCKED"
     assert blocked["resource_type"] == "User"
+    login = next(log for log in logs if log["action"] == "USER_LOGIN")
+    assert login["actor_id"] == user.id
+    assert login["details"]["ip_address"]  # spec Section 18: "from where"
 
     def role_grants() -> list[dict] | None:
         logs = api.audit_logs_for(admin.id)

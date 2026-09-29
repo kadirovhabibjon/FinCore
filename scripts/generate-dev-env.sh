@@ -84,6 +84,7 @@ LOG_LEVEL=INFO
 OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
 DATABASE_URL=postgresql+asyncpg://fraud:fraud@postgres:5432/fraud_db
 INTERNAL_SERVICE_TOKEN=$SHARED_TOKEN
+KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 EOF
 
 write_env payment-service <<EOF

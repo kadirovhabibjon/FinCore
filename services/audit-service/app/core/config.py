@@ -20,6 +20,8 @@ class Settings(BaseServiceSettings):
     # identity-service's account events (registration, status and role
     # changes) — spec Section 18's USER_BLOCKED / ADMIN_ACTION.
     users_topic: str = "users"
+    # fraud-service's BLOCK / REVIEW decisions.
+    fraud_topic: str = "fraud"
     consumer_group_id: str = "audit-service"
 
     # Retry / DLT (spec Section 16) — losing an audit record silently is

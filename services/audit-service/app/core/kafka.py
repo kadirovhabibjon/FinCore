@@ -7,7 +7,12 @@ from app.core.config import settings
 
 event_consumer = EventConsumer(
     bootstrap_servers=settings.kafka_bootstrap_servers,
-    topics=[settings.transfers_topic, settings.payments_topic, settings.users_topic],
+    topics=[
+        settings.transfers_topic,
+        settings.payments_topic,
+        settings.users_topic,
+        settings.fraud_topic,
+    ],
     group_id=settings.consumer_group_id,
 )
 

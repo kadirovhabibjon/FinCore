@@ -182,3 +182,27 @@ async def test_the_relay_publishes_to_the_users_topic_and_marks_rows(
     assert received[0].event_id == row.id
     assert received[0].producer == "identity-service"
     assert received[0].data["user_id"] == str(user_id)
+
+
+async def test_a_login_records_where_it_came_from() -> None:
+    user_id = await _register("login@example.com")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        ok = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "login@example.com", "password": _PASSWORD},
+            headers={"User-Agent": "Firefox/130", "X-Real-IP": "203.0.113.7"},
+        )
+        failed = await client.post(
+            "/api/v1/auth/login", json={"email": "login@example.com", "password": "wrong-password"}
+        )
+    assert ok.status_code == 200
+    assert failed.status_code == 401
+
+    events = await _events(user_id)
+    assert [e.event_type for e in events] == ["user.registered", "user.login"]
+    login = events[1].payload
+    assert login["user_id"] == login["actor_user_id"] == str(user_id)
+    assert login["ip_address"] == "203.0.113.7"
+    assert login["user_agent"] == "Firefox/130"
+    assert uuid.UUID(login["session_id"])

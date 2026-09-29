@@ -19,19 +19,26 @@ _LIFTED_FIELDS = frozenset(
         "transfer_id",
         "payment_id",
         "user_id",
+        "operation_id",
         "initiator_user_id",
         "actor_user_id",
         "status",
+        "decision",
         "reference",
     }
 )
 
-# Where each topic's events name the aggregate they're about, and who
-# acted: payment-service's carry the initiating user, identity-service's
-# (the `users` topic) name the account and, separately, who changed it —
-# an ADMIN, the user themselves, or nobody (the operator CLI).
-_RESOURCE_ID_FIELDS = ("transfer_id", "payment_id", "user_id")
+# Where each topic's events name the aggregate they're about, who acted,
+# and the outcome: payment-service's carry the initiating user and a
+# status; identity-service's (`users`) name the account and, separately,
+# who changed it — an ADMIN, the user themselves, or nobody (the operator
+# CLI); fraud-service's (`fraud`) are filed under the transfer or payment
+# they were about (operation_id), so one operation's trail reads as a
+# whole, with the risk decision as the result. operation_id comes before
+# user_id: order matters only if an event ever carries both.
+_RESOURCE_ID_FIELDS = ("transfer_id", "payment_id", "operation_id", "user_id")
 _ACTOR_FIELDS = ("initiator_user_id", "actor_user_id")
+_RESULT_FIELDS = ("status", "decision")
 
 
 class MalformedEventError(Exception):
@@ -74,11 +81,10 @@ def handle_domain_event(envelope: EventEnvelope) -> AuditLog:
     notification-service.
     """
     data = envelope.data
-    try:
-        actor_id = _actor_id(data)
-        result = data["status"]
-    except KeyError as exc:
-        raise MalformedEventError(f"event missing required field: {exc}") from exc
+    actor_id = _actor_id(data)
+    result = next((str(data[field]) for field in _RESULT_FIELDS if data.get(field)), None)
+    if result is None:
+        raise MalformedEventError(f"event data has none of {', '.join(_RESULT_FIELDS)}")
 
     return AuditLog(
         event_id=envelope.event_id,

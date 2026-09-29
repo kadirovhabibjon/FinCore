@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -12,16 +14,53 @@ from fincore_common import (
 )
 
 from app.api.internal.risk_checks import router as risk_checks_router
+from app.core import kafka as kafka_module
 from app.core.config import settings
 from app.db import session as db_session
+from app.services.outbox import drain_outbox
 
 configure_logging(service_name=settings.service_name, level=settings.log_level)
 logger = logging.getLogger(__name__)
 
 
+async def _outbox_relay_loop() -> None:
+    """Publishes fraud events for the life of the process. The producer
+    is started here, with retries, not in the lifespan: payment-service
+    calls this service on every transfer and payment, so it must keep
+    scoring while Kafka is down. Events wait in the outbox meanwhile
+    (same approach as identity-service).
+    """
+    producer = kafka_module.event_producer
+    started = False
+    try:
+        while True:
+            await asyncio.sleep(settings.outbox_relay_interval_seconds)
+            try:
+                if not started:
+                    await producer.start()
+                    started = True
+                published = await drain_outbox(producer)
+                if published:
+                    logger.info("outbox relay published %d event(s)", published)
+            except Exception:
+                logger.exception("outbox relay iteration failed")
+                if started:
+                    continue
+                # A failed start can leave a half-built client behind.
+                with contextlib.suppress(Exception):
+                    await producer.stop()
+    finally:
+        if started:
+            await producer.stop()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    relay_task = asyncio.create_task(_outbox_relay_loop())
     yield
+    relay_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await relay_task
     await db_session.engine.dispose()
 
 

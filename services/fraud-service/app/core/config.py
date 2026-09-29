@@ -23,5 +23,13 @@ class Settings(BaseServiceSettings):
     repeated_failures_window_seconds: int = 3600
     repeated_failures_max_count: int = 3
 
+    # Outbox relay (spec Section 14.1): BLOCK and REVIEW decisions are
+    # published as fraud.detected / fraud.review_required for the audit
+    # trail, written in the same transaction as the fraud_checks row.
+    kafka_bootstrap_servers: str = "localhost:9094"
+    fraud_topic: str = "fraud"
+    outbox_relay_interval_seconds: float = 5.0
+    outbox_relay_batch_size: int = 100
+
 
 settings = Settings()  # type: ignore[call-arg]

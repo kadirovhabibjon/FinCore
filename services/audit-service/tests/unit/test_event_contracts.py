@@ -24,9 +24,10 @@ def test_every_published_event_type_can_be_audited(event_type: EventType) -> Non
     assert audit_log.action == event_type.value.upper().replace(".", "_")
     actor = envelope.data.get("initiator_user_id") or envelope.data.get("actor_user_id")
     assert audit_log.actor_id == (UUID(actor) if actor else None)
-    assert audit_log.result == envelope.data["status"]
+    assert audit_log.result == envelope.data.get("status") or envelope.data["decision"]
     assert audit_log.resource_id == (
         envelope.data.get("transfer_id")
         or envelope.data.get("payment_id")
+        or envelope.data.get("operation_id")
         or envelope.data.get("user_id")
     )

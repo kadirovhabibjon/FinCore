@@ -71,3 +71,16 @@ def test_no_profile_data_goes_on_the_wire() -> None:
     user = _user()
     payload = user_outbox_event(user, EventType.USER_REGISTERED, actor_user_id=user.id).payload
     assert set(payload) == {"user_id", "actor_user_id", "status"}
+
+
+def test_user_login_matches_its_contract() -> None:
+    user = _user()
+    row = user_outbox_event(
+        user,
+        EventType.USER_LOGIN,
+        actor_user_id=user.id,
+        session_id=str(uuid.uuid4()),
+        ip_address="203.0.113.7",
+        user_agent="Firefox",
+    )
+    assert_valid_event(_on_the_wire(row))

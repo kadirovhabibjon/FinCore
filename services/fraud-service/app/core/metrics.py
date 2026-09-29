@@ -1,4 +1,5 @@
 from fincore_common import Counter
+from prometheus_client import Gauge
 
 # spec Section 24's "fraud blocks" — broadened to every decision, not
 # just BLOCK, since ALLOW/REVIEW counts are what a BLOCK rate needs as
@@ -11,3 +12,7 @@ FRAUD_CHECKS_TOTAL = Counter(
     "Total fraud risk checks scored, by decision.",
     ["decision"],
 )
+
+# spec Section 24's "outbox backlog (unpublished events)", as in
+# payment- and identity-service.
+OUTBOX_BACKLOG = Gauge("fincore_outbox_backlog", "Unpublished outbox_events rows.")

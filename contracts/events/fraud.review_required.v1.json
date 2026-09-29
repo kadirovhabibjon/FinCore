@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fincore.local/contracts/events/fraud.review_required.v1.json",
+  "title": "fraud.review_required (v1) \u2014 EventEnvelope.data",
+  "description": "The risk check sent an operation to manual REVIEW (spec Sections 10.1 and 14.3); it waits in the admin review queue. Producer: fraud-service, topic `fraud`, keyed by operation_id; written in the same transaction as the fraud_checks row. Strict (additionalProperties: false) so any change to the payload is a reviewed contract change, never a silent one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "amount_minor",
+    "check_id",
+    "currency",
+    "decision",
+    "initiator_user_id",
+    "operation_id",
+    "operation_type",
+    "rules_triggered",
+    "score"
+  ],
+  "properties": {
+    "check_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "operation_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The transfer or payment id the check was for."
+    },
+    "operation_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "TRANSFER or PAYMENT from payment-service, its only caller today."
+    },
+    "initiator_user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "amount_minor": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "score": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "decision": {
+      "enum": [
+        "REVIEW"
+      ]
+    },
+    "rules_triggered": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "examples": [
+    {
+      "check_id": "3d6f0a1b-2c4e-4f8a-9b1c-5d7e9f0a2b4c",
+      "operation_id": "8f14e45f-ceea-4e7a-9c3b-1d2f3a4b5c6d",
+      "operation_type": "TRANSFER",
+      "initiator_user_id": "1c9a7e2b-3d4f-4a5b-8c6d-7e8f9a0b1c2d",
+      "amount_minor": 60000000,
+      "currency": "UZS",
+      "score": 55,
+      "decision": "REVIEW",
+      "rules_triggered": [
+        "LARGE_AMOUNT",
+        "HIGH_FREQUENCY"
+      ]
+    }
+  ]
+}

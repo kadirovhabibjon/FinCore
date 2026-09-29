@@ -5,7 +5,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY libs/fincore-common ./libs/fincore-common
-RUN pip install --no-cache-dir ./libs/fincore-common
+RUN pip install --no-cache-dir "./libs/fincore-common[kafka]"
 
 COPY services/fraud-service ./services/fraud-service
 RUN pip install --no-cache-dir ./services/fraud-service

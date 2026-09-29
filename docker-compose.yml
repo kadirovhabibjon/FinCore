@@ -146,6 +146,10 @@ services:
       - services/fraud-service/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud_db
+      # Same reasoning as identity-service: not a health dependency, the
+      # outbox relay retries until Kafka is reachable and risk checks
+      # never wait on it.
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       postgres:
         condition: service_healthy

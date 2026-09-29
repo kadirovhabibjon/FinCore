@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.metrics import FRAUD_CHECKS_TOTAL
 from app.domain.fraud_check import FraudCheck
+from app.services.outbox import fraud_outbox_event
 from app.services.rules import RiskContext, RiskEngine
 
 
@@ -56,6 +57,7 @@ async def perform_risk_check(
     result = await engine.score(session, context)
 
     check = FraudCheck(
+        id=uuid4(),
         operation_id=operation_id,
         operation_type=operation_type,
         user_id=user_id,
@@ -66,6 +68,12 @@ async def perform_risk_check(
         rules_triggered=result.rules_triggered,
     )
     session.add(check)
+    # Same transaction as the decision itself (spec Section 14.1), so a
+    # stored BLOCK/REVIEW can never be missing from the audit trail —
+    # and the losing side of the race below rolls back its event too.
+    event = fraud_outbox_event(check)
+    if event is not None:
+        session.add(event)
     try:
         await session.commit()
     except IntegrityError:

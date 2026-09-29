@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fincore.local/contracts/events/user.login.v1.json",
+  "title": "user.login (v1) \u2014 EventEnvelope.data",
+  "description": "A successful login opened a new session (spec Section 18's USER_LOGIN; \"from where (IP, user agent)\"). Producer: identity-service, topic `users`, written in the same transaction as the session. No email, phone or name. Strict (additionalProperties: false) so any change to the payload is a reviewed contract change, never a silent one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actor_user_id",
+    "ip_address",
+    "session_id",
+    "status",
+    "user_agent",
+    "user_id"
+  ],
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "actor_user_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Always the user themselves."
+    },
+    "status": {
+      "enum": [
+        "ACTIVE"
+      ]
+    },
+    "session_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "ip_address": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "user_agent": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 255
+    }
+  },
+  "examples": [
+    {
+      "user_id": "5b1e0c2a-9f3d-4c1e-8a7b-2d4f6e8a0c1e",
+      "actor_user_id": "5b1e0c2a-9f3d-4c1e-8a7b-2d4f6e8a0c1e",
+      "status": "ACTIVE",
+      "session_id": "7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      "ip_address": "203.0.113.7",
+      "user_agent": "Mozilla/5.0"
+    }
+  ]
+}

@@ -127,7 +127,7 @@ async def login(
     user = await authenticate_user(session, payload.email, payload.password)
     issued = await start_session(
         session,
-        user.id,
+        user,
         user_agent=request.headers.get("user-agent"),
         ip_address=_client_ip(request),
     )
