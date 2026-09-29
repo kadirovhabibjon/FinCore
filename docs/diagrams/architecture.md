@@ -37,6 +37,7 @@ flowchart LR
     TP --> AU
     TP --> WH
     WH -->|"signed POST<br/>SSRF-checked"| MERCHANT([Merchant endpoints])
+    ID -.->|"outbox relay<br/>users topic"| AU
 ```
 
 Arrows between services are synchronous calls; everything through Kafka

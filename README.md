@@ -17,7 +17,7 @@ Jaeger, Prometheus and Grafana, plus a React + TypeScript web app (user
 dashboard and support/admin panel) served through the same gateway.
 Every package has unit and integration tests against real
 PostgreSQL/Kafka, every API and event is covered by a committed
-contract, a 44-test end-to-end suite runs against the live stack in CI,
+contract, a 45-test end-to-end suite runs against the live stack in CI,
 and a load test gates on ledger reconciliation. Integrations designed but not yet built are listed
 in [`docs/context-map.md`](docs/context-map.md); the table in
 [Roadmap](#roadmap) tracks status precisely — nothing here is described
@@ -144,6 +144,18 @@ Authentication, users, and RBAC — spec Sections 5 and 19.
 * `python -m app.cli grant-role|revoke-role <email> <ROLE>` — the only
   way a role is ever granted; there is no HTTP endpoint for it, so the
   first `ADMIN` needs shell access to the running system.
+* **Account events → audit trail** (spec Sections 14.3 and 18):
+  registration, every status change (`user.blocked`, `user.suspended`,
+  `user.reactivated`, with the acting admin and the previous status) and
+  every CLI role change (`user.role_granted`/`user.role_revoked`) are
+  written to identity-service's own transactional outbox in the same
+  transaction as the change, then relayed to the `users` topic, which
+  audit-service consumes. Ids and statuses only — no email, phone or
+  name ever goes on the wire. The Kafka producer is started inside the
+  relay loop with retries rather than at boot, so identity-service keeps
+  serving login, refresh and JWKS while Kafka is down; events wait in
+  the outbox and catch up once it's back (verified against the live
+  stack).
 * `GET /.well-known/jwks.json` — publishes the Ed25519 public key so any
   service can verify a FinCore JWT locally, without calling back into
   identity-service per request.
@@ -157,7 +169,7 @@ Ed25519 (EdDSA), asymmetric, short-lived (15 min default).
 **Database:**
 
 ```text
-identity_db: users, roles, user_roles, sessions, refresh_tokens
+identity_db: users, roles, user_roles, sessions, refresh_tokens, outbox_events
 ```
 
 `roles` is seeded with `USER` / `SUPPORT` / `ADMIN` by its own migration.
@@ -542,7 +554,10 @@ gateway) — plus a read-only `/internal/*` query API, since an audit
 trail nobody can query isn't useful for its stated purpose
 ("investigation").
 
-* Consumes both `transfers` and `payments` topics with one consumer;
+* Consumes the `transfers`, `payments` and `users` topics with one
+  consumer. An account event is recorded against the user it's about,
+  with the admin who changed it as the actor (or none for a CLI role
+  change);
   `action` is derived mechanically from `event_type`
   ("transfer.completed" -> `TRANSFER_COMPLETED`) rather than
   special-cased per event, which happens to match spec Section 18's own
@@ -974,13 +989,13 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 50 tests
-cd services/identity-service && .venv/bin/pytest -v     # 73 tests
+cd services/identity-service && .venv/bin/pytest -v     # 86 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 58 tests
 cd services/payment-service && .venv/bin/pytest -v      # 126 tests
 cd services/notification-service && .venv/bin/pytest -v # 28 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 29 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
-cd services/audit-service && .venv/bin/pytest -v        # 37 tests
+cd services/audit-service && .venv/bin/pytest -v        # 45 tests
 ```
 
 Integration tests spin up a real PostgreSQL container via `testcontainers`
@@ -1087,7 +1102,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-44 tests that run against a live `docker compose` stack, through the
+45 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit
@@ -1118,7 +1133,9 @@ routes with its CSP while unknown `/api/*` paths stay `404`s; the browser
 cookie session (login, rotate, header required, logout); an ADMIN
 approving a fraud-reviewed transfer so the money moves and a second
 decision gets `409`; SUPPORT looking users up but not blocking them, and
-a blocked user losing refresh, login and `/users/me`. The webhook delivery test is
+a blocked user losing refresh, login and `/users/me`; the block and a
+CLI role grant reaching audit-service through identity-service's outbox
+and the `users` topic. The webhook delivery test is
 marked `external_network` and skips (never fails) if the stack has no
 internet access or the public receiver itself is down.
 

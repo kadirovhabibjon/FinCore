@@ -1,7 +1,7 @@
 # Event Flow — Outbox, Kafka, Consumers
 
-Spec Sections 14–18, as implemented. payment-service is the only producer
-today; see [context-map.md](../context-map.md) for the events that are
+Spec Sections 14–18, as implemented. payment-service and identity-service
+produce events, both through a transactional outbox; see [context-map.md](../context-map.md) for the events that are
 designed but not yet published.
 
 ## From a committed change to every consumer
@@ -17,6 +17,14 @@ flowchart LR
 
     RELAY -- "key = aggregate id<br/>(per-aggregate order)" --> T1[[transfers]]
     RELAY --> T2[[payments]]
+
+    subgraph ID[identity-service]
+        ITX["registration, status<br/>or role change<br/>+ outbox row (one tx)"]
+        ITX --> IOB[(outbox_events)]
+        IOB --> IRELAY["outbox relay<br/>retries until Kafka is up"]
+    end
+    IRELAY --> T3[[users]]
+    T3 --> A
 
     T1 --> N[notification-service]
     T1 --> A[audit-service]
