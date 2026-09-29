@@ -96,6 +96,13 @@ class Transfer(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Who resolved a fraud REVIEW and when (app/services/reviews.py) —
+    # set once, by the same atomic UPDATE that moves the transfer out of
+    # review, so a second reviewer can never overwrite the first.
+    reviewed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         CheckConstraint("amount_minor > 0", name="ck_transfers_amount_positive"),

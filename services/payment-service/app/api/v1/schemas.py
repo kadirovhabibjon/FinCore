@@ -8,6 +8,7 @@ from app.domain.merchant import MerchantStatus
 from app.domain.payment import Payment, PaymentStatus
 from app.domain.refund import RefundStatus
 from app.domain.transfer import FraudDecision, Transfer, TransferStatus
+from app.services.reviews import ReviewDecision
 
 
 class CreateTransferRequest(BaseModel):
@@ -151,3 +152,44 @@ class TransactionResponse(BaseModel):
             created_at=payment.created_at,
             completed_at=payment.completed_at,
         )
+
+
+class AdminTransactionResponse(TransactionResponse):
+    """TransactionResponse plus what staff need and a user's own history
+    doesn't show: whose operation it is, where the money was headed, and
+    the fraud/review trail (the admin panel, ADR-0005).
+    """
+
+    initiator_user_id: UUID
+    source_wallet_id: UUID
+    # The destination wallet for a TRANSFER, the merchant for a PAYMENT.
+    counterparty_id: UUID
+    failure_reason: str | None
+    fraud_decision: FraudDecision | None
+    reviewed_by_user_id: UUID | None
+    reviewed_at: datetime | None
+    updated_at: datetime
+
+    @classmethod
+    def from_operation(cls, operation: Transfer | Payment) -> "AdminTransactionResponse":
+        if isinstance(operation, Transfer):
+            base = TransactionResponse.from_transfer(operation)
+            counterparty_id = operation.destination_wallet_id
+        else:
+            base = TransactionResponse.from_payment(operation)
+            counterparty_id = operation.merchant_id
+        return cls(
+            **base.model_dump(),
+            initiator_user_id=operation.initiator_user_id,
+            source_wallet_id=operation.source_wallet_id,
+            counterparty_id=counterparty_id,
+            failure_reason=operation.failure_reason,
+            fraud_decision=operation.fraud_decision,
+            reviewed_by_user_id=operation.reviewed_by_user_id,
+            reviewed_at=operation.reviewed_at,
+            updated_at=operation.updated_at,
+        )
+
+
+class ReviewDecisionRequest(BaseModel):
+    decision: ReviewDecision

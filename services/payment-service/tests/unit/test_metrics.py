@@ -6,14 +6,14 @@ from app.core.metrics import PAYMENTS_TOTAL, TRANSFERS_TOTAL
 from app.domain.payment import Payment, PaymentStatus
 from app.domain.transfer import Transfer, TransferStatus
 from app.services.payments import payment_outbox_event
-from app.services.transfers import _transfer_outbox_event
+from app.services.transfers import transfer_outbox_event
 
 
 def _counter_value(counter, **labels) -> float:
     return counter.labels(**labels)._value.get()
 
 
-def test_building_a_transfer_outbox_event_increments_the_counter_for_its_status() -> None:
+def test_building_atransfer_outbox_event_increments_the_counter_for_its_status() -> None:
     before = _counter_value(TRANSFERS_TOTAL, status=TransferStatus.COMPLETED.value)
     transfer = Transfer(
         initiator_user_id=uuid.uuid4(),
@@ -23,7 +23,7 @@ def test_building_a_transfer_outbox_event_increments_the_counter_for_its_status(
         currency="UZS",
     )
 
-    _transfer_outbox_event(transfer, EventType.TRANSFER_COMPLETED, status=TransferStatus.COMPLETED)
+    transfer_outbox_event(transfer, EventType.TRANSFER_COMPLETED, status=TransferStatus.COMPLETED)
 
     assert _counter_value(TRANSFERS_TOTAL, status=TransferStatus.COMPLETED.value) == before + 1
 

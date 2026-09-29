@@ -85,6 +85,30 @@ class PaymentNotEligibleForRefundError(DomainError):
     title = "Payment Not Eligible For Refund"
 
 
+class InsufficientRoleError(DomainError):
+    """The caller is authenticated but holds none of the roles the
+    endpoint requires (the admin API, ADR-0005).
+    """
+
+    status_code = status.HTTP_403_FORBIDDEN
+    title = "Insufficient Role"
+
+
+class ReviewNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Review Not Found"
+
+
+class ReviewAlreadyResolvedError(DomainError):
+    """The operation exists but isn't awaiting review any more — another
+    reviewer decided first, the payment expired, or it was never in
+    REVIEW at all.
+    """
+
+    status_code = status.HTTP_409_CONFLICT
+    title = "Review Already Resolved"
+
+
 class RefundExceedsRemainingAmountError(DomainError):
     """spec Section 11: "total refunds <= captured amount." This is the
     fast-path check before the idempotency key is created; the

@@ -1,3 +1,4 @@
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -6,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fincore_common import InvalidTokenError
 
 from app.core import auth
+from app.core.exceptions import InsufficientRoleError
 from app.core.fingerprint import compute_fingerprint
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -19,6 +21,7 @@ class AuthenticatedUser:
     # ledger.py) — reusing ledger-service's own ownership check instead
     # of duplicating it here.
     access_token: str
+    roles: frozenset[str] = frozenset()
 
 
 async def get_authenticated_user(
@@ -28,7 +31,28 @@ async def get_authenticated_user(
         raise InvalidTokenError("missing bearer token")
 
     payload = await auth.jwt_verifier.verify(credentials.credentials)
-    return AuthenticatedUser(user_id=UUID(payload["sub"]), access_token=credentials.credentials)
+    return AuthenticatedUser(
+        user_id=UUID(payload["sub"]),
+        access_token=credentials.credentials,
+        roles=frozenset(payload.get("roles") or ()),
+    )
+
+
+def require_roles(*allowed: str) -> Callable[..., Awaitable[AuthenticatedUser]]:
+    """Role check from the token's `roles` claim. Unlike identity-service
+    (which owns the roles and re-reads them from its database), this
+    service can only trust the signed claim — so a revoked role keeps
+    working here until that access token expires (ADR-0006).
+    """
+
+    async def _dependency(
+        user: AuthenticatedUser = Depends(get_authenticated_user),
+    ) -> AuthenticatedUser:
+        if user.roles.isdisjoint(allowed):
+            raise InsufficientRoleError(f"requires one of: {', '.join(sorted(allowed))}")
+        return user
+
+    return _dependency
 
 
 async def get_idempotency_fingerprint(

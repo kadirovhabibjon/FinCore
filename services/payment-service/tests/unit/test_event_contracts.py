@@ -16,7 +16,7 @@ from app.domain.outbox import OutboxEvent
 from app.domain.payment import Payment, PaymentStatus
 from app.domain.transfer import Transfer, TransferStatus
 from app.services.payments import payment_outbox_event
-from app.services.transfers import _transfer_outbox_event
+from app.services.transfers import transfer_outbox_event
 from tests.contracts import assert_valid_event
 
 
@@ -72,7 +72,7 @@ def test_transfer_events_match_their_contract(
     failure_reason: str | None,
     completed_at: datetime | None,
 ) -> None:
-    row = _transfer_outbox_event(
+    row = transfer_outbox_event(
         _transfer(),
         event_type,
         status=status,
@@ -112,7 +112,7 @@ def test_payment_events_match_their_contract(
 
 def test_a_payload_the_contract_does_not_allow_is_caught() -> None:
     """Guards the guard: an extra, unreviewed field must fail."""
-    row = _transfer_outbox_event(
+    row = transfer_outbox_event(
         _transfer(), EventType.TRANSFER_COMPLETED, status=TransferStatus.COMPLETED
     )
     wire = _on_the_wire(row)

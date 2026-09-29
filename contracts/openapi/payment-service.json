@@ -1,6 +1,149 @@
 {
   "components": {
     "schemas": {
+      "AdminTransactionResponse": {
+        "description": "TransactionResponse plus what staff need and a user's own history\ndoesn't show: whose operation it is, where the money was headed, and\nthe fraud/review trail (the admin panel, ADR-0005).",
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "counterparty_id": {
+            "format": "uuid",
+            "title": "Counterparty Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "fraud_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FraudDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "initiator_user_id": {
+            "format": "uuid",
+            "title": "Initiator User Id",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By User Id"
+          },
+          "source_wallet_id": {
+            "format": "uuid",
+            "title": "Source Wallet Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TransactionType"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "reference",
+          "status",
+          "amount_minor",
+          "currency",
+          "description",
+          "created_at",
+          "completed_at",
+          "initiator_user_id",
+          "source_wallet_id",
+          "counterparty_id",
+          "failure_reason",
+          "fraud_decision",
+          "reviewed_by_user_id",
+          "reviewed_at",
+          "updated_at"
+        ],
+        "title": "AdminTransactionResponse",
+        "type": "object"
+      },
       "CreateMerchantRequest": {
         "properties": {
           "name": {
@@ -418,6 +561,26 @@
         "title": "RefundStatus",
         "type": "string"
       },
+      "ReviewDecision": {
+        "enum": [
+          "APPROVE",
+          "REJECT"
+        ],
+        "title": "ReviewDecision",
+        "type": "string"
+      },
+      "ReviewDecisionRequest": {
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/ReviewDecision"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ReviewDecisionRequest",
+        "type": "object"
+      },
       "TransactionResponse": {
         "description": "A type-erased view over any business operation (Transfer or\nPayment) for the user-facing history endpoints\n(`GET /api/v1/transactions[/{id}]`) \u2014 distinct from\n`TransferResponse`/`PaymentResponse`, which are type-specific and\nused by their own APIs.",
         "properties": {
@@ -668,6 +831,236 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/reviews": {
+      "get": {
+        "description": "Transfers and payments whose fraud check returned REVIEW and that\nnobody has decided on yet, oldest first. A payment left here past\n`payment_review_ttl_seconds` is expired by the expiration worker and\ndrops out of the queue.",
+        "operationId": "list_reviews_api_v1_admin_reviews_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminTransactionResponse"
+                  },
+                  "title": "Response List Reviews Api V1 Admin Reviews Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Reviews",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/reviews/{operation_id}": {
+      "post": {
+        "description": "APPROVE runs the rest of the saga synchronously, so the response\nalready shows where it landed (COMPLETED/SUCCESS, FAILED, or\nPROCESSING on an unknown ledger outcome); REJECT fails it.",
+        "operationId": "decide_review_api_v1_admin_reviews__operation_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTransactionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide Review",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/transactions": {
+      "get": {
+        "description": "Every user's transfers and payments, newest first. `status` is\nmatched against each type's own state machine, so e.g. SUCCESS only\never matches payments and COMPLETED only transfers. Merged in Python\nthe same way the user-facing `GET /api/v1/transactions` is.",
+        "operationId": "list_all_transactions_api_v1_admin_transactions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TransactionType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminTransactionResponse"
+                  },
+                  "title": "Response List All Transactions Api V1 Admin Transactions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List All Transactions",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/merchants": {
       "get": {
         "operationId": "list_my_merchants_api_v1_merchants_get",

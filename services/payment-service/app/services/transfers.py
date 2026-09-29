@@ -14,7 +14,7 @@ from app.services import fraud, ledger
 from app.services.ledger import PostingOutcome
 
 
-def _transfer_outbox_event(
+def transfer_outbox_event(
     transfer: Transfer,
     event_type: EventType,
     *,
@@ -117,7 +117,7 @@ async def _advance_saga(session: AsyncSession, transfer: Transfer) -> Transfer:
             fraud_decision=FraudDecision.BLOCK,
         )
         session.add(
-            _transfer_outbox_event(
+            transfer_outbox_event(
                 transfer,
                 EventType.TRANSFER_FAILED,
                 status=TransferStatus.FAILED,
@@ -208,7 +208,7 @@ async def attempt_posting_and_resolve(
         # transfer.completed for the same transfer.
         if applied:
             session.add(
-                _transfer_outbox_event(
+                transfer_outbox_event(
                     transfer,
                     EventType.TRANSFER_COMPLETED,
                     status=TransferStatus.COMPLETED,
@@ -226,7 +226,7 @@ async def attempt_posting_and_resolve(
         )
         if applied:
             session.add(
-                _transfer_outbox_event(
+                transfer_outbox_event(
                     transfer,
                     EventType.TRANSFER_FAILED,
                     status=TransferStatus.FAILED,

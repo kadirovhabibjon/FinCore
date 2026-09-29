@@ -26,7 +26,7 @@ def payment_outbox_event(
 ) -> OutboxEvent:
     """Built from the values this call is about to (or just did) write,
     not by re-reading `payment` — same reasoning as
-    transfers.py's `_transfer_outbox_event`.
+    transfers.py's `transfer_outbox_event`.
     """
     PAYMENTS_TOTAL.labels(status=status.value).inc()
     return OutboxEvent(

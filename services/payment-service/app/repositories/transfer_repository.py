@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.transfer import Transfer, TransferStatus
+from app.domain.transfer import FraudDecision, Transfer, TransferStatus
 
 
 class TransferRepository:
@@ -40,6 +40,71 @@ class TransferRepository:
             .order_by(Transfer.updated_at)
         )
         return list(result.scalars().all())
+
+    async def list_awaiting_review(self, *, limit: int) -> list[Transfer]:
+        """Oldest first — the review queue is worked in arrival order."""
+        result = await self._session.execute(
+            select(Transfer)
+            .where(
+                Transfer.status == TransferStatus.PENDING,
+                Transfer.fraud_decision == FraudDecision.REVIEW,
+                Transfer.reviewed_at.is_(None),
+            )
+            .order_by(Transfer.created_at)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def list_all(
+        self,
+        *,
+        status: TransferStatus | None,
+        user_id: UUID | None,
+        limit: int,
+        offset: int,
+    ) -> list[Transfer]:
+        """Newest first across every user — the admin transactions view."""
+        query = select(Transfer)
+        if status is not None:
+            query = query.where(Transfer.status == status)
+        if user_id is not None:
+            query = query.where(Transfer.initiator_user_id == user_id)
+        result = await self._session.execute(
+            query.order_by(Transfer.created_at.desc()).limit(limit).offset(offset)
+        )
+        return list(result.scalars().all())
+
+    async def resolve_review(
+        self,
+        transfer_id: UUID,
+        *,
+        new_status: TransferStatus,
+        reviewer_id: UUID,
+        reviewed_at: datetime,
+        **extra_fields: Any,
+    ) -> bool:
+        """Moves a transfer out of fraud review — the same atomic-guard
+        idea as `transition_status`, but also requiring the REVIEW
+        decision and an unset `reviewed_at`: a PENDING transfer without
+        REVIEW is one whose fraud check is still in flight, and two
+        reviewers racing on the same item must not both win.
+        """
+        result = await self._session.execute(
+            update(Transfer)
+            .where(
+                Transfer.id == transfer_id,
+                Transfer.status == TransferStatus.PENDING,
+                Transfer.fraud_decision == FraudDecision.REVIEW,
+                Transfer.reviewed_at.is_(None),
+            )
+            .values(
+                status=new_status,
+                reviewed_by_user_id=reviewer_id,
+                reviewed_at=reviewed_at,
+                **extra_fields,
+            )
+        )
+        return result.rowcount == 1  # type: ignore[attr-defined]
 
     async def transition_status(
         self,

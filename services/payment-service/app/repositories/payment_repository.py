@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.payment import Payment, PaymentStatus
+from app.domain.transfer import FraudDecision
 
 
 class PaymentRepository:
@@ -51,6 +52,71 @@ class PaymentRepository:
             .order_by(Payment.created_at)
         )
         return list(result.scalars().all())
+
+    async def list_awaiting_review(self, *, limit: int) -> list[Payment]:
+        """Oldest first — also the order the expiration worker will
+        expire them in, so the queue shows the most urgent items first.
+        """
+        result = await self._session.execute(
+            select(Payment)
+            .where(
+                Payment.status == PaymentStatus.CREATED,
+                Payment.fraud_decision == FraudDecision.REVIEW,
+                Payment.reviewed_at.is_(None),
+            )
+            .order_by(Payment.created_at)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def list_all(
+        self,
+        *,
+        status: PaymentStatus | None,
+        user_id: UUID | None,
+        limit: int,
+        offset: int,
+    ) -> list[Payment]:
+        """Newest first across every user — the admin transactions view."""
+        query = select(Payment)
+        if status is not None:
+            query = query.where(Payment.status == status)
+        if user_id is not None:
+            query = query.where(Payment.initiator_user_id == user_id)
+        result = await self._session.execute(
+            query.order_by(Payment.created_at.desc()).limit(limit).offset(offset)
+        )
+        return list(result.scalars().all())
+
+    async def resolve_review(
+        self,
+        payment_id: UUID,
+        *,
+        new_status: PaymentStatus,
+        reviewer_id: UUID,
+        reviewed_at: datetime,
+        **extra_fields: Any,
+    ) -> bool:
+        """Same guard as TransferRepository.resolve_review. The CREATED
+        condition also makes approval lose cleanly to the expiration
+        worker: once a payment is EXPIRED this matches nothing.
+        """
+        result = await self._session.execute(
+            update(Payment)
+            .where(
+                Payment.id == payment_id,
+                Payment.status == PaymentStatus.CREATED,
+                Payment.fraud_decision == FraudDecision.REVIEW,
+                Payment.reviewed_at.is_(None),
+            )
+            .values(
+                status=new_status,
+                reviewed_by_user_id=reviewer_id,
+                reviewed_at=reviewed_at,
+                **extra_fields,
+            )
+        )
+        return result.rowcount == 1  # type: ignore[attr-defined]
 
     async def transition_status(
         self,
