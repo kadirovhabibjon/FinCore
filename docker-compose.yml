@@ -1,5 +1,6 @@
 services:
   postgres:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: postgres
@@ -16,6 +17,7 @@ services:
       retries: 5
 
   jaeger:
+    restart: unless-stopped
     image: jaegertracing/all-in-one:1.60
     environment:
       # OTLP is the wire format every service exports spans in
@@ -31,6 +33,7 @@ services:
       - "4318:4318" # OTLP HTTP receiver
 
   prometheus:
+    restart: unless-stopped
     image: prom/prometheus:v2.55.1
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -39,6 +42,7 @@ services:
       - "9090:9090"
 
   grafana:
+    restart: unless-stopped
     image: grafana/grafana:11.3.1
     environment:
       # Dev-only default credentials, same reasoning as every other
@@ -57,6 +61,7 @@ services:
       - "3000:3000"
 
   identity-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: services/identity-service/Dockerfile
@@ -86,6 +91,7 @@ services:
       - "8091:8000"
 
   ledger-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: services/ledger-service/Dockerfile
@@ -110,6 +116,7 @@ services:
       - "8092:8000"
 
   kafka:
+    restart: unless-stopped
     image: confluentinc/cp-kafka:7.6.0
     environment:
       # Single-node KRaft mode (spec Section 14 picks Kafka; KRaft avoids
@@ -139,6 +146,7 @@ services:
       start_period: 20s
 
   fraud-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: services/fraud-service/Dockerfile
@@ -165,6 +173,7 @@ services:
       - "8095:8000"
 
   payment-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: services/payment-service/Dockerfile
@@ -195,6 +204,7 @@ services:
       - "8093:8000"
 
   notification-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: services/notification-service/Dockerfile
@@ -219,6 +229,7 @@ services:
       - "8094:8000"
 
   webhook-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: services/webhook-service/Dockerfile
@@ -247,6 +258,7 @@ services:
       - "8097:8000"
 
   audit-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: services/audit-service/Dockerfile
@@ -274,11 +286,13 @@ services:
   # published on its own port: the browser reaches it through the gateway,
   # on the same origin as the API (ADR-0006).
   frontend:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: frontend/Dockerfile
 
   gateway:
+    restart: unless-stopped
     build:
       context: ./gateway/nginx
     depends_on:

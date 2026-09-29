@@ -1,8 +1,10 @@
 # FinCore
 
-**▶ Open the app: [http://localhost:8180](http://localhost:8180)** — after
-starting the stack with `docker compose up -d --build --wait`
-(see [Run it](#run-it)).
+**▶ Open the app: [http://localhost:8180](http://localhost:8180)** — start
+the stack once with `docker compose up -d --build --wait`
+(see [Run it](#run-it)); every container has `restart: unless-stopped`,
+so from then on it comes back by itself after a crash or a reboot, until
+you run `docker compose stop`.
 
 A digital wallet and payment platform built as a microservices system, in
 the style of a real core-banking backend: database-per-service,
