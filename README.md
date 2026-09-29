@@ -10,14 +10,15 @@ tutorial. Every non-obvious decision is recorded as an [ADR](docs/adr/)
 rather than left implicit, and the full design rationale lives in
 [`docs/spec.md`](docs/spec.md).
 
-**Status: Phases 0–6 complete.** All seven services — identity,
+**Status: Phases 0–7 complete.** All seven services — identity,
 ledger, payment, fraud, notification, webhook and audit — are built,
 tested and run together via Docker Compose with the gateway, Kafka,
-Jaeger, Prometheus and Grafana. Every package has unit and integration
-tests against real PostgreSQL/Kafka, every API and event is covered by a
-committed contract, a 40-test end-to-end suite runs against the live
-stack in CI, and a load test gates on ledger reconciliation. Next: the
-frontend (Phase 7). Integrations designed but not yet built are listed
+Jaeger, Prometheus and Grafana, plus a React + TypeScript web app (user
+dashboard and support/admin panel) served through the same gateway.
+Every package has unit and integration tests against real
+PostgreSQL/Kafka, every API and event is covered by a committed
+contract, a 44-test end-to-end suite runs against the live stack in CI,
+and a load test gates on ledger reconciliation. Integrations designed but not yet built are listed
 in [`docs/context-map.md`](docs/context-map.md); the table in
 [Roadmap](#roadmap) tracks status precisely — nothing here is described
 as done unless it's tested and running.
@@ -124,7 +125,25 @@ Authentication, users, and RBAC — spec Sections 5 and 19.
   already-rotated token — replay or a lost race — revokes the entire
   session family.
 * `POST /api/v1/auth/logout` — idempotent.
-* `GET /api/v1/users/me` — protected by a bearer-token dependency.
+* Browser mode ([ADR-0006](docs/adr/0006-browser-auth-storage.md)): with
+  `X-Refresh-Token-Transport: cookie`, login/refresh return the refresh
+  token as an `HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`
+  cookie instead of in the body, and refresh/logout read it from there.
+  Without the header the cookie is ignored (CSRF defence in depth).
+* `GET /api/v1/users/me` — the caller's profile and roles.
+* `GET /api/v1/users/me/sessions`, `DELETE /api/v1/users/me/sessions/{id}`
+  — the caller's active sessions (user agent, IP, last use, which one is
+  the current device via the access token's `sid` claim) and revoking
+  one; another user's session is a `404`.
+* `GET /api/v1/admin/users[/{id}]` (SUPPORT, ADMIN) — search by email,
+  phone or id. `POST /api/v1/admin/users/{id}/status` (ADMIN only) —
+  `BLOCKED`/`SUSPENDED` revokes every session of that user in the same
+  transaction, and refresh rejects tokens whose owner isn't `ACTIVE`; an
+  admin can't change their own status. Roles are re-read from the
+  database on every request here, never trusted from the token.
+* `python -m app.cli grant-role|revoke-role <email> <ROLE>` — the only
+  way a role is ever granted; there is no HTTP endpoint for it, so the
+  first `ADMIN` needs shell access to the running system.
 * `GET /.well-known/jwks.json` — publishes the Ed25519 public key so any
   service can verify a FinCore JWT locally, without calling back into
   identity-service per request.
@@ -235,6 +254,22 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
 * `POST /api/v1/payments`, `GET /api/v1/payments/{id}`,
   `POST /api/v1/payments/{id}/refunds` (merchant-initiated, same
   anti-enumeration `404` as everywhere else) — see **Payments** below.
+* `GET /api/v1/merchants/{id}/payments` — the payments a merchant
+  received, for its owner only: how the owner finds the payment id a
+  refund needs, since only the payer can read `GET /api/v1/payments/{id}`.
+* **Fraud review queue** (ADR-0005's admin panel):
+  `GET /api/v1/admin/reviews` (SUPPORT, ADMIN) lists transfers still
+  `PENDING` and payments still `CREATED` after a `REVIEW` decision,
+  oldest first. `POST /api/v1/admin/reviews/{id}` with `APPROVE` or
+  `REJECT` (ADMIN only) resolves one: approve continues the saga to the
+  ledger step an `ALLOW` would have run, reject fails it with the usual
+  `*.failed` outbox event. The claim is one `UPDATE ... WHERE status =
+  :expected AND fraud_decision = 'REVIEW' AND reviewed_at IS NULL`, so a
+  second reviewer — or the payment expiration worker — loses cleanly
+  with `409`; `reviewed_by_user_id`/`reviewed_at` record who decided.
+* `GET /api/v1/admin/transactions` (SUPPORT, ADMIN) — every user's
+  transfers and payments, filterable by type, status and user.
+  Roles come from the access token's `roles` claim.
 * `GET /api/v1/transactions`, `GET /api/v1/transactions/{id}` — a
   type-erased view merging Transfer *and* Payment into one newest-first
   list, exactly as `TransactionResponse.from_payment` was scaffolded to
@@ -461,6 +496,11 @@ per-delivery retry schedule instead of Kafka's.
   Section 19) rather than trusted from the request — otherwise any
   authenticated user could register a callback for someone else's
   merchant.
+* **Admin API** (`/api/v1/admin/webhooks/endpoints[...]`): SUPPORT and
+  ADMIN can list every owner's endpoints (filtered by status or
+  merchant) and read their delivery history; only ADMIN can disable or
+  re-enable one. Signing secrets are never returned here, not even to an
+  admin.
 * **Signed delivery**: HMAC-SHA256 over `timestamp.body` with a
   per-endpoint secret (`app/services/signing.py`), sent as
   `X-Webhook-Signature: t=<ts>,v1=<hex>` plus `X-Webhook-Id` (the event
@@ -560,6 +600,39 @@ flag and fails with "type already exists." Both are now covered by
 regression tests in `tests/integration/test_migrations.py` in each
 service.
 
+### Web app (`frontend/`)
+
+React 19 + TypeScript + Vite single-page app
+([ADR-0005](docs/adr/0005-frontend-addition.md)), served by its own
+Nginx container behind the gateway, so the UI and the API share one
+origin: no CORS, a strict `default-src 'self'` CSP, and a first-party
+refresh cookie.
+
+* **User dashboard**: register and sign in; wallets with available /
+  held / ledger balance and each wallet's ledger entries; send a
+  transfer; pay a merchant; history with per-operation detail (including
+  why something is `PENDING` or `FAILED`); merchants with received
+  payments, refunds, and webhook endpoints (secret shown once, rotate,
+  re-enable, delivery history with every attempt); account page with
+  active sessions and remote sign-out.
+* **Admin panel** (shown to SUPPORT and ADMIN, actions only to ADMIN):
+  user search and status changes, the fraud review queue, all
+  transactions with filters, and every webhook endpoint with its
+  deliveries.
+* **Auth** ([ADR-0006](docs/adr/0006-browser-auth-storage.md)): access
+  token in memory only, refresh token in the httpOnly cookie; on a 401
+  the client refreshes once (single-flight, since refresh tokens are
+  one-time-use) and replays the request.
+* **Money** (ADR-0001 on the client): amounts are shown by splitting
+  integer minor units with `BigInt` and sent to the API as the decimal
+  string the user typed — no float arithmetic anywhere. Every money-moving
+  form keeps one `Idempotency-Key` across retries of the same submission
+  and renews it only after success or an edit.
+* **Types from contracts**: `npm run gen:api` generates
+  `src/api/schema/*.ts` from `contracts/openapi`; CI regenerates and
+  fails on any diff, so a backend API change breaks the frontend build,
+  not the running app.
+
 ### Distributed tracing (all services)
 
 Every service calls `fincore_common.configure_tracing()` at startup
@@ -653,6 +726,15 @@ Each service's `.env.example` is for running that service *directly*
 (below) — its `localhost` URLs point at the container itself once
 inside Docker, which is why compose needs the generated files instead.
 
+**Web app: `http://localhost:8180`** — register, then use the dashboard.
+To open the admin panel, grant yourself a role (no HTTP endpoint does
+this, by design) and sign in again:
+
+```bash
+docker compose exec identity-service python -m app.cli grant-role you@example.com ADMIN
+./scripts/dev-fund-wallet.sh <wallet-id> 1000.00      # credit a wallet to try transfers
+```
+
 | Via gateway | Direct |
 |---|---|
 | `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service), `http://localhost:8094` (notification-service), `http://localhost:8095` (fraud-service), `http://localhost:8097` (webhook-service), `http://localhost:8098` (audit-service) |
@@ -683,7 +765,9 @@ missing/wrong `X-Internal-Token`).
 `payment-service` has no wallet balance to fund a transfer or payment
 with out of the box — deposits were never in the spec's public API map,
 only its internal one. To try a transfer or payment end to end locally,
-credit a wallet directly via `ledger-service`'s internal API first:
+credit a wallet first — `./scripts/dev-fund-wallet.sh <wallet-id>
+<amount> [currency]` does it in one step, or by hand via
+`ledger-service`'s internal API:
 
 ```bash
 curl -X POST localhost:8092/internal/v1/postings \
@@ -890,12 +974,12 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 50 tests
-cd services/identity-service && .venv/bin/pytest -v     # 53 tests
+cd services/identity-service && .venv/bin/pytest -v     # 73 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 58 tests
-cd services/payment-service && .venv/bin/pytest -v      # 117 tests
+cd services/payment-service && .venv/bin/pytest -v      # 126 tests
 cd services/notification-service && .venv/bin/pytest -v # 28 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 29 tests
-cd services/webhook-service && .venv/bin/pytest -v      # 44 tests
+cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
 cd services/audit-service && .venv/bin/pytest -v        # 37 tests
 ```
 
@@ -951,6 +1035,22 @@ cd services/webhook-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/audit-service && .venv/bin/ruff check . && .venv/bin/mypy app
 ```
 
+The web app has its own toolchain (Node 22):
+
+```bash
+cd frontend && npm ci
+npm run lint && npm run typecheck && npm test && npm run build   # 41 vitest tests
+npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
+```
+
+Its tests (Vitest + Testing Library, `fetch` stubbed with a route table)
+cover exact money formatting and amount validation, the API client's
+bearer header, RFC 7807 errors and single-flight refresh-and-replay,
+and whole-app flows: session restore from the cookie on reload, login
+returning to the page the user was headed for, sign-out, role gating
+(USER vs SUPPORT vs ADMIN), approving a review, Idempotency-Key reuse on
+retry and renewal after success, and revoking another session.
+
 ### Contract tests (`contracts/`)
 
 spec Sections 23 and 26: "contract tests — API and event schemas between
@@ -987,11 +1087,14 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-40 tests that run against a live `docker compose` stack, through the
+44 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit
-trail, and triggering reconciliation — all `/internal/*` calls.
+trail, and triggering reconciliation — all `/internal/*` calls — and
+granting a staff role, which runs the operator CLI in the
+identity-service container (`docker compose exec`, overridable with
+`E2E_COMPOSE_COMMAND`).
 
 ```bash
 ./scripts/generate-dev-env.sh && docker compose up -d --build --wait
@@ -1010,7 +1113,12 @@ SSRF rejection of internal targets (including `postgres`, which really
 does resolve from inside webhook-service's container) and a real signed
 webhook delivery to a public receiver; ledger reconciliation clean after
 a mixed workload; `/internal/*` unreachable through the gateway; every
-service ready and scraped by Prometheus. The webhook delivery test is
+service ready and scraped by Prometheus; the SPA served for client-side
+routes with its CSP while unknown `/api/*` paths stay `404`s; the browser
+cookie session (login, rotate, header required, logout); an ADMIN
+approving a fraud-reviewed transfer so the money moves and a second
+decision gets `409`; SUPPORT looking users up but not blocking them, and
+a blocked user losing refresh, login and `/users/me`. The webhook delivery test is
 marked `external_network` and skips (never fails) if the stack has no
 internet access or the public receiver itself is down.
 
@@ -1109,6 +1217,9 @@ problem, the decision, and what was rejected and why:
   why.
 * [ADR-0005](docs/adr/0005-frontend-addition.md) — adding a React
   frontend, built after the backend core, and why not sooner.
+* [ADR-0006](docs/adr/0006-browser-auth-storage.md) — where the browser
+  keeps tokens (memory + httpOnly cookie), and how staff roles are
+  granted and checked.
 
 Plus [`docs/glossary.md`](docs/glossary.md) (shared vocabulary),
 [`docs/context-map.md`](docs/context-map.md) (service boundaries and
@@ -1126,6 +1237,10 @@ before `payment-service`'s implementation and matched by it, Phase 3).
 | Two requests register the same email concurrently | Exactly one succeeds — the database's UNIQUE constraint decides, not a pre-check race (verified by test, not just asserted) |
 | Two requests redeem the same refresh token concurrently | Exactly one succeeds; the atomic `UPDATE ... WHERE used_at IS NULL` decides |
 | A refresh token is replayed after rotation | The entire session is revoked immediately — every token in that family stops working |
+| Two admins decide the same fraud review at once, or a payment expires while under review | One atomic claim wins; the other gets `409` and the saga runs once |
+| A user is blocked while signed in | Every session is revoked in the same transaction; refresh and login fail at once, and other services reject the access token when it expires (≤ 15 min, ADR-0006) |
+| Several browser requests hit an expired access token together | The SPA refreshes once and replays them all — one-time-use refresh tokens are never spent twice |
+| A money-moving form is resubmitted after a lost response | The same `Idempotency-Key` is sent again, so the server replays the first result instead of moving money twice |
 | Database is unreachable | `/ready` returns `503`, not a bare 500 or a hang |
 | A bearer token is missing, malformed, expired, wrong-issuer, or belongs to a blocked user | `401` with a consistent RFC 7807 body (`{"type", "title", "status", "detail", "instance"}`) — the same shape for every error, in every service, via `fincore-common`'s `DomainError` |
 | Login/register are hit with a burst of requests | Nginx rate-limits them (10r/s, burst 20) before they reach identity-service at all |
@@ -1202,7 +1317,7 @@ phases complete — not aspirational.
 | 4 — Async Architecture | 10–11 | Transactional outbox, Kafka, `notification-service`, tracing | ✅ |
 | 5 — Advanced Financial Features | 12–14 | `fraud-service` ✅, payment holds/refunds ✅, `webhook-service` ✅, `audit-service` ✅ | ✅ |
 | 6 — Production Readiness | 15–16 | Prometheus/Grafana ✅, full CI (contract checks, e2e on `main`) ✅, e2e ✅, load testing ✅, documentation & architecture diagrams ✅, deployment via Docker Compose ✅ | ✅ |
-| 7 — Frontend | after 6 | React/TypeScript dashboard + admin panel ([ADR-0005](docs/adr/0005-frontend-addition.md)) | ⏳ |
+| 7 — Frontend | after 6 | React/TypeScript dashboard ✅, admin panel with the backend it needed (review queue, user/session/webhook administration) ✅, browser auth ([ADR-0006](docs/adr/0006-browser-auth-storage.md)) ✅, CI + e2e ✅ | ✅ |
 
 Per the spec's own rule: if time runs short, webhook/dashboard scope
 shrinks first — the ledger, idempotency, and consistency work is never

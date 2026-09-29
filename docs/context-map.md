@@ -48,7 +48,7 @@ integration type, who depends on whom, and whether it exists today.
 | `payment-service` | `notification-service` | Async — `transfers` topic | Built | `transfer.completed` / `transfer.failed` — pure reactions. |
 | `payment-service` | `webhook-service` | Async — `payments` topic | Built | `payment.completed` / `failed` / `refunded` fan out to merchant endpoints. |
 | `payment-service` | `audit-service` | Async — `transfers` and `payments` topics | Built | Every published event becomes an audit record. |
-| `identity-service` | `audit-service` | Async (event) — `user.registered`, `user.blocked` | *Planned* | identity-service has no outbox yet; blocking a user has no API yet (admin panel, Phase 7). |
+| `identity-service` | `audit-service` | Async (event) — `user.registered`, `user.blocked` | *Planned* | identity-service has no outbox yet. Blocking a user exists since Phase 7 (`POST /api/v1/admin/users/{id}/status`, ADR-0006) but emits no event, so audit-service records none of it. |
 | `ledger-service` | `payment-service` | Async (event) — `ledger.posting.completed` | *Planned* | Designed as a second recovery path; today recovery re-sends the idempotent call above, and ledger-service publishes no events. |
 | `fraud-service` | `audit-service` | Async (event) — `fraud.detected`, `fraud.review_required` | *Planned* | fraud-service publishes no events; every decision is persisted in `fraud_checks` and counted in `fincore_fraud_checks_total`. |
 

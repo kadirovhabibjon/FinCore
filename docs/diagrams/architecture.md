@@ -12,7 +12,9 @@ Related: [transfer-saga.md](transfer-saga.md),
 
 ```mermaid
 flowchart LR
-    CLIENT([Client]) -->|"HTTP + JWT<br/>/api/v1/*"| GW["gateway (Nginx)<br/>routing · auth rate limit<br/>correlation id"]
+    CLIENT([Browser / API client]) -->|"HTTP + JWT<br/>one origin"| GW["gateway (Nginx)<br/>routing · auth rate limit<br/>correlation id"]
+
+    GW -->|"everything but /api"| FE["frontend (Nginx)<br/><i>React SPA, static</i>"]
 
     GW --> ID["identity-service<br/><i>identity_db</i>"]
     GW --> LED["ledger-service<br/><i>ledger_db</i>"]
@@ -42,7 +44,10 @@ is asynchronous. Each service owns exactly one PostgreSQL database with its
 own least-privilege role (shown inside the node). Every service with a
 public API verifies JWTs locally against identity-service's published,
 cached JWKS — no per-request call to identity-service. `/internal/*` routes exist only on the container
-network — the gateway has no route for them. Only payment-service owns
+network — the gateway answers `404` for them. The browser app is static
+files behind the same gateway, so it calls the API on its own origin
+([ADR-0006](../adr/0006-browser-auth-storage.md)); each service serves
+its own `/api/v1/admin/*` routes next to the data it owns. Only payment-service owns
 money-moving *intent*; only ledger-service moves money.
 
 ## Observability
@@ -63,7 +68,8 @@ brings up the whole system (spec Section 25). Host ports:
 
 | Component | Port | Notes |
 |---|---|---|
-| gateway | 8180 | the only public entry point for clients |
+| gateway | 8180 | the only public entry point: the web app and `/api/v1/*` |
+| frontend | — | not published; reached only through the gateway |
 | identity-service | 8091 | direct access for development only |
 | ledger-service | 8092 | `/internal/*` reachable here, never via 8180 |
 | payment-service | 8093 | |
