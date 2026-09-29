@@ -145,7 +145,9 @@ Authentication, users, and RBAC — spec Sections 5 and 19.
   way a role is ever granted; there is no HTTP endpoint for it, so the
   first `ADMIN` needs shell access to the running system.
 * **Account events → audit trail** (spec Sections 14.3 and 18):
-  registration, every status change (`user.blocked`, `user.suspended`,
+  registration, every successful login (`user.login`, with the session,
+  IP and user agent — spec Section 18's USER_LOGIN "from where"), every
+  status change (`user.blocked`, `user.suspended`,
   `user.reactivated`, with the acting admin and the previous status) and
   every CLI role change (`user.role_granted`/`user.role_revoked`) are
   written to identity-service's own transactional outbox in the same
@@ -483,11 +485,18 @@ exercised by the real thing instead of only a fake transport.
 * Every check is stored with its score and which rules fired
   (`fraud_checks.rules_triggered`), per spec Section 12 — "for audit and
   tuning."
+* BLOCK and REVIEW decisions are published as `fraud.detected` and
+  `fraud.review_required` (spec Section 14.3) through a transactional
+  outbox written with the `fraud_checks` row, on the `fraud` topic,
+  keyed by the operation id. ALLOW publishes nothing. As in
+  identity-service, the Kafka producer starts inside the relay loop, so
+  scoring — on the critical path of every transfer and payment — never
+  waits on Kafka (verified against the live stack with Kafka stopped).
 
 **Database:**
 
 ```text
-fraud_db: fraud_checks
+fraud_db: fraud_checks, outbox_events
 ```
 
 ### `webhook-service`
@@ -554,10 +563,11 @@ gateway) — plus a read-only `/internal/*` query API, since an audit
 trail nobody can query isn't useful for its stated purpose
 ("investigation").
 
-* Consumes the `transfers`, `payments` and `users` topics with one
-  consumer. An account event is recorded against the user it's about,
-  with the admin who changed it as the actor (or none for a CLI role
-  change);
+* Consumes the `transfers`, `payments`, `users` and `fraud` topics with
+  one consumer. An account event is recorded against the user it's
+  about, with the admin who changed it as the actor (or none for a CLI
+  role change); a fraud decision is recorded against the transfer or
+  payment it was about, so one operation's trail reads as a whole;
   `action` is derived mechanically from `event_type`
   ("transfer.completed" -> `TRANSFER_COMPLETED`) rather than
   special-cased per event, which happens to match spec Section 18's own
@@ -989,13 +999,13 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 50 tests
-cd services/identity-service && .venv/bin/pytest -v     # 86 tests
+cd services/identity-service && .venv/bin/pytest -v     # 88 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 58 tests
 cd services/payment-service && .venv/bin/pytest -v      # 126 tests
 cd services/notification-service && .venv/bin/pytest -v # 28 tests
-cd services/fraud-service && .venv/bin/pytest -v        # 29 tests
+cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
-cd services/audit-service && .venv/bin/pytest -v        # 45 tests
+cd services/audit-service && .venv/bin/pytest -v        # 49 tests
 ```
 
 Integration tests spin up a real PostgreSQL container via `testcontainers`
@@ -1133,9 +1143,11 @@ routes with its CSP while unknown `/api/*` paths stay `404`s; the browser
 cookie session (login, rotate, header required, logout); an ADMIN
 approving a fraud-reviewed transfer so the money moves and a second
 decision gets `409`; SUPPORT looking users up but not blocking them, and
-a blocked user losing refresh, login and `/users/me`; the block and a
-CLI role grant reaching audit-service through identity-service's outbox
-and the `users` topic. The webhook delivery test is
+a blocked user losing refresh, login and `/users/me`; the login, the
+block and a CLI role grant reaching audit-service through
+identity-service's outbox and the `users` topic, and a fraud REVIEW
+filed under its transfer via fraud-service's outbox and the `fraud`
+topic. The webhook delivery test is
 marked `external_network` and skips (never fails) if the stack has no
 internet access or the public receiver itself is down.
 

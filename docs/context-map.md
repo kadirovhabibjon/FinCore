@@ -48,9 +48,9 @@ integration type, who depends on whom, and whether it exists today.
 | `payment-service` | `notification-service` | Async — `transfers` topic | Built | `transfer.completed` / `transfer.failed` — pure reactions. |
 | `payment-service` | `webhook-service` | Async — `payments` topic | Built | `payment.completed` / `failed` / `refunded` fan out to merchant endpoints. |
 | `payment-service` | `audit-service` | Async — `transfers` and `payments` topics | Built | Every published event becomes an audit record. |
-| `identity-service` | `audit-service` | Async — `users` topic: `user.registered`, `user.blocked`, `user.suspended`, `user.reactivated`, `user.role_granted`, `user.role_revoked` | Built | Account changes are audited (spec Section 18: USER_BLOCKED, admin actions). Written through identity-service's own outbox in the same transaction as the change; its relay retries until Kafka is reachable, so login never depends on the broker. |
+| `identity-service` | `audit-service` | Async — `users` topic: `user.registered`, `user.login`, `user.blocked`, `user.suspended`, `user.reactivated`, `user.role_granted`, `user.role_revoked` | Built | Account changes are audited (spec Section 18: USER_BLOCKED, admin actions). Written through identity-service's own outbox in the same transaction as the change; its relay retries until Kafka is reachable, so login never depends on the broker. |
 | `ledger-service` | `payment-service` | Async (event) — `ledger.posting.completed` | *Planned* | Designed as a second recovery path; today recovery re-sends the idempotent call above, and ledger-service publishes no events. |
-| `fraud-service` | `audit-service` | Async (event) — `fraud.detected`, `fraud.review_required` | *Planned* | fraud-service publishes no events; every decision is persisted in `fraud_checks` and counted in `fincore_fraud_checks_total`. |
+| `fraud-service` | `audit-service` | Async — `fraud` topic: `fraud.detected` (BLOCK), `fraud.review_required` (REVIEW) | Built | Risk decisions are audited under the operation they were about. Written through fraud-service's own outbox with the `fraud_checks` row; ALLOW publishes nothing. The relay retries until Kafka is reachable, so scoring never waits on it. |
 
 Every event and every internal API above is covered by a committed
 contract (`contracts/events/`, `contracts/openapi/`) enforced from both
