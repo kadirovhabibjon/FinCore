@@ -23,6 +23,21 @@ class InvalidCredentialsError(DomainError):
     title = "Invalid Credentials"
 
 
+class IncorrectPasswordError(DomainError):
+    """The current password given to change it was wrong. 422, not 401:
+    the caller is authenticated; a 401 here would read as "your session
+    ended" and send a browser client off to sign in again.
+    """
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Incorrect Password"
+
+
+class PasswordUnchangedError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Password Unchanged"
+
+
 class InvalidTokenError(DomainError):
     """Missing, malformed, expired, or wrong-signature bearer token —
     also covers a token whose subject no longer maps to an active user.

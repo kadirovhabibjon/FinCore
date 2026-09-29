@@ -26,7 +26,7 @@ STATUS_EVENTS = {
 
 
 def user_outbox_event(
-    user: User, event_type: EventType, *, actor_user_id: UUID | None, **facts: str | None
+    user: User, event_type: EventType, *, actor_user_id: UUID | None, **facts: str | int | None
 ) -> OutboxEvent:
     """An account event, added by the caller to the same session — and so
     the same transaction — as the change it describes. Ids and status

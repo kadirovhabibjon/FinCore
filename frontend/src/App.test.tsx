@@ -288,3 +288,41 @@ function reviewItem() {
     updated_at: "2026-09-29T08:00:00Z",
   };
 }
+
+describe("changing the password", () => {
+  it("checks the repeat locally, then shows the API's verdict", async () => {
+    let body: unknown = null;
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/users/me/sessions": () => json([]),
+      "POST /api/v1/users/me/password": (request) => {
+        body = request.body;
+        return (request.body as { current_password: string }).current_password === "right-one"
+          ? noContent()
+          : problem(422, "Incorrect Password");
+      },
+    });
+    renderApp("/settings");
+
+    const current = await screen.findByLabelText("Current password");
+    await userEvent.type(current, "wrong-one");
+    await userEvent.type(screen.getByLabelText("New password"), "brand-new-pass");
+    await userEvent.type(screen.getByLabelText(/^Repeat new password/), "different-pass");
+    await userEvent.click(screen.getByRole("button", { name: "Change password" }));
+    expect(await screen.findByText("The two new passwords differ.")).toBeInTheDocument();
+    expect(body).toBeNull();
+
+    await userEvent.clear(screen.getByLabelText(/^Repeat new password/));
+    await userEvent.type(screen.getByLabelText(/^Repeat new password/), "brand-new-pass");
+    await userEvent.click(screen.getByRole("button", { name: "Change password" }));
+    // A 422 is shown in place; the user stays signed in.
+    expect(await screen.findByRole("alert")).toHaveTextContent("Incorrect Password");
+    expect(screen.getByRole("heading", { name: "Account" })).toBeInTheDocument();
+
+    await userEvent.clear(current);
+    await userEvent.type(current, "right-one");
+    await userEvent.click(screen.getByRole("button", { name: "Change password" }));
+    expect(await screen.findByText(/Every other device has been signed out/)).toBeInTheDocument();
+    expect(body).toEqual({ current_password: "right-one", new_password: "brand-new-pass" });
+  });
+});

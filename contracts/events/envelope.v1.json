@@ -30,6 +30,7 @@
         "transfer.failed",
         "user.blocked",
         "user.login",
+        "user.password_changed",
         "user.reactivated",
         "user.registered",
         "user.role_granted",

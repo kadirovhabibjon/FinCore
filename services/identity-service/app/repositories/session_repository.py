@@ -31,12 +31,13 @@ class SessionRepository:
         )
         return list(result.scalars().all())
 
-    async def revoke_all_for_user(self, user_id: UUID, *, now: datetime) -> int:
-        result = await self._session.execute(
-            update(Session)
-            .where(Session.user_id == user_id, Session.revoked_at.is_(None))
-            .values(revoked_at=now)
-        )
+    async def revoke_all_for_user(
+        self, user_id: UUID, *, now: datetime, except_session_id: UUID | None = None
+    ) -> int:
+        query = update(Session).where(Session.user_id == user_id, Session.revoked_at.is_(None))
+        if except_session_id is not None:
+            query = query.where(Session.id != except_session_id)
+        result = await self._session.execute(query.values(revoked_at=now))
         return result.rowcount  # type: ignore[attr-defined]
 
     async def get_refresh_token_by_hash(self, token_hash: str) -> RefreshToken | None:

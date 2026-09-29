@@ -70,6 +70,8 @@ export const getMe = () => apiRequest<CurrentUser>("/api/v1/users/me");
 export const listSessions = () => apiRequest<UserSession[]>("/api/v1/users/me/sessions");
 export const revokeSession = (sessionId: string) =>
   apiRequest<void>(`/api/v1/users/me/sessions/${sessionId}`, { method: "DELETE" });
+export const changePassword = (body: Identity["ChangePasswordRequest"]) =>
+  apiRequest<void>("/api/v1/users/me/password", { method: "POST", body });
 
 // --- wallets (ledger-service) ------------------------------------------
 

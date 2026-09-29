@@ -155,6 +155,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change My Password
+         * @description Requires the current password even though the caller is signed in,
+         *     so a borrowed unlocked device can't lock the owner out. Signs out
+         *     every other session; this one stays.
+         */
+        post: operations["change_my_password_api_v1_users_me_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/me/sessions": {
         parameters: {
             query?: never;
@@ -267,6 +289,13 @@ export interface components {
             /** Roles */
             roles: string[];
             status: components["schemas"]["UserStatus"];
+        };
+        /** ChangePasswordRequest */
+        ChangePasswordRequest: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
         };
         /**
          * CurrentUserResponse
@@ -702,6 +731,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurrentUserResponse"];
+                };
+            };
+        };
+    };
+    change_my_password_api_v1_users_me_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

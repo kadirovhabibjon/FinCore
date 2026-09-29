@@ -164,3 +164,30 @@ def test_account_events_reach_the_audit_trail(api: FinCoreClient, user: User) ->
         return [log for log in logs if log["action"] == "USER_ROLE_GRANTED"] or None
 
     assert wait_until(role_grants)[0]["actor_id"] is None  # granted by the operator CLI
+
+
+def test_changing_the_password_signs_out_other_devices_and_is_audited(
+    api: FinCoreClient, user: User
+) -> None:
+    other_device = api.login(user.email, user.password)
+    new_password = "Changed-Passw0rd!"
+
+    changed = api.gateway.post(
+        "/api/v1/users/me/password",
+        json={"current_password": user.password, "new_password": new_password},
+        headers=user.auth,
+    )
+    assert changed.status_code == 204
+    stale = api.gateway.post(
+        "/api/v1/auth/refresh", json={"refresh_token": other_device["refresh_token"]}
+    )
+    assert stale.status_code == 401
+    assert api.login(user.email, new_password)["access_token"]
+
+    def changed_event() -> list[dict] | None:
+        logs = api.audit_logs_for(user.id)
+        return [log for log in logs if log["action"] == "USER_PASSWORD_CHANGED"] or None
+
+    [event] = wait_until(changed_event)
+    assert event["actor_id"] == user.id
+    assert event["details"]["sessions_revoked"] >= 1

@@ -25,6 +25,8 @@ class EventType(enum.StrEnum):
     USER_REACTIVATED = "user.reactivated"
     USER_ROLE_GRANTED = "user.role_granted"
     USER_ROLE_REVOKED = "user.role_revoked"
+    # spec Section 18's PASSWORD_CHANGED.
+    USER_PASSWORD_CHANGED = "user.password_changed"
 
     # fraud-service, on the `fraud` topic.
     FRAUD_DETECTED = "fraud.detected"

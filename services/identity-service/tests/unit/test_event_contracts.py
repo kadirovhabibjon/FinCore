@@ -84,3 +84,12 @@ def test_user_login_matches_its_contract() -> None:
         user_agent="Firefox",
     )
     assert_valid_event(_on_the_wire(row))
+
+
+def test_user_password_changed_matches_its_contract() -> None:
+    user = _user()
+    row = user_outbox_event(
+        user, EventType.USER_PASSWORD_CHANGED, actor_user_id=user.id, sessions_revoked=2
+    )
+    assert_valid_event(_on_the_wire(row))
+    assert "password" not in str(row.payload).replace("password_changed", "")
