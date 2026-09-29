@@ -328,6 +328,45 @@ jobs:
         working-directory: .
         run: docker build -f services/audit-service/Dockerfile -t fincore-audit-service:ci .
 
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: API types match contracts/openapi
+        # src/api/schema is generated from the committed OpenAPI
+        # contracts; a backend API change that wasn't regenerated here
+        # fails the build instead of surfacing as a runtime error.
+        run: npm run gen:api && git diff --exit-code -- src/api/schema
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Type check (tsc)
+        run: npm run typecheck
+
+      - name: Test (vitest)
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Build Docker image
+        working-directory: .
+        run: docker build -f frontend/Dockerfile -t fincore-frontend:ci .
+
   e2e:
     # spec Section 26: "Plus e2e tests on the main branch." Only after
     # every package's own lint/type/unit/integration job has passed —
@@ -343,6 +382,7 @@ jobs:
       - fraud-service
       - webhook-service
       - audit-service
+      - frontend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

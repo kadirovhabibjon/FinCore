@@ -5,17 +5,23 @@ client would. The only calls made directly against a service are the
 ones a real client *can't* make — `/internal/*` APIs that are
 deliberately not routed through the gateway (spec Section 19): funding a
 wallet (there is no public deposit API), reading the audit trail, and
-triggering a reconciliation pass.
+triggering a reconciliation pass. Granting a staff role goes through the
+operator CLI inside the identity-service container, for the same reason.
 """
 
+import os
 import secrets
+import subprocess
 import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import httpx
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)
@@ -104,6 +110,29 @@ class FinCoreClient:
             id=registered.json()["id"],
             email=email,
             password=password,
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+        )
+
+    def grant_role(self, user: User, role: str) -> User:
+        """No HTTP endpoint grants roles (identity-service's app/cli.py),
+        so this runs the operator CLI inside the running container — the
+        same thing an operator does — then logs in again, since roles are
+        baked into the access token at issue time.
+        """
+        compose = os.environ.get("E2E_COMPOSE_COMMAND", "docker compose").split()
+        subprocess.run(
+            [*compose, "exec", "-T", "identity-service", "python", "-m", "app.cli",
+             "grant-role", user.email, role],
+            check=True,
+            capture_output=True,
+            cwd=REPO_ROOT,
+        )
+        tokens = self.login(user.email, user.password)
+        return User(
+            id=user.id,
+            email=user.email,
+            password=user.password,
             access_token=tokens["access_token"],
             refresh_token=tokens["refresh_token"],
         )
