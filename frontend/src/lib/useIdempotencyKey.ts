@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 
+import { randomUuid } from "./uuid";
+
 /**
  * One Idempotency-Key per user action (spec Section 9.1). The key stays
  * the same while the user retries a failed submit — so a request that
@@ -8,7 +10,7 @@ import { useCallback, useState } from "react";
  * input changed into a different request.
  */
 export function useIdempotencyKey(): [string, () => void] {
-  const [key, setKey] = useState(() => crypto.randomUUID());
-  const renew = useCallback(() => setKey(crypto.randomUUID()), []);
+  const [key, setKey] = useState(() => randomUuid());
+  const renew = useCallback(() => setKey(randomUuid()), []);
   return [key, renew];
 }

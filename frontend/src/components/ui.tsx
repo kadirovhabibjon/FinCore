@@ -75,6 +75,8 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
       className="button button-small button-ghost"
       onClick={async () => {
         try {
+          // Like randomUUID, the Clipboard API is secure-context only.
+          if (!navigator.clipboard) return;
           await navigator.clipboard.writeText(text);
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
