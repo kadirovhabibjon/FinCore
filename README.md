@@ -1,7 +1,8 @@
 # FinCore
 
-**▶ Open the app: [http://localhost:8180](http://localhost:8180)** — start
-the stack once with `docker compose up -d --build --wait`
+**▶ Customer app: [http://localhost:8180](http://localhost:8180)** ·
+**Admin console: [http://localhost:8180/admin](http://localhost:8180/admin)**
+(staff accounts only) — start the stack once with `docker compose up -d --build --wait`
 (see [Run it](#run-it)); every container has `restart: unless-stopped`,
 so from then on it comes back by itself after a crash or a reboot, until
 you run `docker compose stop`.
@@ -666,10 +667,12 @@ refresh cookie.
   re-enable, delivery history with every attempt); account page with
   active sessions and remote sign-out, and password change (signs out
   every other device; audited as `user.password_changed`).
-* **Admin panel** (shown to SUPPORT and ADMIN, actions only to ADMIN):
-  user search and status changes, the fraud review queue, all
-  transactions with filters, and every webhook endpoint with its
-  deliveries.
+* **Admin console** — a separate app at `/admin` with its own sign-in
+  page (no self-registration) and its own layout. The customer site never
+  links to it or mentions it, even when the signed-in account is staff.
+  SUPPORT and ADMIN can open it, and only ADMIN can act. It covers user
+  search and status changes, the fraud review queue, all transactions
+  with filters, and every webhook endpoint with its deliveries.
 * **Auth** ([ADR-0006](docs/adr/0006-browser-auth-storage.md)): access
   token in memory only, refresh token in the httpOnly cookie; on a 401
   the client refreshes once (single-flight, since refresh tokens are
@@ -778,8 +781,9 @@ Each service's `.env.example` is for running that service *directly*
 inside Docker, which is why compose needs the generated files instead.
 
 **Web app: `http://localhost:8180`** — register, then use the dashboard.
-To open the admin panel, grant yourself a role (no HTTP endpoint does
-this, by design) and sign in again:
+The admin console is a separate app at `http://localhost:8180/admin`.
+To use it, grant your account a staff role (no HTTP endpoint does this,
+by design) and sign in there:
 
 ```bash
 docker compose exec identity-service python -m app.cli grant-role you@example.com ADMIN
@@ -1090,7 +1094,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 42 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 45 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1099,7 +1103,8 @@ cover exact money formatting and amount validation, the API client's
 bearer header, RFC 7807 errors and single-flight refresh-and-replay,
 and whole-app flows: session restore from the cookie on reload, login
 returning to the page the user was headed for, sign-out, role gating
-(USER vs SUPPORT vs ADMIN), approving a review, Idempotency-Key reuse on
+(USER vs SUPPORT vs ADMIN; the customer site never shows admin links,
+the console has its own sign-in), approving a review, Idempotency-Key reuse on
 retry and renewal after success, and revoking another session.
 
 ### Contract tests (`contracts/`)

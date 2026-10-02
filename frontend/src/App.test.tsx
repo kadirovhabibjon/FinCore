@@ -75,13 +75,47 @@ describe("signing in", () => {
 });
 
 describe("roles", () => {
-  it("hides the admin area from a plain user", async () => {
+  it("keeps a plain user out of the admin console", async () => {
     fakeApi({ ...signedInRoutes(), "GET /api/v1/wallets": () => json([]) });
 
     renderApp("/admin/users");
 
-    expect(await screen.findByRole("heading", { name: "Not allowed" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "No admin access" })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Admin" })).not.toBeInTheDocument();
+  });
+
+  it("never shows admin links on the customer site, even to an admin", async () => {
+    fakeApi({
+      ...signedInRoutes({ ...USER, roles: ["ADMIN", "USER"] }),
+      "GET /api/v1/wallets": () => json([WALLET]),
+    });
+
+    renderApp("/");
+
+    expect(await screen.findByRole("heading", { name: "Hello, Ada" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Admin" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/admin/i)).not.toBeInTheDocument();
+  });
+
+  it("sends a signed-out visitor of the console to its own sign-in page", async () => {
+    fakeApi({ "POST /api/v1/auth/refresh": () => problem(401, "Invalid Token") });
+
+    renderApp("/admin/reviews");
+
+    expect(await screen.findByRole("heading", { name: "FinCore Admin" })).toBeInTheDocument();
+    expect(screen.queryByText("Create an account")).not.toBeInTheDocument();
+  });
+
+  it("opens the console on the review queue", async () => {
+    fakeApi({
+      ...signedInRoutes({ ...USER, roles: ["ADMIN", "USER"] }),
+      "GET /api/v1/admin/reviews": () => json([]),
+    });
+
+    renderApp("/admin");
+
+    expect(await screen.findByRole("heading", { name: "Fraud review queue" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Admin" })).toBeInTheDocument();
   });
 
   it("lets SUPPORT look at the review queue but not decide", async () => {

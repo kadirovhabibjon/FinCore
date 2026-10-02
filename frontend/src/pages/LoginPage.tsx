@@ -4,7 +4,10 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/context";
 import { ErrorAlert, Notice } from "../components/ui";
 
-export function LoginPage() {
+/** `admin` is the admin console's sign-in: same accounts and API, but
+ * its own title and no self-registration (staff roles are granted by an
+ * operator, ADR-0006). */
+export function LoginPage({ admin = false }: { admin?: boolean }) {
   const { login } = useAuth();
   const location = useLocation();
   const state = location.state as { registered?: boolean } | null;
@@ -29,7 +32,8 @@ export function LoginPage() {
   return (
     <div className="auth-page">
       <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>Sign in to FinCore</h1>
+        <h1>{admin ? "FinCore Admin" : "Sign in to FinCore"}</h1>
+        {admin && <p className="muted">Staff sign-in. Customer accounts can't use this console.</p>}
         {state?.registered && <Notice>Account created. Sign in to continue.</Notice>}
         <ErrorAlert error={error} />
         <label>
@@ -43,9 +47,11 @@ export function LoginPage() {
         <button type="submit" className="button" disabled={submitting}>
           {submitting ? "Signing in…" : "Sign in"}
         </button>
-        <p className="muted">
-          New here? <Link to="/register">Create an account</Link>
-        </p>
+        {!admin && (
+          <p className="muted">
+            New here? <Link to="/register">Create an account</Link>
+          </p>
+        )}
       </form>
     </div>
   );

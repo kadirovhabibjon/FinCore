@@ -1,9 +1,10 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
-import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Link, Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "./auth/AuthProvider";
 import { RedirectIfAuthenticated, RequireAuth, RequireRole } from "./auth/guards";
+import { AdminLayout } from "./components/AdminLayout";
 import { Layout } from "./components/Layout";
 import { AdminReviewsPage } from "./pages/admin/AdminReviewsPage";
 import { AdminTransactionsPage } from "./pages/admin/AdminTransactionsPage";
@@ -34,6 +35,25 @@ function NotFound() {
 export function AppRoutes() {
   return (
     <Routes>
+      {/* Admin console (ADR-0005): a separate app with its own sign-in
+          and layout. Nothing in the customer site links here. */}
+      <Route path="admin/login" element={<RedirectIfAuthenticated home="/admin" />}>
+        <Route index element={<LoginPage admin />} />
+      </Route>
+      <Route path="admin" element={<RequireAuth loginPath="/admin/login" />}>
+        <Route element={<RequireRole roles={["SUPPORT", "ADMIN"]} />}>
+          <Route element={<AdminLayout />}>
+            <Route index element={<Navigate to="reviews" replace />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="reviews" element={<AdminReviewsPage />} />
+            <Route path="transactions" element={<AdminTransactionsPage />} />
+            <Route path="webhooks" element={<AdminWebhooksPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Route>
+      </Route>
+
+      {/* Customer site. */}
       <Route element={<RedirectIfAuthenticated />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -49,12 +69,6 @@ export function AppRoutes() {
           <Route path="merchants" element={<MerchantsPage />} />
           <Route path="merchants/:merchantId" element={<MerchantPage />} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="admin" element={<RequireRole roles={["SUPPORT", "ADMIN"]} />}>
-            <Route path="users" element={<AdminUsersPage />} />
-            <Route path="reviews" element={<AdminReviewsPage />} />
-            <Route path="transactions" element={<AdminTransactionsPage />} />
-            <Route path="webhooks" element={<AdminWebhooksPage />} />
-          </Route>
           <Route path="*" element={<NotFound />} />
         </Route>
       </Route>

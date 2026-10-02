@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 
-import { hasAnyRole, useAuth } from "../auth/context";
+import { useAuth } from "../auth/context";
 
 const USER_LINKS = [
   { to: "/", label: "Wallets", end: true },
@@ -10,16 +10,11 @@ const USER_LINKS = [
   { to: "/merchants", label: "Merchants" },
 ];
 
-const STAFF_LINKS = [
-  { to: "/admin/users", label: "Users" },
-  { to: "/admin/reviews", label: "Reviews" },
-  { to: "/admin/transactions", label: "Transactions" },
-  { to: "/admin/webhooks", label: "Webhooks" },
-];
-
+/** The customer site's shell. Deliberately knows nothing about the admin
+ * console, which is a separate app at /admin with its own layout
+ * (AdminLayout) — even a staff account sees only the customer menu here. */
 export function Layout() {
   const { user, logout } = useAuth();
-  const isStaff = hasAnyRole(user, "SUPPORT", "ADMIN");
 
   return (
     <div className="shell">
@@ -43,16 +38,6 @@ export function Layout() {
           </button>
         </div>
       </header>
-      {isStaff && (
-        <nav className="staffbar" aria-label="Admin">
-          <span className="staffbar-label">Admin</span>
-          {STAFF_LINKS.map((link) => (
-            <NavLink key={link.to} to={link.to} className="nav-link">
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
-      )}
       <main className="content">
         <Outlet />
       </main>

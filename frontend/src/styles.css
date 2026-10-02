@@ -87,8 +87,7 @@ code {
 
 /* --- shell ------------------------------------------------------------ */
 
-.topbar,
-.staffbar {
+.topbar {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -98,18 +97,6 @@ code {
   flex-wrap: wrap;
 }
 
-.staffbar {
-  background: var(--surface-muted);
-  padding-block: 0.35rem;
-}
-
-.staffbar-label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
 
 .brand {
   font-weight: 800;
@@ -548,13 +535,116 @@ input[aria-invalid="true"] {
     padding: 1.25rem 1rem 3rem;
   }
 
-  .topbar,
-  .staffbar {
+  .topbar {
     padding-inline: 1rem;
   }
 
   .table {
     display: block;
     overflow-x: auto;
+  }
+}
+
+/* --- admin console (/admin): its own look, so nobody mistakes it for the
+   customer site --------------------------------------------------------- */
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  min-height: 100vh;
+}
+
+.admin-sidebar {
+  background: #111827;
+  color: #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.25rem 1rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.admin-brand {
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.15rem;
+  text-decoration: none;
+}
+
+.admin-brand span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: #b42318;
+  color: #fff;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+}
+
+.admin-nav-link {
+  color: #9ca3af;
+  text-decoration: none;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+}
+
+.admin-nav-link:hover {
+  color: #fff;
+}
+
+.admin-nav-link.active {
+  background: #1f2937;
+  color: #fff;
+  font-weight: 600;
+}
+
+.admin-account {
+  border-top: 1px solid #1f2937;
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  word-break: break-all;
+}
+
+.admin-account .button-ghost {
+  color: #e5e7eb;
+  border-color: #374151;
+  align-self: flex-start;
+}
+
+.admin-content {
+  padding: 1.75rem 2rem 4rem;
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .admin-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
   }
 }
