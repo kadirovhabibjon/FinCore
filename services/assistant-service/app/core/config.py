@@ -7,6 +7,10 @@ class Settings(BaseServiceSettings):
     # Claude API. Empty means "not configured": the service still starts and
     # reports healthy, and the chat endpoint answers 503 until a key is set.
     anthropic_api_key: str = ""
+    # Needed only for a key that isn't scoped to a workspace (a user key,
+    # "sk-ant-usr-..."): the API then requires the workspace to bill and
+    # rate-limit against on every request. Console → Settings → Workspaces.
+    anthropic_workspace_id: str = ""
     assistant_model: str = "claude-opus-5-5"
     # Thinking is always on for this model; effort is the depth control
     # (its default is "medium" - set explicitly so a model change can't

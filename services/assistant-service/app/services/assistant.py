@@ -89,7 +89,14 @@ def _client() -> Any:
         raise AssistantNotConfiguredError(
             "The assistant needs an Anthropic API key (ANTHROPIC_API_KEY) to answer."
         )
-    return anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=120.0)
+    headers = (
+        {"anthropic-workspace-id": settings.anthropic_workspace_id}
+        if settings.anthropic_workspace_id
+        else None
+    )
+    return anthropic.AsyncAnthropic(
+        api_key=settings.anthropic_api_key, timeout=120.0, default_headers=headers
+    )
 
 
 def _text_of(content: list[Any]) -> str:
@@ -128,7 +135,14 @@ async def answer(history: list[ChatTurn], *, bearer_token: str) -> str:
         except (anthropic.APIConnectionError, anthropic.RateLimitError) as exc:
             raise AssistantUnavailableError("The assistant is busy. Try again shortly.") from exc
         except anthropic.APIStatusError as exc:
-            logger.error("Claude API error %s (request id %s)", exc.status_code, exc.request_id)
+            # The API's own message (never the key) - e.g. a missing
+            # workspace header or an exhausted credit balance.
+            logger.error(
+                "Claude API error %s (request id %s): %s",
+                exc.status_code,
+                exc.request_id,
+                exc.message,
+            )
             raise AssistantUnavailableError("The assistant is unavailable right now.") from exc
 
         if response.stop_reason == "refusal":
