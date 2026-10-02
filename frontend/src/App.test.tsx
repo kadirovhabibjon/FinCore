@@ -360,3 +360,58 @@ describe("changing the password", () => {
     expect(body).toEqual({ current_password: "right-one", new_password: "brand-new-pass" });
   });
 });
+
+describe("password fields", () => {
+  it("won't register when the two passwords differ", async () => {
+    const { requests } = fakeApi({ "POST /api/v1/auth/refresh": () => problem(401, "Invalid Token") });
+    renderApp("/register");
+
+    await userEvent.type(await screen.findByLabelText("First name"), "Ada");
+    await userEvent.type(screen.getByLabelText("Last name"), "Lovelace");
+    await userEvent.type(screen.getByLabelText("Email"), "ada@example.com");
+    await userEvent.type(screen.getByLabelText("Phone"), "+998901112233");
+    await userEvent.type(screen.getByLabelText("Password"), "analytical-1843");
+    await userEvent.type(screen.getByLabelText(/^Repeat password/), "analytical-1842");
+    await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(await screen.findByText("The two passwords differ.")).toBeInTheDocument();
+    expect(requests.some((r) => r.path === "/api/v1/auth/register")).toBe(false);
+  });
+
+  it("registers once both passwords match", async () => {
+    const { requests } = fakeApi({
+      "POST /api/v1/auth/refresh": () => problem(401, "Invalid Token"),
+      "POST /api/v1/auth/register": () => json(USER, 201),
+    });
+    renderApp("/register");
+
+    await userEvent.type(await screen.findByLabelText("First name"), "Ada");
+    await userEvent.type(screen.getByLabelText("Last name"), "Lovelace");
+    await userEvent.type(screen.getByLabelText("Email"), "ada@example.com");
+    await userEvent.type(screen.getByLabelText("Phone"), "+998901112233");
+    await userEvent.type(screen.getByLabelText("Password"), "analytical-1843");
+    await userEvent.type(screen.getByLabelText(/^Repeat password/), "analytical-1843");
+    await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(await screen.findByText("Account created. Sign in to continue.")).toBeInTheDocument();
+    const register = requests.find((r) => r.path === "/api/v1/auth/register");
+    // The confirmation never leaves the browser.
+    expect(register?.body).not.toHaveProperty("confirm_password");
+  });
+
+  it("shows and hides the password with the eye button", async () => {
+    fakeApi({ "POST /api/v1/auth/refresh": () => problem(401, "Invalid Token") });
+    renderApp("/login");
+
+    const password = await screen.findByLabelText("Password");
+    await userEvent.type(password, "secret-pass");
+    expect(password).toHaveAttribute("type", "password");
+
+    await userEvent.click(screen.getByRole("button", { name: "Show password" }));
+    expect(password).toHaveAttribute("type", "text");
+    expect(password).toHaveValue("secret-pass");
+
+    await userEvent.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(password).toHaveAttribute("type", "password");
+  });
+});

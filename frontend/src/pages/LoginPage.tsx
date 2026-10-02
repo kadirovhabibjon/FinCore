@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import { useAuth } from "../auth/context";
 import { ErrorAlert, Notice } from "../components/ui";
+import { PasswordInput } from "../components/PasswordInput";
 
 /** `admin` is the admin console's sign-in: same accounts and API, but
  * its own title and no self-registration (staff roles are granted by an
@@ -42,7 +43,7 @@ export function LoginPage({ admin = false }: { admin?: boolean }) {
         </label>
         <label>
           Password
-          <input name="password" type="password" autoComplete="current-password" required />
+          <PasswordInput name="password" autoComplete="current-password" required />
         </label>
         <button type="submit" className="button" disabled={submitting}>
           {submitting ? "Signing in…" : "Sign in"}

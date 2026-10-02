@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 
 import * as api from "../api/endpoints";
 import { ErrorAlert, Notice } from "./ui";
+import { PasswordInput } from "./PasswordInput";
 
 export function ChangePasswordForm() {
   const queryClient = useQueryClient();
@@ -37,9 +38,8 @@ export function ChangePasswordForm() {
       <ErrorAlert error={change.error} />
       <label>
         Current password
-        <input
+        <PasswordInput
           name="current_password"
-          type="password"
           autoComplete="current-password"
           required
         />
@@ -47,9 +47,8 @@ export function ChangePasswordForm() {
       <div className="row">
         <label>
           New password
-          <input
+          <PasswordInput
             name="new_password"
-            type="password"
             autoComplete="new-password"
             minLength={8}
             maxLength={128}
@@ -58,9 +57,8 @@ export function ChangePasswordForm() {
         </label>
         <label>
           Repeat new password
-          <input
+          <PasswordInput
             name="confirm_password"
-            type="password"
             autoComplete="new-password"
             required
             aria-invalid={mismatch}

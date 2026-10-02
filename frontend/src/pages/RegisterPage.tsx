@@ -3,15 +3,24 @@ import { Link, useNavigate } from "react-router-dom";
 
 import * as api from "../api/endpoints";
 import { ErrorAlert } from "../components/ui";
+import { PasswordInput } from "../components/PasswordInput";
 
 export function RegisterPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [mismatch, setMismatch] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    // Checked here, not by the API: a typo in a password nobody can see
+    // would otherwise lock the new account out on its first sign-in.
+    if (form.get("password") !== form.get("confirm_password")) {
+      setMismatch(true);
+      return;
+    }
+    setMismatch(false);
     setSubmitting(true);
     setError(null);
     try {
@@ -61,13 +70,22 @@ export function RegisterPage() {
         </label>
         <label>
           Password
-          <input
+          <PasswordInput
             name="password"
-            type="password"
             autoComplete="new-password"
             minLength={8}
             required
           />
+        </label>
+        <label>
+          Repeat password
+          <PasswordInput
+            name="confirm_password"
+            autoComplete="new-password"
+            required
+            aria-invalid={mismatch}
+          />
+          {mismatch && <span className="field-error">The two passwords differ.</span>}
         </label>
         <button type="submit" className="button" disabled={submitting}>
           {submitting ? "Creating…" : "Create account"}
