@@ -15,7 +15,8 @@ export type AuthState =
 export type AuthContextValue = AuthState & {
   /** Checks the session again after "unavailable". */
   retry: () => void;
-  login: (email: string, password: string) => Promise<void>;
+  /** `identifier` is a phone number or an email address. */
+  login: (identifier: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };

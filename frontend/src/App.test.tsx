@@ -33,7 +33,7 @@ describe("signing in", () => {
     });
     renderApp("/transactions");
 
-    await userEvent.type(await screen.findByLabelText("Email"), "ada@example.com");
+    await userEvent.type(await screen.findByLabelText("Phone number or email"), "ada@example.com");
     await userEvent.type(screen.getByLabelText("Password"), "correct-horse");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
@@ -51,7 +51,7 @@ describe("signing in", () => {
     });
     renderApp("/login");
 
-    await userEvent.type(await screen.findByLabelText("Email"), "ada@example.com");
+    await userEvent.type(await screen.findByLabelText("Phone number or email"), "ada@example.com");
     await userEvent.type(screen.getByLabelText("Password"), "wrong-password");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
@@ -492,7 +492,7 @@ describe("staying signed in, and out, across reloads", () => {
     });
     renderApp("/admin/login");
 
-    await userEvent.type(await screen.findByLabelText("Email"), "ada@example.com");
+    await userEvent.type(await screen.findByLabelText("Phone number or email"), "ada@example.com");
     await userEvent.type(screen.getByLabelText("Password"), "correct-horse");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
@@ -551,5 +551,26 @@ describe("staying signed in, and out, across reloads", () => {
     renderApp("/");
 
     expect(await screen.findByRole("heading", { name: "Sign in to FinCore" })).toBeInTheDocument();
+  });
+});
+
+describe("signing in with a phone number", () => {
+  it("sends a phone number as phone and an address with @ as email", async () => {
+    const { requests } = fakeApi({
+      "POST /api/v1/auth/refresh": () => problem(401, "Invalid Token"),
+      "POST /api/v1/auth/login": () =>
+        json({ access_token: "access-1", refresh_token: null, expires_in: 900 }),
+      "GET /api/v1/users/me": () => json(USER),
+      "GET /api/v1/wallets": () => json([]),
+    });
+    renderApp("/login");
+
+    await userEvent.type(await screen.findByLabelText("Phone number or email"), " 90 123 45 67 ");
+    await userEvent.type(screen.getByLabelText("Password"), "correct-horse");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("heading", { name: "Hello, Ada" })).toBeInTheDocument();
+    const login = requests.find((r) => r.path === "/api/v1/auth/login");
+    expect(login?.body).toEqual({ phone: "90 123 45 67", password: "correct-horse" });
   });
 });

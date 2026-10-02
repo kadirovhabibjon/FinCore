@@ -64,7 +64,7 @@ export function RegisterPage() {
             name="phone"
             type="tel"
             autoComplete="tel"
-            placeholder="+998901234567"
+            placeholder="+998 90 123 45 67"
             required
           />
         </label>

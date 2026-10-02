@@ -142,7 +142,7 @@ async def login(
     session: AsyncSession = Depends(get_db),
     transport: str | None = Header(default=None, alias="X-Refresh-Token-Transport"),
 ) -> TokenResponse:
-    user = await authenticate_user(session, payload.email, payload.password)
+    user = await authenticate_user(session, payload.email, payload.password, phone=payload.phone)
     roles = await UserRepository(session).get_role_names(user.id)
     if transport == _ADMIN_TRANSPORT and _STAFF_ROLES.isdisjoint(roles):
         # Checked before a session exists, so a customer account gets no

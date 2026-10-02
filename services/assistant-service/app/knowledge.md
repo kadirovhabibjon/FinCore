@@ -16,8 +16,11 @@ balances inside FinCore only.
 - Sign up with first name, last name, email, phone and a password of at
   least 8 characters (at most 128). The password is typed twice; both
   must match. Email and phone must not already be registered.
-- Sign in with email and password. Email is not case-sensitive.
-- "Invalid Credentials" on sign-in means the email/password pair didn't
+- Sign in with the phone number or the email address, plus the password.
+  The phone number can be typed in any common way ("+998 90 123 45 67",
+  "998901234567", "90 123 45 67"); it is the number given at sign-up.
+  Email is not case-sensitive. There is no sign-in by SMS code.
+- "Invalid Credentials" on sign-in means the phone-or-email/password pair didn't
   match, or the account is not active. For security the message is the
   same in every case, and the assistant can't tell which one it was.
 - Passwords can be changed in Account → Password: it needs the current

@@ -6,7 +6,13 @@ from app.domain.user import User, UserStatus
 from app.repositories.user_repository import UserRepository
 
 
-async def authenticate_user(session: AsyncSession, email: str, password: str) -> User:
+async def authenticate_user(
+    session: AsyncSession,
+    email: str | None,
+    password: str,
+    *,
+    phone: str | None = None,
+) -> User:
     """Verify credentials and return the user, or raise InvalidCredentialsError.
 
     Used by the login endpoint (added once JWT issuance exists). Kept
@@ -14,7 +20,12 @@ async def authenticate_user(session: AsyncSession, email: str, password: str) ->
     focused tests independent of how the resulting session is represented.
     """
     repository = UserRepository(session)
-    user = await repository.get_by_email(email)
+    # Exactly one of email / phone (LoginRequest enforces it); phone is
+    # already in canonical form (app/core/phone.py).
+    if phone is not None:
+        user = await repository.get_by_phone(phone)
+    else:
+        user = await repository.get_by_email(email) if email is not None else None
 
     if user is None or not verify_password(password, user.password_hash):
         raise InvalidCredentialsError()

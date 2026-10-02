@@ -109,8 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => onSessionEnded(signedOut), [signedOut]);
 
   const login = useCallback(
-    async (email: string, password: string) => {
-      await api.login(email, password);
+    async (identifier: string, password: string) => {
+      await api.login(identifier, password);
       clearSignedOutMark(scope);
       const user = await api.getMe();
       setState({ status: "authenticated", user });

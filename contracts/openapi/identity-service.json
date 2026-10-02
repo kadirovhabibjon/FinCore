@@ -142,21 +142,41 @@
         "type": "object"
       },
       "LoginRequest": {
+        "description": "Sign in with email or phone number - exactly one - and password.",
         "properties": {
           "email": {
-            "format": "email",
-            "title": "Email",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
           },
           "password": {
             "maxLength": 128,
             "minLength": 1,
             "title": "Password",
             "type": "string"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           }
         },
         "required": [
-          "email",
           "password"
         ],
         "title": "LoginRequest",

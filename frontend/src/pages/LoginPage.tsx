@@ -23,7 +23,7 @@ export function LoginPage({ admin = false }: { admin?: boolean }) {
     try {
       // On success RedirectIfAuthenticated moves the user on; this
       // component unmounts, so there is no state left to reset.
-      await login(String(form.get("email")), String(form.get("password")));
+      await login(String(form.get("identifier")), String(form.get("password")));
     } catch (caught) {
       setError(caught);
       setSubmitting(false);
@@ -38,8 +38,17 @@ export function LoginPage({ admin = false }: { admin?: boolean }) {
         {state?.registered && <Notice>Account created. Sign in to continue.</Notice>}
         <ErrorAlert error={error} />
         <label>
-          Email
-          <input name="email" type="email" autoComplete="email" required />
+          Phone number or email
+          <input
+            name="identifier"
+            type="text"
+            inputMode="email"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="+998 90 123 45 67"
+            required
+          />
         </label>
         <label>
           Password

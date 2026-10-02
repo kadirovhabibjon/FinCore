@@ -1,8 +1,9 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
+from app.core.phone import normalize_phone
 from app.domain.user import UserStatus
 
 
@@ -23,7 +24,9 @@ class RegisterRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def _normalize_phone(cls, value: str) -> str:
-        return value.strip()
+        # Stored in one canonical form, so it can later be used to sign in
+        # however it's typed (app/core/phone.py).
+        return normalize_phone(value)
 
 
 class UserResponse(BaseModel):
@@ -66,13 +69,27 @@ class UserStatusUpdateRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    """Sign in with email or phone number - exactly one - and password."""
+
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, min_length=1, max_length=32)
     password: str = Field(min_length=1, max_length=128)
 
     @field_validator("email")
     @classmethod
-    def _normalize_email(cls, value: str) -> str:
-        return value.strip().lower()
+    def _normalize_email(cls, value: str | None) -> str | None:
+        return value.strip().lower() if value is not None else None
+
+    @field_validator("phone")
+    @classmethod
+    def _normalize_phone(cls, value: str | None) -> str | None:
+        return normalize_phone(value) if value is not None else None
+
+    @model_validator(mode="after")
+    def _exactly_one_identifier(self) -> "LoginRequest":
+        if (self.email is None) == (self.phone is None):
+            raise ValueError("give either email or phone")
+        return self
 
 
 class TokenResponse(BaseModel):

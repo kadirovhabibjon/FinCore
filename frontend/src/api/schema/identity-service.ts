@@ -331,15 +331,17 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** LoginRequest */
+        /**
+         * LoginRequest
+         * @description Sign in with email or phone number - exactly one - and password.
+         */
         LoginRequest: {
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
+            /** Email */
+            email?: string | null;
             /** Password */
             password: string;
+            /** Phone */
+            phone?: string | null;
         };
         /** LogoutRequest */
         LogoutRequest: {

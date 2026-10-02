@@ -135,7 +135,13 @@ Authentication, users, and RBAC — spec Sections 5 and 19.
   [ADR-0002](docs/adr/0002-ledger-model.md)'s "let the database decide"
   pattern, applied here to registration).
 * `POST /api/v1/auth/login` — Argon2id password verification, issues an
-  access token + refresh token.
+  access token + refresh token. Sign in with `email` or `phone` (exactly
+  one). Phones are stored and compared in one canonical form
+  (`+998901234567`, `app/core/phone.py`), so "90 123 45 67",
+  "998901234567" and "+998 (90) 123-45-67" all work; registration
+  normalizes the number and rejects impossible ones, and a data migration
+  rewrote existing rows (leaving any whose canonical form was invalid or
+  already taken).
 * `POST /api/v1/auth/refresh` — refresh token rotation. Redeeming a token
   is an atomic `UPDATE ... WHERE used_at IS NULL`, so two concurrent
   redemptions of the same token can't both succeed silently. Reusing an

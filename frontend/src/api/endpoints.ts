@@ -41,10 +41,15 @@ export interface Page {
 
 // --- auth (identity-service) -------------------------------------------
 
-export async function login(email: string, password: string): Promise<void> {
+/** Signs in with a phone number or an email address, whichever was typed
+ * (anything with an "@" is an email). identity-service normalizes the
+ * phone, so any common way of writing it works. */
+export async function login(identifier: string, password: string): Promise<void> {
+  const value = identifier.trim();
+  const credentials = value.includes("@") ? { email: value } : { phone: value };
   const tokens = await apiRequest<Identity["TokenResponse"]>("/api/v1/auth/login", {
     method: "POST",
-    body: { email, password },
+    body: { ...credentials, password },
     headers: refreshTransportHeaders(),
     authenticated: false,
   });
