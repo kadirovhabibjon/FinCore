@@ -309,6 +309,20 @@ services:
     ports:
       - "8180:80"
 
+  # Optional public HTTPS link to this machine's stack (scripts/setup-tunnel.sh),
+  # so phones and other computers on any network can open the app while
+  # this computer is on. Only started with `--profile tunnel`; once started
+  # it comes back after a reboot like everything else.
+  ngrok:
+    image: ngrok/ngrok:3
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    depends_on:
+      - gateway
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    command: ["http", "gateway:80", "--url", "https://${NGROK_DOMAIN:-unset}", "--log", "stdout"]
+
 volumes:
   postgres_data:
   kafka_data:

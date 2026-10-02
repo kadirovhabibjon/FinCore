@@ -1,11 +1,19 @@
 # FinCore
 
-**▶ Customer app: [http://localhost:8180](http://localhost:8180)** ·
-**Admin console: [http://localhost:8180/admin](http://localhost:8180/admin)**
-(staff accounts only) — start the stack once with `docker compose up -d --build --wait`
-(see [Run it](#run-it)); every container has `restart: unless-stopped`,
-so from then on it comes back by itself after a crash or a reboot, until
-you run `docker compose stop`.
+**▶ Customer app: [ninth-distinct-sincere.ngrok-free.dev](https://ninth-distinct-sincere.ngrok-free.dev)** ·
+**Admin console: [ninth-distinct-sincere.ngrok-free.dev/admin](https://ninth-distinct-sincere.ngrok-free.dev/admin)**
+(staff accounts only)
+
+The public link opens on any phone or computer. It's served from the
+author's machine through an ngrok tunnel, so it's up while that machine
+is on. ngrok's free tier shows a one-time "Visit Site" notice to each new
+visitor. Locally the same apps are at
+[http://localhost:8180](http://localhost:8180) and
+[/admin](http://localhost:8180/admin). Start the stack once with
+`docker compose up -d --build --wait` (see [Run it](#run-it)); every
+container has `restart: unless-stopped`, so it comes back by itself
+after a crash or a reboot. To give your own copy a public link, see
+[Public link](#public-link-optional).
 
 A digital wallet and payment platform built as a microservices system, in
 the style of a real core-banking backend: database-per-service,
@@ -889,6 +897,27 @@ curl "localhost:8098/internal/v1/audit-logs?resource_id=<transfer or payment id>
 > internal container ports are unaffected. Change the left side of each
 > `"host:container"` mapping in `docker-compose.yml` if these also
 > collide with something on your machine.
+
+### Public link (optional)
+
+Opening `http://<this-computer's-lan-ip>:8180` from a phone often fails:
+many Wi-Fi networks isolate devices from each other, and iOS asks
+permission for local-network access. A tunnel avoids both and gives a
+real HTTPS address. With a free [ngrok](https://ngrok.com) account (an
+authtoken, plus the one free static domain under **Domains**), run:
+
+```bash
+./scripts/setup-tunnel.sh <authtoken> <your-domain.ngrok-free.dev>
+```
+
+The script stores both values in the git-ignored root `.env` and starts
+the `ngrok` service (compose profile `tunnel`, so plain
+`docker compose up` and CI never start it). Like the rest of the stack,
+the service comes back after a reboot. The gateway trusts
+`X-Forwarded-For` only from private networks, taking the rightmost
+untrusted address, so login rate limits and session/audit IPs are per
+visitor and a visitor can't spoof theirs. The link is public: only grant
+staff roles to accounts with strong passwords.
 
 ### Running a service directly (faster edit/test loop)
 
