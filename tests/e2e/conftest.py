@@ -30,6 +30,7 @@ _SERVICE_PORTS = {
     "fraud-service": 8095,
     "webhook-service": 8097,
     "audit-service": 8098,
+    "assistant-service": 8099,
 }
 
 

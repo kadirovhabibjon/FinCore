@@ -122,6 +122,21 @@ PAYMENT_SERVICE_BASE_URL=http://payment-service:8000
 KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 EOF
 
+# The Claude API key isn't generated: paste your own into
+# services/assistant-service/.env (ANTHROPIC_API_KEY=...). Without one the
+# stack runs normally and the chat answers that it isn't configured.
+write_env assistant-service <<EOF
+SERVICE_NAME=assistant-service
+LOG_LEVEL=INFO
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+ANTHROPIC_API_KEY=
+IDENTITY_SERVICE_JWKS_URL=http://identity-service:8000/.well-known/jwks.json
+JWT_ISSUER=fincore-identity-service
+IDENTITY_SERVICE_BASE_URL=http://identity-service:8000
+LEDGER_SERVICE_BASE_URL=http://ledger-service:8000
+PAYMENT_SERVICE_BASE_URL=http://payment-service:8000
+EOF
+
 write_env audit-service <<EOF
 SERVICE_NAME=audit-service
 LOG_LEVEL=INFO

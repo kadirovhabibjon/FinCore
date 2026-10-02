@@ -10,7 +10,13 @@ import openapiTS, { astToString } from "openapi-typescript";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const contracts = join(root, "..", "contracts", "openapi");
 const out = join(root, "src", "api", "schema");
-const services = ["identity-service", "ledger-service", "payment-service", "webhook-service"];
+const services = [
+  "identity-service",
+  "ledger-service",
+  "payment-service",
+  "webhook-service",
+  "assistant-service",
+];
 
 await mkdir(out, { recursive: true });
 for (const service of services) {

@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../auth/context";
+import { ChatWidget } from "./ChatWidget";
 
 const USER_LINKS = [
   { to: "/", label: "Wallets", end: true },
@@ -41,6 +42,7 @@ export function Layout() {
       <main className="content">
         <Outlet />
       </main>
+      <ChatWidget />
     </div>
   );
 }

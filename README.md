@@ -25,14 +25,15 @@ tutorial. Every non-obvious decision is recorded as an [ADR](docs/adr/)
 rather than left implicit, and the full design rationale lives in
 [`docs/spec.md`](docs/spec.md).
 
-**Status: Phases 0–7 complete.** All seven services — identity,
-ledger, payment, fraud, notification, webhook and audit — are built,
+**Status: Phases 0–7 complete.** All eight services — identity,
+ledger, payment, fraud, notification, webhook, audit and the AI
+assistant — are built,
 tested and run together via Docker Compose with the gateway, Kafka,
 Jaeger, Prometheus and Grafana, plus a React + TypeScript web app (user
 dashboard and support/admin panel) served through the same gateway.
 Every package has unit and integration tests against real
 PostgreSQL/Kafka, every API and event is covered by a committed
-contract, a 46-test end-to-end suite runs against the live stack in CI,
+contract, a 48-test end-to-end suite runs against the live stack in CI,
 and a load test gates on ledger reconciliation. Integrations designed but not yet built are listed
 in [`docs/context-map.md`](docs/context-map.md); the table in
 [Roadmap](#roadmap) tracks status precisely — nothing here is described
@@ -95,6 +96,7 @@ across a distributed transaction. The full reasoning is in
 | `notification-service` ✅ | notifications, retry/DLT state | Pure asynchronous event consumer — the natural boundary for "reacts, doesn't decide" |
 | `fraud-service` ✅ | fraud checks, rules | Isolated so the rule engine can become an ML model later without touching payment logic |
 | `webhook-service` ✅ | webhook endpoints, deliveries, attempts | Same "reacts, doesn't decide" boundary as `notification-service`, plus its own public registration API — a merchant-facing surface `payment-service` shouldn't own |
+| `assistant-service` ✅ | nothing (stateless) | The customer chat (ADR-0007): calls the Claude API and reads the customer's own data through the other services' public APIs with the customer's token — no data of its own, no privileges beyond the customer's |
 | `audit-service` ✅ | audit logs, dead-letter state | Same "reacts, doesn't decide" boundary as `notification-service`, plus append-only storage enforced at the database-role level — a property no other service's data needs |
 
 ✅ = implemented. Everything else is designed (ADRs + context map) and
@@ -646,6 +648,36 @@ flag and fails with "type already exists." Both are now covered by
 regression tests in `tests/integration/test_migrations.py` in each
 service.
 
+### `assistant-service` (AI customer chat)
+
+The "Ask FinCore" chat on every page of the customer site
+([ADR-0007](docs/adr/0007-customer-assistant.md)). It answers with Claude
+(`claude-opus-5-5`), but only from two sources: a fixed knowledge base
+written from the code (`app/knowledge.md`: real limits, rules, statuses,
+fraud thresholds, and what FinCore doesn't offer) and nine read-only
+tools that fetch the signed-in customer's own profile, wallets, ledger
+entries, transactions with failure reasons, merchants, received payments
+and sessions through the public APIs, with the customer's own token. It
+answers in the customer's language, says when it doesn't know instead of
+guessing, quotes amounts exactly as the tools format them, and treats
+text inside tool results as data, never as instructions. It can't move
+money or change anything.
+
+* `POST /api/v1/assistant/chat` — the conversation so far (kept by the
+  browser; nothing is stored), ending with the customer's message.
+* Cost limits: 6 requests/minute per IP at the gateway, 30
+  messages/hour per customer, 20 messages × 2,000 characters per
+  request, at most 8 tool round trips per reply.
+* A safety-classifier decline is re-run on Anthropic's recommended
+  fallback model (`fallbacks: "default"`); a final refusal gets a polite
+  reply.
+* **To turn it on**, put a Claude API key in
+  `services/assistant-service/.env` (`ANTHROPIC_API_KEY=...`, from
+  [platform.claude.com](https://platform.claude.com)) and run
+  `docker compose up -d assistant-service`. Without a key everything else
+  works and the chat says it isn't configured. Every message is billed
+  to that key.
+
 ### Web app (`frontend/`)
 
 | Wallets | Merchant: received payments, refunds, webhooks |
@@ -800,7 +832,7 @@ docker compose exec identity-service python -m app.cli grant-role you@example.co
 
 | Via gateway | Direct |
 |---|---|
-| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service), `http://localhost:8094` (notification-service), `http://localhost:8095` (fraud-service), `http://localhost:8097` (webhook-service), `http://localhost:8098` (audit-service) |
+| `http://localhost:8180` | `http://localhost:8091` (identity-service), `http://localhost:8092` (ledger-service), `http://localhost:8093` (payment-service), `http://localhost:8094` (notification-service), `http://localhost:8095` (fraud-service), `http://localhost:8097` (webhook-service), `http://localhost:8098` (audit-service), `http://localhost:8099` (assistant-service) |
 
 Swagger UI (FastAPI's auto-generated API docs):
 `http://localhost:8091/docs`, `http://localhost:8092/docs`,
@@ -1065,6 +1097,7 @@ cd services/notification-service && .venv/bin/pytest -v # 28 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
 cd services/audit-service && .venv/bin/pytest -v        # 49 tests
+cd services/assistant-service && .venv/bin/pytest -v    # 23 tests (Claude API faked: no key, no spend)
 ```
 
 Integration tests spin up a real PostgreSQL container via `testcontainers`
@@ -1117,13 +1150,14 @@ cd services/notification-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/fraud-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/webhook-service && .venv/bin/ruff check . && .venv/bin/mypy app
 cd services/audit-service && .venv/bin/ruff check . && .venv/bin/mypy app
+cd services/assistant-service && .venv/bin/ruff check . && .venv/bin/mypy app
 ```
 
 The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 45 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 55 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1172,7 +1206,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-46 tests that run against a live `docker compose` stack, through the
+48 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit
@@ -1310,6 +1344,9 @@ problem, the decision, and what was rejected and why:
 * [ADR-0006](docs/adr/0006-browser-auth-storage.md) — where the browser
   keeps tokens (memory + httpOnly cookie), and how staff roles are
   granted and checked.
+* [ADR-0007](docs/adr/0007-customer-assistant.md) — the AI customer
+  assistant: grounded in a code-derived knowledge base and read-only
+  tools over the customer's own data, never allowed to move money.
 
 Plus [`docs/glossary.md`](docs/glossary.md) (shared vocabulary),
 [`docs/context-map.md`](docs/context-map.md) (service boundaries and

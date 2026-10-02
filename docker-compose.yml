@@ -282,6 +282,29 @@ services:
     ports:
       - "8098:8000"
 
+  # Customer support chat answered by Claude (ADR-0007). Stateless: no
+  # database; reads customers' own data through the public APIs above.
+  assistant-service:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: services/assistant-service/Dockerfile
+    env_file:
+      - services/assistant-service/.env
+    depends_on:
+      identity-service:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "8099:8000"
+
   # React SPA (ADR-0005), built into static files served by Nginx. Not
   # published on its own port: the browser reaches it through the gateway,
   # on the same origin as the API (ADR-0006).
@@ -305,6 +328,8 @@ services:
       payment-service:
         condition: service_healthy
       webhook-service:
+        condition: service_healthy
+      assistant-service:
         condition: service_healthy
     ports:
       - "8180:80"

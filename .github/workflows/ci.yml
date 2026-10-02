@@ -328,6 +328,40 @@ jobs:
         working-directory: .
         run: docker build -f services/audit-service/Dockerfile -t fincore-audit-service:ci .
 
+  assistant-service:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/assistant-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install fincore-common
+        run: pip install -e ../../libs/fincore-common
+
+      - name: Install assistant-service
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (mypy)
+        run: mypy app
+
+      - name: Contract checks (contracts/openapi)
+        run: pytest -v -k contract
+
+      - name: Test (unit + API, Claude API replaced by a scripted fake — no key, no spend)
+        run: pytest -v
+
+      - name: Build Docker image
+        working-directory: .
+        run: docker build -f services/assistant-service/Dockerfile -t fincore-assistant-service:ci .
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -382,6 +416,7 @@ jobs:
       - fraud-service
       - webhook-service
       - audit-service
+      - assistant-service
       - frontend
     runs-on: ubuntu-latest
     steps:

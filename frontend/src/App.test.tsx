@@ -415,3 +415,51 @@ describe("password fields", () => {
     expect(password).toHaveAttribute("type", "password");
   });
 });
+
+describe("assistant chat", () => {
+  it("asks the assistant and shows the reply as plain text", async () => {
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([]),
+      "POST /api/v1/assistant/chat": () =>
+        json({ reply: "Sizda 1,250.00 UZS bor. <b>not html</b>" }),
+    });
+    renderApp("/");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Ask FinCore" }));
+    await userEvent.type(screen.getByLabelText("Message"), "Balansim qancha?{Enter}");
+
+    const reply = await screen.findByText(/Sizda 1,250.00 UZS bor/);
+    expect(reply.textContent).toContain("<b>not html</b>");
+    const sent = requests.find((r) => r.path === "/api/v1/assistant/chat");
+    expect(sent?.body).toEqual({ messages: [{ role: "user", content: "Balansim qancha?" }] });
+    expect(sent?.headers.authorization).toBe("Bearer access-1");
+  });
+
+  it("keeps the question to resend when the assistant is unavailable", async () => {
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([]),
+      "POST /api/v1/assistant/chat": () =>
+        problem(503, "Assistant Not Configured", "The assistant needs an API key."),
+    });
+    renderApp("/");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Ask FinCore" }));
+    await userEvent.type(screen.getByLabelText("Message"), "hello{Enter}");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("The assistant needs an API key.");
+    expect(screen.getByLabelText("Message")).toHaveValue("hello");
+  });
+
+  it("is not part of the admin console", async () => {
+    fakeApi({
+      ...signedInRoutes({ ...USER, roles: ["ADMIN", "USER"] }),
+      "GET /api/v1/admin/reviews": () => json([]),
+    });
+    renderApp("/admin/reviews");
+
+    expect(await screen.findByRole("heading", { name: "Fraud review queue" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ask FinCore" })).not.toBeInTheDocument();
+  });
+});

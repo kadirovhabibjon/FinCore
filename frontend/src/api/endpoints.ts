@@ -6,6 +6,7 @@ import { apiRequest } from "./client";
 import type { components as IdentitySchemas } from "./schema/identity-service";
 import type { components as LedgerSchemas } from "./schema/ledger-service";
 import type { components as PaymentSchemas } from "./schema/payment-service";
+import type { components as AssistantSchemas } from "./schema/assistant-service";
 import type { components as WebhookSchemas } from "./schema/webhook-service";
 
 type Identity = IdentitySchemas["schemas"];
@@ -184,3 +185,13 @@ export const adminSetWebhookEndpointEnabled = (endpointId: string, enabled: bool
     `/api/v1/admin/webhooks/endpoints/${endpointId}/${enabled ? "enable" : "disable"}`,
     { method: "POST" },
   );
+
+// --- assistant (assistant-service) -------------------------------------
+
+export type ChatMessage = AssistantSchemas["schemas"]["ChatMessage"];
+
+export const askAssistant = (messages: ChatMessage[]) =>
+  apiRequest<AssistantSchemas["schemas"]["ChatResponse"]>("/api/v1/assistant/chat", {
+    method: "POST",
+    body: { messages },
+  });
