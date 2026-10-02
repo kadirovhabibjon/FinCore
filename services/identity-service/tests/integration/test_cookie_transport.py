@@ -138,3 +138,82 @@ async def test_logout_without_any_token_still_succeeds() -> None:
         response = await client.post("/api/v1/auth/logout", headers=_COOKIE_MODE)
 
     assert response.status_code == 204
+
+
+_ADMIN_MODE = {"X-Refresh-Token-Transport": "cookie-admin"}
+_ADMIN_COOKIE = f"{settings.refresh_cookie_name}_admin"
+
+
+def _named_set_cookie(response: Response, name: str) -> str | None:
+    found = [v for v in response.headers.get_list("set-cookie") if v.startswith(f"{name}=")]
+    return found[0] if found else None
+
+
+async def _make_staff() -> None:
+    from app import cli
+    from app.domain.role import RoleName
+
+    await cli._change_role(_USER["email"], RoleName.ADMIN, grant=True)
+
+
+async def test_the_admin_console_gets_its_own_independent_session() -> None:
+    async with _client() as client:
+        await client.post("/api/v1/auth/register", json=_USER)
+        await _make_staff()
+        credentials = {"email": _USER["email"], "password": _USER["password"]}
+
+        customer = await client.post("/api/v1/auth/login", json=credentials, headers=_COOKIE_MODE)
+        admin = await client.post("/api/v1/auth/login", json=credentials, headers=_ADMIN_MODE)
+        customer_cookie = _cookie_value(_refresh_set_cookie(customer))
+        admin_set = _named_set_cookie(admin, _ADMIN_COOKIE)
+        assert admin_set is not None
+        assert _named_set_cookie(admin, settings.refresh_cookie_name) is None
+        admin_cookie = admin_set.split(";", 1)[0].split("=", 1)[1]
+        customer_part = f"{settings.refresh_cookie_name}={customer_cookie}"
+        cookies = f"{customer_part}; {_ADMIN_COOKIE}={admin_cookie}"
+        both = {"Cookie": cookies}
+
+        # Signing out of the console leaves the customer site signed in.
+        logout = await client.post("/api/v1/auth/logout", headers={**_ADMIN_MODE, **both})
+        admin_after = await client.post("/api/v1/auth/refresh", headers={**_ADMIN_MODE, **both})
+        customer_after = await client.post("/api/v1/auth/refresh", headers={**_COOKIE_MODE, **both})
+
+    assert logout.status_code == 204
+    assert admin_after.status_code == 401
+    assert customer_after.status_code == 200
+
+
+async def test_a_customer_session_never_opens_the_admin_console() -> None:
+    async with _client() as client:
+        await client.post("/api/v1/auth/register", json=_USER)
+        await _make_staff()
+        login = await _cookie_login(client)
+        token = _cookie_value(_refresh_set_cookie(login))
+
+        # Only the customer cookie exists: the console must not find a session.
+        console = await client.post(
+            "/api/v1/auth/refresh", headers={**_ADMIN_MODE, **_cookie_header(token)}
+        )
+
+    assert console.status_code == 401
+
+
+async def test_only_staff_can_sign_in_to_the_admin_console() -> None:
+    async with _client() as client:
+        await client.post("/api/v1/auth/register", json=_USER)
+        response = await client.post(
+            "/api/v1/auth/login",
+            json={"email": _USER["email"], "password": _USER["password"]},
+            headers=_ADMIN_MODE,
+        )
+        sessions_opened = await client.post(
+            "/api/v1/auth/login", json={"email": _USER["email"], "password": _USER["password"]}
+        )
+        listed = await client.get(
+            "/api/v1/users/me/sessions",
+            headers={"Authorization": f"Bearer {sessions_opened.json()['access_token']}"},
+        )
+
+    assert response.status_code == 403
+    assert _named_set_cookie(response, _ADMIN_COOKIE) is None
+    assert len(listed.json()) == 1  # the refused console login opened no session

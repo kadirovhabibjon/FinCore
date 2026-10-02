@@ -7,9 +7,14 @@ export type Role = "USER" | "SUPPORT" | "ADMIN";
 export type AuthState =
   | { status: "loading"; user: null }
   | { status: "anonymous"; user: null }
+  // The server couldn't be reached to check the session: neither signed
+  // in nor signed out yet, so neither the app nor the sign-in page shows.
+  | { status: "unavailable"; user: null }
   | { status: "authenticated"; user: CurrentUser };
 
 export type AuthContextValue = AuthState & {
+  /** Checks the session again after "unavailable". */
+  retry: () => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;

@@ -3,11 +3,38 @@
 // A page reload loses it on purpose; the httpOnly refresh cookie (which
 // no script can read) gets a fresh one back via `refreshAccessToken`.
 
-const REFRESH_HEADER = { "X-Refresh-Token-Transport": "cookie" } as const;
+/** The customer site and the admin console are separate sessions with
+ * separate refresh cookies: signing in to one never signs you in to the
+ * other (identity-service's "cookie" / "cookie-admin" transports). */
+export type SessionScope = "customer" | "admin";
 
+/** How a refresh attempt ended. "unavailable" (network down, server
+ * restarting, rate limited) says nothing about the session itself, so it
+ * must never be treated as being signed out. */
+export type RefreshResult = "ok" | "invalid" | "unavailable";
+
+/** Waits between attempts to reach the server on page load, and between
+ * sign-out attempts. Tests shorten them. */
+export const authTiming = { retryDelaysMs: [500, 1500, 3000], requestTimeoutMs: 8000 };
+
+const TRANSPORT: Record<SessionScope, string> = { customer: "cookie", admin: "cookie-admin" };
+
+let scope: SessionScope = "customer";
 let accessToken: string | null = null;
-let inFlightRefresh: Promise<boolean> | null = null;
+let inFlightRefresh: Promise<RefreshResult> | null = null;
 const sessionEndedListeners = new Set<() => void>();
+
+export function getSessionScope(): SessionScope {
+  return scope;
+}
+
+/** Switching apps drops the other app's access token. */
+export function setSessionScope(next: SessionScope): void {
+  if (next !== scope) {
+    scope = next;
+    accessToken = null;
+  }
+}
 
 export function getAccessToken(): string | null {
   return accessToken;
@@ -22,7 +49,7 @@ export function clearAccessToken(): void {
 }
 
 export function refreshTransportHeaders(): Record<string, string> {
-  return { ...REFRESH_HEADER };
+  return { "X-Refresh-Token-Transport": TRANSPORT[scope] };
 }
 
 /**
@@ -31,24 +58,26 @@ export function refreshTransportHeaders(): Record<string, string> {
  * so several requests hitting 401 at once must share one refresh call
  * rather than each spending the same cookie.
  */
-export function refreshAccessToken(): Promise<boolean> {
-  inFlightRefresh ??= (async () => {
+export function refreshAccessToken(): Promise<RefreshResult> {
+  inFlightRefresh ??= (async (): Promise<RefreshResult> => {
     try {
       const response = await fetch("/api/v1/auth/refresh", {
         method: "POST",
         credentials: "same-origin",
-        headers: { Accept: "application/json", ...REFRESH_HEADER },
+        headers: { Accept: "application/json", ...refreshTransportHeaders() },
+        // A hung request counts as "unavailable", not as a long blank wait.
+        signal: AbortSignal.timeout(authTiming.requestTimeoutMs),
       });
-      if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
         clearAccessToken();
-        return false;
+        return "invalid";
       }
+      if (!response.ok) return "unavailable";
       const body = (await response.json()) as { access_token: string };
       setAccessToken(body.access_token);
-      return true;
+      return "ok";
     } catch {
-      clearAccessToken();
-      return false;
+      return "unavailable";
     } finally {
       inFlightRefresh = null;
     }
@@ -66,4 +95,38 @@ export function onSessionEnded(listener: () => void): () => void {
 export function endSession(): void {
   clearAccessToken();
   sessionEndedListeners.forEach((listener) => listener());
+}
+
+// --- "signed out here" marker -------------------------------------------
+//
+// Signing out has to reach the server: the refresh cookie is httpOnly, so
+// only identity-service can revoke and clear it. If that request fails
+// (offline, server restarting), this marker remembers that the user chose
+// to sign out, so the next page load stays signed out and retries the
+// server-side sign-out instead of quietly restoring the session.
+
+const markerKey = (which: SessionScope) => `fincore:signed-out:${which}`;
+
+export function markSignedOut(which: SessionScope): void {
+  try {
+    localStorage.setItem(markerKey(which), "1");
+  } catch {
+    // Storage blocked: the in-memory sign-out still applies to this tab.
+  }
+}
+
+export function clearSignedOutMark(which: SessionScope): void {
+  try {
+    localStorage.removeItem(markerKey(which));
+  } catch {
+    // Nothing stored.
+  }
+}
+
+export function isMarkedSignedOut(which: SessionScope): boolean {
+  try {
+    return localStorage.getItem(markerKey(which)) === "1";
+  } catch {
+    return false;
+  }
 }

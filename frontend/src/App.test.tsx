@@ -463,3 +463,93 @@ describe("assistant chat", () => {
     expect(screen.queryByRole("button", { name: "Ask FinCore" })).not.toBeInTheDocument();
   });
 });
+
+describe("staying signed in, and out, across reloads", () => {
+  it("doesn't let a customer session open the admin console", async () => {
+    // A customer cookie exists, but the console asks for its own session.
+    const { requests } = fakeApi({
+      "POST /api/v1/auth/refresh": (request) =>
+        request.headers["x-refresh-token-transport"] === "cookie"
+          ? json({ access_token: "access-1", refresh_token: null, expires_in: 900 })
+          : problem(401, "Invalid Token"),
+      "GET /api/v1/users/me": () => json({ ...USER, roles: ["ADMIN", "USER"] }),
+    });
+
+    renderApp("/admin/login");
+
+    expect(await screen.findByRole("heading", { name: "FinCore Admin" })).toBeInTheDocument();
+    const refresh = requests.find((r) => r.path === "/api/v1/auth/refresh");
+    expect(refresh?.headers["x-refresh-token-transport"]).toBe("cookie-admin");
+  });
+
+  it("signs in to the console with its own session", async () => {
+    const { requests } = fakeApi({
+      "POST /api/v1/auth/refresh": () => problem(401, "Invalid Token"),
+      "POST /api/v1/auth/login": () =>
+        json({ access_token: "admin-1", refresh_token: null, expires_in: 900 }),
+      "GET /api/v1/users/me": () => json({ ...USER, roles: ["ADMIN", "USER"] }),
+      "GET /api/v1/admin/reviews": () => json([]),
+    });
+    renderApp("/admin/login");
+
+    await userEvent.type(await screen.findByLabelText("Email"), "ada@example.com");
+    await userEvent.type(screen.getByLabelText("Password"), "correct-horse");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("heading", { name: "Fraud review queue" })).toBeInTheDocument();
+    const login = requests.find((r) => r.path === "/api/v1/auth/login");
+    expect(login?.headers["x-refresh-token-transport"]).toBe("cookie-admin");
+  });
+
+  it("never shows the sign-in page just because the server didn't answer", async () => {
+    let up = false;
+    fakeApi({
+      "POST /api/v1/auth/refresh": () =>
+        up
+          ? json({ access_token: "access-1", refresh_token: null, expires_in: 900 })
+          : problem(502, "Bad Gateway"),
+      "GET /api/v1/users/me": () => json(USER),
+      "GET /api/v1/wallets": () => json([]),
+    });
+    renderApp("/");
+
+    expect(await screen.findByRole("heading", { name: "Can't reach FinCore" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sign in to FinCore" })).not.toBeInTheDocument();
+
+    up = true;
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("heading", { name: "Hello, Ada" })).toBeInTheDocument();
+  });
+
+  it("stays signed out after a reload even if the sign-out request failed", async () => {
+    const first = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([]),
+      "POST /api/v1/auth/logout": () => problem(503, "Service Unavailable"),
+    });
+    const view = renderApp("/");
+    await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("heading", { name: "Sign in to FinCore" })).toBeInTheDocument();
+    expect(first.requests.filter((r) => r.path === "/api/v1/auth/logout").length).toBeGreaterThan(1);
+    view.unmount();
+
+    // "Reload": the refresh cookie would still work, but must not be used.
+    const second = fakeApi({
+      ...signedInRoutes(),
+      "POST /api/v1/auth/logout": () => noContent(),
+    });
+    renderApp("/");
+
+    expect(await screen.findByRole("heading", { name: "Sign in to FinCore" })).toBeInTheDocument();
+    expect(second.requests.some((r) => r.path === "/api/v1/auth/refresh")).toBe(false);
+    expect(second.requests.some((r) => r.path === "/api/v1/auth/logout")).toBe(true);
+  });
+
+  it("an expired session still goes to the sign-in page", async () => {
+    fakeApi({ "POST /api/v1/auth/refresh": () => problem(401, "Invalid Token") });
+
+    renderApp("/");
+
+    expect(await screen.findByRole("heading", { name: "Sign in to FinCore" })).toBeInTheDocument();
+  });
+});

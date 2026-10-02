@@ -67,6 +67,43 @@ cross-site `fetch` that sets one needs a CORS preflight that the gateway
 never approves. The JSON-body mode is unchanged, so API clients, the
 e2e suite and the load test keep working as before.
 
+### Separate sessions for the customer site and the admin console
+
+*Added after a staff member, already signed in to the customer site,
+opened the admin sign-in page and was signed straight into the app by a
+reload.*
+
+The two apps live in one browser, at one origin, but never share a
+session.
+
+* The admin console sends `X-Refresh-Token-Transport: cookie-admin`
+  instead of `cookie`. Its refresh token lives in its own cookie,
+  `fincore_refresh_admin`, with the same attributes as the customer one.
+* Signing in to, or out of, either app leaves the other untouched. A
+  customer session never opens the console.
+* `/login` with `cookie-admin` refuses accounts without SUPPORT or ADMIN
+  (403), before any session is created. A console refresh whose account
+  has lost its staff role revokes that session.
+
+**The page decides only on a definite answer from the server.** On load
+the SPA:
+
+* shows the sign-in page only when `/refresh` says the session is gone
+  (401/403);
+* retries a network error, timeout, 5xx or 429 a few times, then shows
+  "Can't reach FinCore" with a retry button. Before this change, a
+  restart of identity-service showed the sign-in page and the next
+  reload signed the user back in;
+* gets a fast failure when a service is down: the gateway gives up
+  connecting after 3 s instead of nginx's default 60 s.
+
+**Signing out is remembered.** Revoking the httpOnly refresh cookie
+needs the server. Sign-out is retried, and if it still fails, a
+`fincore:signed-out:<app>` marker in localStorage makes every later load
+stay signed out and retry the revocation, instead of quietly restoring
+the session. The marker holds no secret: only the fact that the user
+chose to sign out.
+
 ### Same origin
 
 The gateway serves the SPA and the API from one origin. The SPA runs in

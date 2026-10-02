@@ -10,12 +10,31 @@ function FullPageMessage({ text }: { text: string }) {
   );
 }
 
+/** The session couldn't be checked: say so, never guess signed in or out. */
+function Unreachable({ retry }: { retry: () => void }) {
+  return (
+    <div className="auth-page">
+      <div className="card auth-card" role="alert">
+        <h1>Can&apos;t reach FinCore</h1>
+        <p className="muted">
+          Your connection or the server isn&apos;t responding right now. Nothing has changed in
+          your account.
+        </p>
+        <button type="button" className="button" onClick={retry}>
+          Try again
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** `loginPath` differs per app: the customer site signs in at /login,
  * the admin console at /admin/login. */
 export function RequireAuth({ loginPath = "/login" }: { loginPath?: string }) {
   const auth = useAuth();
   const location = useLocation();
   if (auth.status === "loading") return <FullPageMessage text="Loading…" />;
+  if (auth.status === "unavailable") return <Unreachable retry={auth.retry} />;
   if (auth.status === "anonymous") {
     return (
       <Navigate to={loginPath} replace state={{ from: location.pathname + location.search }} />
@@ -54,6 +73,7 @@ export function RedirectIfAuthenticated({ home = "/" }: { home?: string }) {
   const auth = useAuth();
   const location = useLocation();
   if (auth.status === "loading") return <FullPageMessage text="Loading…" />;
+  if (auth.status === "unavailable") return <Unreachable retry={auth.retry} />;
   if (auth.status === "authenticated") {
     const from = (location.state as { from?: string } | null)?.from;
     return <Navigate to={from ?? home} replace />;

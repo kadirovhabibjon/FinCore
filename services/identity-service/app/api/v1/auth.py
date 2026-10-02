@@ -12,9 +12,10 @@ from app.api.v1.schemas import (
     UserResponse,
 )
 from app.core.config import settings
-from app.core.exceptions import InvalidTokenError
+from app.core.exceptions import InsufficientRoleError, InvalidTokenError
 from app.core.tokens import create_access_token
 from app.db.session import get_db
+from app.domain.role import RoleName
 from app.domain.user import User
 from app.repositories.user_repository import UserRepository
 from app.services.authentication import authenticate_user
@@ -22,6 +23,7 @@ from app.services.registration import RegistrationData, register_user
 from app.services.sessions import (
     IssuedRefreshToken,
     revoke_session_by_refresh_token,
+    revoke_user_session,
     rotate_refresh_token,
     start_session,
 )
@@ -33,11 +35,24 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 # custom header (not just the cookie) is a CSRF defense on top of
 # SameSite=Strict: a cross-site page can't attach it without a CORS
 # preflight the gateway never approves.
-_COOKIE_TRANSPORT = "cookie"
+#
+# Two values, two independent sessions in one browser: "cookie" for the
+# customer site and "cookie-admin" for the admin console, each with its
+# own cookie. Signing in to (or out of) one never signs you in to (or
+# out of) the other, and an admin-console session is only ever issued to
+# a staff account.
+_CUSTOMER_TRANSPORT = "cookie"
+_ADMIN_TRANSPORT = "cookie-admin"
+_STAFF_ROLES = {RoleName.SUPPORT.value, RoleName.ADMIN.value}
 
 
-def _wants_cookie(transport: str | None) -> bool:
-    return transport == _COOKIE_TRANSPORT
+def _cookie_name(transport: str | None) -> str | None:
+    """The refresh cookie this request uses, or None for body transport."""
+    if transport == _CUSTOMER_TRANSPORT:
+        return settings.refresh_cookie_name
+    if transport == _ADMIN_TRANSPORT:
+        return f"{settings.refresh_cookie_name}_admin"
+    return None
 
 
 def _client_ip(request: Request) -> str | None:
@@ -46,10 +61,10 @@ def _client_ip(request: Request) -> str | None:
     return request.headers.get("x-real-ip") or (request.client.host if request.client else None)
 
 
-def _set_refresh_cookie(response: Response, issued: IssuedRefreshToken) -> None:
+def _set_refresh_cookie(response: Response, issued: IssuedRefreshToken, name: str) -> None:
     max_age = int((issued.expires_at - datetime.now(UTC)).total_seconds())
     response.set_cookie(
-        key=settings.refresh_cookie_name,
+        key=name,
         value=issued.token,
         max_age=max_age,
         path=settings.refresh_cookie_path,
@@ -59,9 +74,9 @@ def _set_refresh_cookie(response: Response, issued: IssuedRefreshToken) -> None:
     )
 
 
-def _clear_refresh_cookie(response: Response) -> None:
+def _clear_refresh_cookie(response: Response, name: str) -> None:
     response.delete_cookie(
-        key=settings.refresh_cookie_name,
+        key=name,
         path=settings.refresh_cookie_path,
         httponly=True,
         secure=settings.refresh_cookie_secure,
@@ -70,27 +85,30 @@ def _clear_refresh_cookie(response: Response) -> None:
 
 
 def _presented_refresh_token(
-    request: Request, payload: RefreshRequest | LogoutRequest | None, cookie_mode: bool
+    request: Request, payload: RefreshRequest | LogoutRequest | None, cookie: str | None
 ) -> str | None:
     if payload is not None:
         return payload.refresh_token
-    if cookie_mode:
-        return request.cookies.get(settings.refresh_cookie_name)
+    if cookie is not None:
+        return request.cookies.get(cookie)
     return None
 
 
 async def _token_response(
-    session: AsyncSession, issued: IssuedRefreshToken, response: Response, cookie_mode: bool
+    session: AsyncSession,
+    issued: IssuedRefreshToken,
+    response: Response,
+    cookie: str | None,
+    roles: list[str],
 ) -> TokenResponse:
-    roles = await UserRepository(session).get_role_names(issued.user_id)
     access_token, access_expires_at = create_access_token(
         issued.user_id, roles, session_id=issued.session_id
     )
-    if cookie_mode:
-        _set_refresh_cookie(response, issued)
+    if cookie is not None:
+        _set_refresh_cookie(response, issued, cookie)
     return TokenResponse(
         access_token=access_token,
-        refresh_token=None if cookie_mode else issued.token,
+        refresh_token=None if cookie is not None else issued.token,
         expires_in=int((access_expires_at - datetime.now(UTC)).total_seconds()),
     )
 
@@ -125,13 +143,18 @@ async def login(
     transport: str | None = Header(default=None, alias="X-Refresh-Token-Transport"),
 ) -> TokenResponse:
     user = await authenticate_user(session, payload.email, payload.password)
+    roles = await UserRepository(session).get_role_names(user.id)
+    if transport == _ADMIN_TRANSPORT and _STAFF_ROLES.isdisjoint(roles):
+        # Checked before a session exists, so a customer account gets no
+        # admin-console session at all, not one the console then refuses.
+        raise InsufficientRoleError("the admin console is for staff accounts only")
     issued = await start_session(
         session,
         user,
         user_agent=request.headers.get("user-agent"),
         ip_address=_client_ip(request),
     )
-    return await _token_response(session, issued, response, _wants_cookie(transport))
+    return await _token_response(session, issued, response, _cookie_name(transport), roles)
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -142,15 +165,20 @@ async def refresh(
     session: AsyncSession = Depends(get_db),
     transport: str | None = Header(default=None, alias="X-Refresh-Token-Transport"),
 ) -> TokenResponse:
-    cookie_mode = _wants_cookie(transport)
-    presented = _presented_refresh_token(request, payload, cookie_mode)
+    cookie = _cookie_name(transport)
+    presented = _presented_refresh_token(request, payload, cookie)
     if presented is None:
         raise InvalidTokenError("missing refresh token")
     # On failure the cookie is left in place: the token it holds is
     # already dead server-side (rotated, revoked or expired), so the
     # browser replaying it just gets this same 401 again. Logout clears it.
     issued = await rotate_refresh_token(session, presented)
-    return await _token_response(session, issued, response, cookie_mode)
+    roles = await UserRepository(session).get_role_names(issued.user_id)
+    if transport == _ADMIN_TRANSPORT and _STAFF_ROLES.isdisjoint(roles):
+        # Staff role revoked since sign-in: end the console session.
+        await revoke_user_session(session, issued.user_id, issued.session_id)
+        raise InvalidTokenError("this account no longer has staff access")
+    return await _token_response(session, issued, response, cookie, roles)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -161,9 +189,9 @@ async def logout(
     session: AsyncSession = Depends(get_db),
     transport: str | None = Header(default=None, alias="X-Refresh-Token-Transport"),
 ) -> None:
-    cookie_mode = _wants_cookie(transport)
-    presented = _presented_refresh_token(request, payload, cookie_mode)
+    cookie = _cookie_name(transport)
+    presented = _presented_refresh_token(request, payload, cookie)
     if presented is not None:
         await revoke_session_by_refresh_token(session, presented)
-    if cookie_mode:
-        _clear_refresh_cookie(response)
+    if cookie is not None:
+        _clear_refresh_cookie(response, cookie)

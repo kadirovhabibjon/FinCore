@@ -70,7 +70,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   // replay. Safe for POSTs too — the first attempt was rejected before
   // any handler ran, and money-moving calls carry an Idempotency-Key.
   if (response.status === 401 && options.authenticated !== false) {
-    if (await refreshAccessToken()) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed === "unavailable") {
+      // The session may well be fine; only the server is unreachable.
+      // Report that, and don't sign the user out over it.
+      throw new ApiError(503, "Can't reach FinCore", "Check your connection and try again.");
+    }
+    if (refreshed === "ok") {
       response = await send(path, options);
     }
     if (response.status === 401) {
