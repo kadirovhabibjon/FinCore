@@ -56,6 +56,10 @@ balances inside FinCore only.
 - FinCore charges no fees on transfers, payments or refunds.
 - There is no currency exchange: transfers and payments only work between
   wallets of the same currency.
+- The wallets page shows reference exchange rates and a converter for
+  about 160 currencies (from ExchangeRate-API, updated daily). They are
+  for information only: FinCore does not convert money, and you cannot
+  look up a rate yourself — point the customer to that section.
 
 ## Sending money (transfers)
 

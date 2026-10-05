@@ -720,6 +720,14 @@ refresh cookie.
   re-enable, delivery history with every attempt); account page with
   active sessions and remote sign-out, and password change (signs out
   every other device; audited as `user.password_changed`).
+* **Exchange rates** on the wallets page: a converter between any two of
+  ~160 currencies and a list of popular ones against the chosen
+  currency. Information only — wallets hold UZS or USD and FinCore never
+  converts money. The rates come from the free
+  [ExchangeRate-API](https://www.exchangerate-api.com) open endpoint
+  through the gateway (`GET /api/v1/rates`), which caches them for an
+  hour, serves the last good copy if the provider is down, and forwards
+  nothing of the customer's request (token, cookies, address).
 * **Admin console** — a separate app at `/admin` with its own sign-in
   page (no self-registration) and its own layout. The customer site never
   links to it or mentions it, even when the signed-in account is staff.
@@ -1170,7 +1178,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 64 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 73 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 

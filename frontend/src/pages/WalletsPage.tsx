@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 import * as api from "../api/endpoints";
 import { useAuth } from "../auth/context";
+import { ExchangeRates } from "../components/ExchangeRates";
 import { Empty, ErrorAlert, Loading, Money, ShortId, StatusBadge } from "../components/ui";
 import { SUPPORTED_CURRENCIES } from "../lib/money";
 
@@ -76,6 +77,7 @@ export function WalletsPage() {
           ))}
         </div>
       )}
+      <ExchangeRates />
     </section>
   );
 }

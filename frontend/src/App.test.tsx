@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { authTiming } from "./auth/tokenStore";
 
-import { USER, WALLET, fakeApi, json, noContent, problem, renderApp, signedInRoutes } from "./test/fakeApi";
+import { RATES, USER, WALLET, fakeApi, json, noContent, problem, renderApp, signedInRoutes } from "./test/fakeApi";
 
 describe("signing in", () => {
   it("sends a signed-out visitor to the login page", async () => {
@@ -621,5 +621,50 @@ describe("signing out after inactivity", () => {
     ).toBeInTheDocument();
     expect(requests.some((r) => r.path === "/api/v1/auth/logout")).toBe(true);
     expect(localStorage.getItem("fincore:last-activity:customer")).toBeNull();
+  });
+});
+
+describe("exchange rates", () => {
+  it("converts between the chosen currencies", async () => {
+    const { requests } = fakeApi({ ...signedInRoutes(), "GET /api/v1/wallets": () => json([WALLET]) });
+    renderApp("/");
+
+    await screen.findByRole("button", { name: "Swap currencies" });
+    const result = document.querySelector("output");
+    expect(result).toHaveTextContent("1 USD = 12,000 UZS");
+
+    await userEvent.clear(screen.getByLabelText("Amount"));
+    await userEvent.type(screen.getByLabelText("Amount"), "100");
+    await userEvent.selectOptions(screen.getByLabelText("From"), "EUR");
+    expect(result).toHaveTextContent("100 EUR = 1,500,000 UZS");
+
+    await userEvent.click(screen.getByRole("button", { name: "Swap currencies" }));
+    expect(result).toHaveTextContent("100 UZS = 0.006667 EUR");
+
+    // Public reference data: fetched without the customer's token.
+    const rates = requests.find((r) => r.path === "/api/v1/rates");
+    expect(rates?.headers.authorization).toBeUndefined();
+  });
+
+  it("lists popular currencies against the chosen one", async () => {
+    fakeApi({ ...signedInRoutes(), "GET /api/v1/wallets": () => json([]) });
+    renderApp("/");
+
+    const row = await screen.findByRole("button", { name: /RUB/ });
+    expect(row).toHaveTextContent("150 UZS");
+    await userEvent.click(row);
+    expect(screen.getByLabelText("From")).toHaveValue("RUB");
+  });
+
+  it("keeps the wallets usable when rates can't be loaded", async () => {
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET]),
+      "GET /api/v1/rates": () => json({ ...RATES, result: "error" }),
+    });
+    renderApp("/");
+
+    expect(await screen.findByText("1,250.00 UZS")).toBeInTheDocument();
+    expect(await screen.findByText(/Exchange rates are unavailable/)).toBeInTheDocument();
   });
 });

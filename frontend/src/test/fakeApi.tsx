@@ -36,6 +36,19 @@ export function noContent(): Response {
   return new Response(null, { status: 204 });
 }
 
+/** What the gateway's /api/v1/rates returns (units per US dollar). */
+export const RATES = {
+  result: "success",
+  time_last_update_unix: 1_791_158_551,
+  rates: { USD: 1, UZS: 12_000, EUR: 0.8, RUB: 80 },
+};
+
+// The wallets page always shows exchange rates, so every test that lands
+// there would have to list this route; a test can still override it.
+const DEFAULT_ROUTES: Record<string, Handler> = {
+  "GET /api/v1/rates": () => json(RATES),
+};
+
 /**
  * Stubs global fetch with a route table keyed "METHOD /path" (query
  * string excluded). Unmatched requests fail the test loudly instead of
@@ -60,7 +73,8 @@ export function fakeApi(routes: Record<string, Handler>) {
       body: init?.body ? JSON.parse(String(init.body)) : undefined,
     };
     requests.push(request);
-    const handler = routes[`${method} ${url.pathname}`];
+    const key = `${method} ${url.pathname}`;
+    const handler = routes[key] ?? DEFAULT_ROUTES[key];
     if (!handler) throw new Error(`unexpected request ${method} ${url.pathname}`);
     return handler(request);
   });
