@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.transfer import FraudDecision, Transfer, TransferStatus
@@ -16,12 +16,23 @@ class TransferRepository:
         return await self._session.get(Transfer, transfer_id)
 
     async def list_for_user(self, user_id: UUID, *, limit: int, offset: int) -> list[Transfer]:
-        """Newest first — the user's own transaction history (spec
-        Section 20's `GET /api/v1/transactions`).
+        """Newest first - the user's own transaction history (spec
+        Section 20's `GET /api/v1/transactions`): every transfer they
+        started, whatever became of it, and every transfer that reached
+        them. One that failed or is still in review never reached the
+        recipient, so they don't see it.
         """
         result = await self._session.execute(
             select(Transfer)
-            .where(Transfer.initiator_user_id == user_id)
+            .where(
+                or_(
+                    Transfer.initiator_user_id == user_id,
+                    and_(
+                        Transfer.recipient_user_id == user_id,
+                        Transfer.status == TransferStatus.COMPLETED,
+                    ),
+                )
+            )
             .order_by(Transfer.created_at.desc())
             .limit(limit)
             .offset(offset)

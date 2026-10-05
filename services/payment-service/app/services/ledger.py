@@ -358,6 +358,35 @@ class LedgerClient:
         )
 
 
+    async def find_wallet_owner(self, wallet_id: UUID) -> CardWallet | None:
+        """Whose wallet this is, or None when there is no such wallet.
+        Raises LedgerUnavailableError if ledger-service can't say."""
+        try:
+            async with async_client(
+                base_url=self._base_url,
+                timeout=self._timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = await client.get(
+                    f"/internal/v1/accounts/wallets/{wallet_id}",
+                    headers={"X-Internal-Token": self._internal_token},
+                )
+        except httpx.RequestError as exc:
+            raise LedgerUnavailableError(str(exc)) from exc
+
+        if response.status_code == 404:
+            return None
+        if response.status_code != 200:
+            raise LedgerUnavailableError(f"ledger-service returned {response.status_code}")
+        data = response.json()
+        return CardWallet(
+            id=UUID(data["id"]),
+            owner_user_id=UUID(data["owner_user_id"]),
+            currency=data["currency"],
+            status=data["status"],
+        )
+
+
 ledger_client = LedgerClient(
     base_url=settings.ledger_service_base_url,
     internal_token=settings.internal_service_token,

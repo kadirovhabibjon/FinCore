@@ -7,6 +7,7 @@ from app.api.v1.dependencies import AuthenticatedUser, get_authenticated_user
 from app.api.v1.schemas import TransactionResponse
 from app.core.exceptions import TransactionNotFoundError
 from app.db.session import get_db
+from app.domain.transfer import TransferStatus
 from app.repositories.payment_repository import PaymentRepository
 from app.repositories.transfer_repository import TransferRepository
 
@@ -21,11 +22,10 @@ async def list_transactions(
     session: AsyncSession = Depends(get_db),
 ) -> list[TransactionResponse]:
     """The caller's own business-operation history (spec Section 20),
-    newest first across *both* Transfer and Payment. Only ever the
-    operations they *initiated* — the other side of a transfer or
-    payment sees it via ledger-service's
-    `GET /api/v1/wallets/{id}/entries` instead, which is scoped by
-    wallet rather than by who started the operation.
+    newest first across *both* Transfer and Payment: everything they
+    started (`direction: OUT`) and every transfer that reached them
+    (`direction: IN`). A merchant's received payments are on the
+    merchant's own endpoints, not here.
 
     Merged and sorted in Python rather than a single SQL query, since
     Transfer and Payment are two separate tables (each operation type
@@ -41,7 +41,10 @@ async def list_transactions(
         user.user_id, limit=fetch_count, offset=0
     )
 
-    combined = [TransactionResponse.from_transfer(transfer) for transfer in transfers] + [
+    combined = [
+        TransactionResponse.from_transfer(transfer, viewer_user_id=user.user_id)
+        for transfer in transfers
+    ] + [
         TransactionResponse.from_payment(payment) for payment in payments
     ]
     combined.sort(key=lambda item: item.created_at, reverse=True)
@@ -55,8 +58,14 @@ async def get_transaction(
     session: AsyncSession = Depends(get_db),
 ) -> TransactionResponse:
     transfer = await TransferRepository(session).get(transaction_id)
-    if transfer is not None and transfer.initiator_user_id == user.user_id:
-        return TransactionResponse.from_transfer(transfer)
+    if transfer is not None and (
+        transfer.initiator_user_id == user.user_id
+        or (
+            transfer.recipient_user_id == user.user_id
+            and transfer.status == TransferStatus.COMPLETED
+        )
+    ):
+        return TransactionResponse.from_transfer(transfer, viewer_user_id=user.user_id)
 
     payment = await PaymentRepository(session).get(transaction_id)
     if payment is not None and payment.initiator_user_id == user.user_id:

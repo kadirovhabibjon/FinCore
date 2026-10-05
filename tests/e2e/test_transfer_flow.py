@@ -2,7 +2,7 @@ import uuid
 
 import httpx
 
-from e2e_client import FinCoreClient, User
+from e2e_client import FinCoreClient, User, wait_until
 
 
 def test_a_transfer_moves_money_between_two_users_wallets(
@@ -160,3 +160,71 @@ def test_recipient_lookup_gives_nothing_away(api: FinCoreClient, user: User) -> 
         ).status_code
         == 404
     )
+
+
+def _notifications(api: FinCoreClient, who: User) -> dict:
+    response = api.gateway.get("/api/v1/notifications", headers=who.auth)
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_both_people_see_a_transfer_in_history_and_are_notified(
+    api: FinCoreClient, user: User, other_user: User
+) -> None:
+    """Money sent from one customer to another shows up for both: in
+    each one's history (with the direction and the other's name) and
+    behind each one's bell. The notifications travel payment-service's
+    outbox -> Kafka -> notification-service, so they are waited for."""
+    source = api.funded_wallet(user, 50_000)
+    destination = api.create_wallet(other_user)
+
+    transfer = api.transfer(user, source=source, destination=destination, amount="75.00").json()
+    assert transfer["status"] == "COMPLETED"
+
+    def history(who: User) -> list[dict]:
+        return api.gateway.get("/api/v1/transactions", headers=who.auth).json()
+
+    [sent] = history(user)
+    [received] = history(other_user)
+    assert (sent["id"], sent["direction"], sent["counterparty_name"]) == (
+        transfer["id"],
+        "OUT",
+        "E2E U.",
+    )
+    assert (received["id"], received["direction"], received["counterparty_name"]) == (
+        transfer["id"],
+        "IN",
+        "E2E U.",
+    )
+    assert received["amount_minor"] == 7_500
+    # The recipient can open it; the sender's own transfer resource stays the sender's.
+    assert (
+        api.gateway.get(f"/api/v1/transactions/{transfer['id']}", headers=other_user.auth)
+    ).status_code == 200
+    assert (
+        api.gateway.get(f"/api/v1/transfers/{transfer['id']}", headers=other_user.auth)
+    ).status_code == 404
+
+    def both_notified() -> tuple[dict, dict] | None:
+        mine, theirs = _notifications(api, user), _notifications(api, other_user)
+        return (mine, theirs) if mine["items"] and theirs["items"] else None
+
+    mine, theirs = wait_until(both_notified)
+
+    assert theirs["unread_count"] == 1
+    assert theirs["items"][0]["type"] == "transfer.received"
+    assert theirs["items"][0]["body"] == "E2E U. sent you 75.00 UZS."
+    assert mine["items"][0]["type"] == "transfer.completed"
+    assert "75.00 UZS to E2E U." in mine["items"][0]["body"]
+
+    # Opening the bell clears the recipient's badge and nobody else's.
+    assert (
+        api.gateway.post("/api/v1/notifications/read", headers=other_user.auth).status_code == 204
+    )
+    assert _notifications(api, other_user)["unread_count"] == 0
+    assert _notifications(api, user)["unread_count"] == 1
+
+
+def test_notifications_need_a_signed_in_customer(api: FinCoreClient) -> None:
+    assert api.gateway.get("/api/v1/notifications").status_code == 401
+    assert api.gateway.post("/api/v1/notifications/read").status_code == 401

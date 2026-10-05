@@ -65,14 +65,17 @@ TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "list_my_transactions",
-        "description": f"The {_PAGE} most recent transfers and payments the customer "
-        "started, newest first, with reference, type, status, amount and dates.",
+        "description": f"The customer's {_PAGE} most recent transactions, newest first: "
+        "transfers and payments they started (direction OUT) and transfers they received "
+        "(direction IN), with reference, type, status, amount, dates and, for transfers, "
+        "counterparty_name: who it went to or came from, as first name and last initial.",
         "input_schema": _schema(),
         "strict": True,
     },
     {
         "name": "get_transaction_details",
-        "description": "Full details of one transfer or payment the customer started: "
+        "description": "Full details of one transfer or payment the customer started (for a "
+        "transfer they received, the summary only): "
         "status, failure reason, fraud decision, source wallet, destination wallet or "
         "merchant, refunded amount. Use to explain why something failed or is pending.",
         "input_schema": _schema(transaction_id=_ID),
@@ -214,9 +217,21 @@ async def run_tool(name: str, arguments: dict[str, Any], *, bearer_token: str) -
         elif name == "get_transaction_details":
             transaction_id = _require_uuid(arguments, "transaction_id")
             summary = await api.get(payment, f"/api/v1/transactions/{transaction_id}")
-            kind = "transfers" if summary["type"] == "TRANSFER" else "payments"
-            detail = await api.get(payment, f"/api/v1/{kind}/{transaction_id}")
-            result = _present({"type": summary["type"], **detail})
+            if summary.get("direction") == "IN":
+                # A transfer someone sent the customer: its details (the
+                # sender's wallets, fraud checks) belong to the sender.
+                result = _present(summary)
+            else:
+                kind = "transfers" if summary["type"] == "TRANSFER" else "payments"
+                detail = await api.get(payment, f"/api/v1/{kind}/{transaction_id}")
+                result = _present(
+                    {
+                        "type": summary["type"],
+                        "direction": summary.get("direction"),
+                        "counterparty_name": summary.get("counterparty_name"),
+                        **detail,
+                    }
+                )
         elif name == "list_my_merchants":
             result = await api.get(payment, "/api/v1/merchants")
         elif name == "list_merchant_payments":

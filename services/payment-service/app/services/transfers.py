@@ -39,6 +39,13 @@ def transfer_outbox_event(
             "transfer_id": str(transfer.id),
             "reference": transfer.reference,
             "initiator_user_id": str(transfer.initiator_user_id),
+            # The other side and both display names, for whoever tells the
+            # two people about it; null when unknown.
+            "recipient_user_id": (
+                str(transfer.recipient_user_id) if transfer.recipient_user_id else None
+            ),
+            "sender_name": transfer.sender_name,
+            "recipient_name": transfer.recipient_name,
             "amount_minor": transfer.amount_minor,
             "currency": transfer.currency,
             "status": status.value,
@@ -57,6 +64,9 @@ class CreateTransferInput:
     amount_minor: int
     currency: str
     description: str | None = None
+    recipient_user_id: UUID | None = None
+    sender_name: str | None = None
+    recipient_name: str | None = None
 
 
 async def create_transfer(session: AsyncSession, data: CreateTransferInput) -> Transfer:
@@ -89,6 +99,9 @@ async def create_transfer(session: AsyncSession, data: CreateTransferInput) -> T
         currency=data.currency,
         description=data.description,
         idempotency_key_id=data.idempotency_key_id,
+        recipient_user_id=data.recipient_user_id,
+        sender_name=data.sender_name,
+        recipient_name=data.recipient_name,
     )
     session.add(transfer)
     await session.commit()

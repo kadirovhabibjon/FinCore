@@ -79,3 +79,44 @@ async def test_handling_the_same_event_id_twice_only_notifies_once() -> None:
     assert len(providers[0].calls) == 1
     rows = await _notifications_for_event(envelope.event_id)
     assert len(rows) == 1
+
+
+async def test_a_completed_transfer_notifies_both_people_once_each() -> None:
+    sender, recipient = uuid.uuid4(), uuid.uuid4()
+    provider = _RecordingProvider("PUSH")
+    envelope = _envelope(sender, recipient_user_id=str(recipient), sender_name="Aziza K.")
+
+    await handle_transfer_event(envelope, [provider])
+    await handle_transfer_event(envelope, [provider])  # redelivered
+
+    notifications = await _notifications_for_event(envelope.event_id)
+    assert {n.recipient_user_id: n.notification_type for n in notifications} == {
+        sender: "transfer.completed",
+        recipient: "transfer.received",
+    }
+    assert all(n.read_at is None for n in notifications)
+    assert [call[0] for call in provider.calls] == [sender, recipient]
+
+
+async def test_a_retry_after_a_partial_failure_only_tells_whoever_was_missed() -> None:
+    """The provider fails on the recipient's message after the sender's
+    went out: the retry must not tell the sender a second time."""
+    sender, recipient = uuid.uuid4(), uuid.uuid4()
+    envelope = _envelope(sender, recipient_user_id=str(recipient))
+
+    class _FailsFor(_RecordingProvider):
+        fail_for: uuid.UUID | None = recipient
+
+        async def send(self, *, recipient_user_id: uuid.UUID, subject: str, body: str) -> None:
+            if recipient_user_id == self.fail_for:
+                raise RuntimeError("provider down")
+            await super().send(recipient_user_id=recipient_user_id, subject=subject, body=body)
+
+    provider = _FailsFor("PUSH")
+    with pytest.raises(RuntimeError):
+        await handle_transfer_event(envelope, [provider])
+    provider.fail_for = None
+    await handle_transfer_event(envelope, [provider])
+
+    assert [call[0] for call in provider.calls] == [sender, recipient]
+    assert len(await _notifications_for_event(envelope.event_id)) == 2

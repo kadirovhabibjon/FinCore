@@ -1642,3 +1642,135 @@ textarea,
   flex-direction: column;
   gap: 0.3rem;
 }
+
+/* --- notifications bell ----------------------------------------------- */
+
+.bell {
+  position: relative;
+}
+
+.bell-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  padding: 0.45rem 0.55rem;
+}
+
+.bell-badge {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--bad);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+}
+
+.bell-panel {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  right: 0;
+  z-index: 30;
+  width: min(360px, calc(100vw - 1.5rem));
+  max-height: min(70vh, 480px);
+  display: flex;
+  flex-direction: column;
+  /* Opaque: the surface tokens are translucent glass, and a list read
+     over page content needs a solid backing. */
+  background-color: var(--bg);
+  background-image: linear-gradient(
+    var(--surface-strong, var(--surface)),
+    var(--surface-strong, var(--surface))
+  );
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgb(16 24 40 / 25%);
+  overflow: hidden;
+}
+
+.bell-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--hairline, var(--border));
+}
+
+.bell-empty {
+  margin: 0;
+  padding: 1.25rem 0.9rem;
+}
+
+.bell-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.bell-list li {
+  display: flex;
+  gap: 0.7rem;
+  padding: 0.7rem 0.9rem;
+}
+
+.bell-list li + li {
+  border-top: 1px solid var(--hairline, var(--border));
+}
+
+.bell-list li.unread {
+  background: var(--info-bg);
+}
+
+.notification-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  background: var(--surface-muted);
+  font-weight: 700;
+}
+
+.notification-in {
+  background: var(--good-bg);
+  color: var(--good);
+}
+
+.notification-failed {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+.notification-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.amount-in {
+  color: var(--good);
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  /* The panel hangs from the bell, which is not at the screen edge on
+     a phone: pin it to the viewport instead. */
+  .bell-panel {
+    position: fixed;
+    top: 3.75rem;
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+  }
+}

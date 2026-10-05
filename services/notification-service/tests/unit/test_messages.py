@@ -3,7 +3,11 @@ import uuid
 import pytest
 from fincore_common import EventEnvelope, EventType
 
-from app.services.messages import UnhandledEventTypeError, compose_transfer_message
+from app.services.messages import (
+    UnhandledEventTypeError,
+    compose_messages,
+    compose_transfer_message,
+)
 
 _USER_ID = uuid.uuid4()
 
@@ -59,3 +63,50 @@ def test_rejects_an_event_type_it_does_not_know_how_to_compose() -> None:
 
     with pytest.raises(UnhandledEventTypeError):
         compose_transfer_message(envelope)
+
+
+def test_a_completed_transfer_tells_the_sender_and_the_recipient_by_name() -> None:
+    recipient = uuid.uuid4()
+    envelope = _envelope(
+        EventType.TRANSFER_COMPLETED,
+        recipient_user_id=str(recipient),
+        sender_name="Aziza K.",
+        recipient_name="Bobur T.",
+        amount_minor=1_250_000_00,
+    )
+
+    to_sender, to_recipient = compose_messages(envelope)
+
+    assert to_sender.recipient_user_id == _USER_ID
+    assert to_sender.notification_type == "transfer.completed"
+    assert to_sender.body == "You sent 1,250,000.00 UZS to Bobur T. — reference TRF-ABC123"
+    assert to_recipient.recipient_user_id == recipient
+    assert to_recipient.notification_type == "transfer.received"
+    assert to_recipient.subject == "Money received"
+    assert to_recipient.body == "Aziza K. sent you 1,250,000.00 UZS."
+
+
+def test_without_names_the_messages_still_read_properly() -> None:
+    envelope = _envelope(EventType.TRANSFER_COMPLETED, recipient_user_id=str(uuid.uuid4()))
+
+    to_sender, to_recipient = compose_messages(envelope)
+
+    assert to_sender.body == "Your transfer TRF-ABC123 of 150.00 UZS completed successfully."
+    assert to_recipient.body == "You received 150.00 UZS."
+
+
+def test_only_the_sender_hears_about_a_failed_transfer_or_an_unknown_recipient() -> None:
+    failed = _envelope(
+        EventType.TRANSFER_FAILED,
+        recipient_user_id=str(uuid.uuid4()),
+        recipient_name="Bobur T.",
+        failure_reason="Insufficient Funds",
+    )
+    # An event published before recipients were recorded.
+    old = _envelope(EventType.TRANSFER_COMPLETED)
+
+    [to_sender] = compose_messages(failed)
+    assert to_sender.body == (
+        "Your transfer TRF-ABC123 of 150.00 UZS to Bobur T. failed: Insufficient Funds."
+    )
+    assert len(compose_messages(old)) == 1

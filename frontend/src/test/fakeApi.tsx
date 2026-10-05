@@ -43,10 +43,12 @@ export const RATES = {
   rates: { USD: 1, UZS: 12_000, EUR: 0.8, RUB: 80 },
 };
 
-// The wallets page always shows exchange rates, so every test that lands
-// there would have to list this route; a test can still override it.
+// Requests every signed-in page makes regardless of what a test is
+// about; a test can still override them.
 const DEFAULT_ROUTES: Record<string, Handler> = {
   "GET /api/v1/rates": () => json(RATES),
+  // The bell is on every signed-in page.
+  "GET /api/v1/notifications": () => json({ unread_count: 0, items: [] }),
 };
 
 /**

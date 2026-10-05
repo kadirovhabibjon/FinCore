@@ -7,12 +7,14 @@ import type { components as IdentitySchemas } from "./schema/identity-service";
 import type { components as LedgerSchemas } from "./schema/ledger-service";
 import type { components as PaymentSchemas } from "./schema/payment-service";
 import type { components as AssistantSchemas } from "./schema/assistant-service";
+import type { components as NotificationSchemas } from "./schema/notification-service";
 import type { components as WebhookSchemas } from "./schema/webhook-service";
 
 type Identity = IdentitySchemas["schemas"];
 type Ledger = LedgerSchemas["schemas"];
 type Payment = PaymentSchemas["schemas"];
 type Webhook = WebhookSchemas["schemas"];
+type Notifications = NotificationSchemas["schemas"];
 
 export type CurrentUser = Identity["CurrentUserResponse"];
 export type UserSession = Identity["SessionResponse"];
@@ -28,6 +30,8 @@ export type Refund = Payment["RefundResponse"];
 export type Transaction = Payment["TransactionResponse"];
 export type AdminTransaction = Payment["AdminTransactionResponse"];
 export type Merchant = Payment["MerchantResponse"];
+export type Notification = Notifications["NotificationResponse"];
+export type NotificationList = Notifications["NotificationListResponse"];
 export type ReviewDecision = Payment["ReviewDecision"];
 export type TransactionType = Payment["TransactionType"];
 export type WebhookEndpoint = Webhook["WebhookEndpointResponse"];
@@ -118,6 +122,14 @@ export const listTransactions = (page: Page) =>
   apiRequest<Transaction[]>("/api/v1/transactions", { query: { ...page } });
 export const getTransaction = (transactionId: string) =>
   apiRequest<Transaction>(`/api/v1/transactions/${transactionId}`);
+
+// --- notifications (notification-service) ------------------------------
+
+/** The newest notifications and how many of all of them are unread. */
+export const listNotifications = () =>
+  apiRequest<NotificationList>("/api/v1/notifications", { query: { limit: 20 } });
+export const markNotificationsRead = () =>
+  apiRequest<void>("/api/v1/notifications/read", { method: "POST" });
 
 export const listMerchants = () => apiRequest<Merchant[]>("/api/v1/merchants");
 export const getMerchant = (merchantId: string) =>

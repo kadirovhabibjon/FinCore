@@ -215,6 +215,9 @@ services:
       - services/notification-service/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://notification:notification@postgres:5432/notification_db
+      # For the public notifications API (the bell); set here so a .env
+      # generated before it existed needs no change.
+      IDENTITY_SERVICE_JWKS_URL: http://identity-service:8000/.well-known/jwks.json
     depends_on:
       postgres:
         condition: service_healthy
@@ -333,6 +336,8 @@ services:
       webhook-service:
         condition: service_healthy
       assistant-service:
+        condition: service_healthy
+      notification-service:
         condition: service_healthy
     ports:
       - "8180:80"

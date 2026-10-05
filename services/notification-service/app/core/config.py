@@ -23,6 +23,13 @@ class Settings(BaseServiceSettings):
     max_retry_attempts: int = 3
     retry_base_delay_seconds: float = 2.0
 
+    # For verifying customers' bearer tokens on the public notifications
+    # API (the bell in the web app). Defaults rather than required, so a
+    # .env written when this service had no public API still boots;
+    # docker-compose.yml sets the in-network address.
+    identity_service_jwks_url: str = "http://localhost:8091/.well-known/jwks.json"
+    jwt_issuer: str = "fincore-identity-service"
+
     # Shared secret for /internal/* endpoints (Section 19) — the manual
     # dead-letter replay API (app/api/internal/dead_letters.py).
     internal_service_token: str

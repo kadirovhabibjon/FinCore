@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,4 +45,16 @@ async def get_wallet_by_card(
     account = await AccountRepository(session).get_wallet_by_card_number(card_number)
     if account is None:
         raise WalletNotFoundError("no wallet has this card number")
+    return WalletByCardResponse.model_validate(account)
+
+
+@router.get("/wallets/{wallet_id}", response_model=WalletByCardResponse)
+async def get_wallet_owner(
+    wallet_id: UUID, session: AsyncSession = Depends(get_db)
+) -> WalletByCardResponse:
+    """Whose wallet this is - for payment-service, which records the
+    recipient of a transfer so they can be told about it."""
+    account = await AccountRepository(session).get_wallet_by_id(wallet_id)
+    if account is None:
+        raise WalletNotFoundError(str(wallet_id))
     return WalletByCardResponse.model_validate(account)

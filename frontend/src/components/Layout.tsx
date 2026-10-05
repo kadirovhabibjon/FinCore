@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../auth/context";
 import { ChatWidget } from "./ChatWidget";
+import { NotificationBell } from "./NotificationBell";
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -106,6 +107,7 @@ export function Layout() {
           ))}
         </nav>
         <div className="topbar-user">
+          <NotificationBell />
           <NavLink to="/settings" className="nav-link account-link" title="Account">
             <span className="avatar" aria-hidden="true">
               {name.charAt(0).toUpperCase()}

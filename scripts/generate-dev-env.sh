@@ -110,6 +110,8 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
 DATABASE_URL=postgresql+asyncpg://notification:notification@postgres:5432/notification_db
 KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 INTERNAL_SERVICE_TOKEN=$NOTIFICATION_TOKEN
+IDENTITY_SERVICE_JWKS_URL=http://identity-service:8000/.well-known/jwks.json
+JWT_ISSUER=fincore-identity-service
 EOF
 
 write_env webhook-service <<EOF

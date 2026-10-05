@@ -147,9 +147,27 @@ final; the assistant can't approve, reject or speed them up.
 
 ## Transaction history
 
-History lists the transfers and payments the customer started, newest
-first. Money received from others appears on the receiving wallet's
-ledger entries, not in History.
+History lists, newest first, the transfers and payments the customer
+started and the transfers they received. Each transfer shows which way
+the money went ("Sent" or "Received") and the other person's first name
+and last initial. A transfer that failed or is waiting for review is
+visible only to the sender: the recipient sees it once the money has
+actually arrived. A merchant's received payments are on the merchant's
+page, not in History.
+
+## Notifications (the bell)
+
+- The bell at the top of every page lists notifications, newest first,
+  with a red badge showing how many are unread. Opening it marks them
+  read.
+- A notification is created when: someone sends the customer money
+  ("Money received", with the sender's name and the amount); a transfer
+  the customer sent completes ("Transfer completed"); a transfer the
+  customer sent fails ("Transfer failed", with the reason).
+- Payments to merchants, refunds, sign-ins and announcements do not
+  create notifications yet. There are no SMS, email or phone push
+  notifications: only the bell inside the web app, which checks for new
+  ones every 15 seconds while a page is open.
 
 ## Security notes for customers
 

@@ -101,3 +101,27 @@ async def test_card_lookup_requires_the_internal_token() -> None:
         )
 
     assert response.status_code == 403
+
+
+async def test_finds_a_wallets_owner_by_wallet_id(issue_access_token) -> None:
+    owner = uuid.uuid4()
+    async with await _client() as client:
+        wallet = (
+            await client.post(
+                "/api/v1/wallets",
+                json={"currency": "UZS"},
+                headers={"Authorization": f"Bearer {issue_access_token(owner)}"},
+            )
+        ).json()
+        found = await client.get(f"/internal/v1/accounts/wallets/{wallet['id']}", headers=_HEADERS)
+        unknown = await client.get(
+            f"/internal/v1/accounts/wallets/{uuid.uuid4()}", headers=_HEADERS
+        )
+        unauthorized = await client.get(
+            f"/internal/v1/accounts/wallets/{wallet['id']}", headers={"X-Internal-Token": "wrong"}
+        )
+
+    assert found.status_code == 200
+    assert found.json()["owner_user_id"] == str(owner)
+    assert unknown.status_code == 404
+    assert unauthorized.status_code == 403

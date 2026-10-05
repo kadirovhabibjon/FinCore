@@ -72,7 +72,13 @@ async def test_transaction_details_combine_summary_and_detail(
         seen,
         {
             f"GET /api/v1/transactions/{tid}": lambda r: httpx.Response(
-                200, json={"id": tid, "type": "TRANSFER"}
+                200,
+                json={
+                    "id": tid,
+                    "type": "TRANSFER",
+                    "direction": "OUT",
+                    "counterparty_name": "Bobur T.",
+                },
             ),
             f"GET /api/v1/transfers/{tid}": lambda r: httpx.Response(
                 200,
@@ -94,12 +100,47 @@ async def test_transaction_details_combine_summary_and_detail(
     detail = json.loads(outcome.content)
     assert detail == {
         "type": "TRANSFER",
+        "direction": "OUT",
+        "counterparty_name": "Bobur T.",
         "id": tid,
         "status": "FAILED",
         "failure_reason": "Insufficient Funds",
         "amount": "10.50 USD",
         "currency": "USD",
     }
+
+
+async def test_a_received_transfer_is_described_from_its_summary_alone(
+    monkeypatch: pytest.MonkeyPatch, seen: list[httpx.Request]
+) -> None:
+    """The transfer resource belongs to the sender; asking for it as the
+    recipient would be a 404 and the tool would report an error."""
+    tid = "33333333-3333-4333-8333-333333333333"
+    summary = {
+        "id": tid,
+        "type": "TRANSFER",
+        "direction": "IN",
+        "counterparty_name": "Aziza K.",
+        "status": "COMPLETED",
+        "amount_minor": 1_250_000,
+        "currency": "UZS",
+    }
+    _wire(
+        monkeypatch,
+        seen,
+        {f"GET /api/v1/transactions/{tid}": lambda r: httpx.Response(200, json=summary)},
+    )
+
+    outcome = await tools.run_tool(
+        "get_transaction_details", {"transaction_id": tid}, bearer_token=TOKEN
+    )
+
+    assert outcome.is_error is False
+    detail = json.loads(outcome.content)
+    assert detail["direction"] == "IN"
+    assert detail["counterparty_name"] == "Aziza K."
+    assert detail["amount"] == "12,500.00 UZS"
+    assert [request.url.path for request in seen] == [f"/api/v1/transactions/{tid}"]
 
 
 async def test_ids_are_validated_before_any_request(

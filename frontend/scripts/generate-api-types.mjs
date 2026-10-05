@@ -16,6 +16,7 @@ const services = [
   "payment-service",
   "webhook-service",
   "assistant-service",
+  "notification-service",
 ];
 
 await mkdir(out, { recursive: true });

@@ -116,3 +116,27 @@ def issue_access_token(monkeypatch: pytest.MonkeyPatch):
         return jwt.encode(payload, private_pem, algorithm="EdDSA", headers={"kid": kid})
 
     return _issue
+
+
+@pytest.fixture(autouse=True)
+def _no_real_identity_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Creating a transfer looks up both parties' names in
+    identity-service (best effort). Tests that aren't about that must
+    not reach whatever happens to listen on the default address, so the
+    client is pointed at a transport that is always down; tests about
+    it install their own fake after this."""
+    from app.services import identity
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("identity-service is not part of this test", request=request)
+
+    monkeypatch.setattr(
+        identity,
+        "identity_client",
+        identity.IdentityClient(
+            base_url="http://identity",
+            internal_token=settings.internal_service_token,
+            timeout_seconds=1.0,
+            transport=httpx.MockTransport(refuse),
+        ),
+    )

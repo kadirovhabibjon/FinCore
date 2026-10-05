@@ -7,6 +7,19 @@ import { DateTime, Empty, ErrorAlert, Loading, Money, Pager, StatusBadge } from 
 
 const PAGE_SIZE = 25;
 
+function describe(item: api.Transaction): string {
+  if (item.type === "PAYMENT") return "Payment";
+  return item.direction === "IN" ? "Received" : "Sent";
+}
+
+const NOT_MOVED = new Set(["FAILED", "EXPIRED", "CANCELLED"]);
+
+/** "+" for money in, "−" for money out, nothing when none moved. */
+function sign(item: api.Transaction): string {
+  if (NOT_MOVED.has(item.status)) return "";
+  return item.direction === "IN" ? "+" : "−";
+}
+
 export function TransactionsPage() {
   const [offset, setOffset] = useState(0);
   const transactions = useQuery({
@@ -20,7 +33,7 @@ export function TransactionsPage() {
         <div>
           <h1>History</h1>
           <p className="muted">
-            Transfers and payments you started. Money you received shows on the wallet itself.
+            Money you sent, paid and received, newest first.
           </p>
         </div>
       </header>
@@ -51,11 +64,22 @@ export function TransactionsPage() {
                     <Link to={`/transactions/${item.id}`}>{item.reference}</Link>
                     {item.description && <div className="muted small">{item.description}</div>}
                   </td>
-                  <td data-label="Type">{item.type}</td>
+                  <td data-label="Type">
+                    {describe(item)}
+                    {item.counterparty_name && (
+                      <div className="muted small">
+                        {item.direction === "IN" ? "from" : "to"} {item.counterparty_name}
+                      </div>
+                    )}
+                  </td>
                   <td data-label="Status">
                     <StatusBadge status={item.status} />
                   </td>
-                  <td className="num" data-label="Amount">
+                  <td
+                    className={item.direction === "IN" ? "num amount-in" : "num"}
+                    data-label="Amount"
+                  >
+                    {sign(item)}
                     <Money minor={item.amount_minor} currency={item.currency} />
                   </td>
                 </tr>

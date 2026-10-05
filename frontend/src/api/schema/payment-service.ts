@@ -200,11 +200,10 @@ export interface paths {
         /**
          * List Transactions
          * @description The caller's own business-operation history (spec Section 20),
-         *     newest first across *both* Transfer and Payment. Only ever the
-         *     operations they *initiated* — the other side of a transfer or
-         *     payment sees it via ledger-service's
-         *     `GET /api/v1/wallets/{id}/entries` instead, which is scoped by
-         *     wallet rather than by who started the operation.
+         *     newest first across *both* Transfer and Payment: everything they
+         *     started (`direction: OUT`) and every transfer that reached them
+         *     (`direction: IN`). A merchant's received payments are on the
+         *     merchant's own endpoints, not here.
          *
          *     Merged and sorted in Python rather than a single SQL query, since
          *     Transfer and Payment are two separate tables (each operation type
@@ -382,6 +381,8 @@ export interface components {
              * Format: uuid
              */
             counterparty_id: string;
+            /** Counterparty Name */
+            counterparty_name: string | null;
             /**
              * Created At
              * Format: date-time
@@ -391,6 +392,7 @@ export interface components {
             currency: string;
             /** Description */
             description: string | null;
+            direction: components["schemas"]["TransactionDirection"];
             /** Failure Reason */
             failure_reason: string | null;
             fraud_decision: components["schemas"]["FraudDecision"] | null;
@@ -653,6 +655,11 @@ export interface components {
             decision: components["schemas"]["ReviewDecision"];
         };
         /**
+         * TransactionDirection
+         * @enum {string}
+         */
+        TransactionDirection: "OUT" | "IN";
+        /**
          * TransactionResponse
          * @description A type-erased view over any business operation (Transfer or
          *     Payment) for the user-facing history endpoints
@@ -665,6 +672,8 @@ export interface components {
             amount_minor: number;
             /** Completed At */
             completed_at: string | null;
+            /** Counterparty Name */
+            counterparty_name: string | null;
             /**
              * Created At
              * Format: date-time
@@ -674,6 +683,7 @@ export interface components {
             currency: string;
             /** Description */
             description: string | null;
+            direction: components["schemas"]["TransactionDirection"];
             /**
              * Id
              * Format: uuid

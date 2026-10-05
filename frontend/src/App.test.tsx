@@ -748,3 +748,159 @@ describe("exchange rates", () => {
     expect(await screen.findByText(/Exchange rates are unavailable/)).toBeInTheDocument();
   });
 });
+
+describe("notifications bell", () => {
+  const received = {
+    id: "66666666-6666-4666-8666-666666666666",
+    type: "transfer.received",
+    title: "Money received",
+    body: "Aziza K. sent you 12,500.00 UZS.",
+    created_at: "2026-10-05T09:00:00Z",
+    read: false,
+  };
+
+  it("shows how many are unread, lists them, and marks them read when opened", async () => {
+    let unread = 1;
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET]),
+      "GET /api/v1/notifications": () =>
+        json({
+          unread_count: unread,
+          items: [{ ...received, read: unread === 0 }],
+        }),
+      "POST /api/v1/notifications/read": () => {
+        unread = 0;
+        return noContent();
+      },
+    });
+    renderApp("/");
+
+    const bell = await screen.findByRole("button", {
+      name: "Notifications, 1 unread",
+    });
+    await userEvent.click(bell);
+
+    const panel = await screen.findByRole("dialog", { name: "Notifications" });
+    expect(within(panel).getByText("Money received")).toBeInTheDocument();
+    expect(
+      within(panel).getByText("Aziza K. sent you 12,500.00 UZS."),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        requests.some((r) => r.path === "/api/v1/notifications/read"),
+      ).toBe(true),
+    );
+    // The badge clears once the server agrees.
+    expect(
+      await screen.findByRole("button", { name: "Notifications" }),
+    ).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("dialog", { name: "Notifications" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens empty without marking anything read", async () => {
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([]),
+    });
+    renderApp("/");
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Notifications" }),
+    );
+
+    expect(await screen.findByText(/Nothing yet/)).toBeInTheDocument();
+    expect(requests.some((r) => r.path === "/api/v1/notifications/read")).toBe(
+      false,
+    );
+  });
+});
+
+describe("history", () => {
+  const base = {
+    type: "TRANSFER",
+    status: "COMPLETED",
+    currency: "UZS",
+    description: null,
+    created_at: "2026-10-05T09:00:00Z",
+    completed_at: "2026-10-05T09:00:01Z",
+  };
+  const incoming = {
+    ...base,
+    id: "77777777-7777-4777-8777-777777777777",
+    reference: "TRF-IN",
+    direction: "IN",
+    counterparty_name: "Aziza K.",
+    amount_minor: 1_250_000,
+  };
+  const outgoing = {
+    ...base,
+    id: "88888888-8888-4888-8888-888888888888",
+    reference: "TRF-OUT",
+    direction: "OUT",
+    counterparty_name: "Bobur T.",
+    amount_minor: 30_000,
+  };
+
+  it("lists money received as well as money sent, with who and which way", async () => {
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/transactions": () =>
+        json([
+          incoming,
+          outgoing,
+          {
+            ...outgoing,
+            id: "99999999-9999-4999-8999-999999999999",
+            reference: "TRF-FAILED",
+            status: "FAILED",
+            amount_minor: 5_000,
+          },
+        ]),
+    });
+    renderApp("/transactions");
+
+    const receivedRow = (await screen.findByText("TRF-IN")).closest(
+      "tr",
+    ) as HTMLElement;
+    expect(within(receivedRow).getByText("Received")).toBeInTheDocument();
+    expect(within(receivedRow).getByText("from Aziza K.")).toBeInTheDocument();
+    expect(within(receivedRow).getByText(/\+/)).toHaveTextContent(
+      "+12,500.00 UZS",
+    );
+
+    const sentRow = screen.getByText("TRF-OUT").closest("tr") as HTMLElement;
+    expect(within(sentRow).getByText("Sent")).toBeInTheDocument();
+    expect(within(sentRow).getByText("to Bobur T.")).toBeInTheDocument();
+    expect(within(sentRow).getByText(/−/)).toHaveTextContent("−300.00 UZS");
+
+    // Nothing left the wallet, so no minus sign.
+    const failedRow = screen
+      .getByText("TRF-FAILED")
+      .closest("tr") as HTMLElement;
+    expect(within(failedRow).getByText(/50\.00 UZS/)).toHaveTextContent(
+      /^50\.00 UZS$/,
+    );
+  });
+
+  it("opens a received transfer without asking for the sender's details", async () => {
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      [`GET /api/v1/transactions/${incoming.id}`]: () => json(incoming),
+    });
+    renderApp(`/transactions/${incoming.id}`);
+
+    expect(
+      await screen.findByRole("heading", { name: "Money received" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Aziza K.")).toBeInTheDocument();
+    // The transfer resource itself belongs to the sender (404 for anyone else).
+    expect(requests.some((r) => r.path.startsWith("/api/v1/transfers/"))).toBe(
+      false,
+    );
+  });
+});

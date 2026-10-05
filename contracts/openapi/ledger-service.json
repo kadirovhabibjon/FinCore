@@ -909,6 +909,59 @@
         ]
       }
     },
+    "/internal/v1/accounts/wallets/{wallet_id}": {
+      "get": {
+        "description": "Whose wallet this is - for payment-service, which records the\nrecipient of a transfer so they can be told about it.",
+        "operationId": "get_wallet_owner_internal_v1_accounts_wallets__wallet_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wallet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Wallet Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-internal-token",
+            "required": true,
+            "schema": {
+              "title": "X-Internal-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletByCardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Wallet Owner",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
     "/internal/v1/holds": {
       "post": {
         "operationId": "post_hold_internal_v1_holds_post",

@@ -339,6 +339,14 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
   type-erased view merging Transfer *and* Payment into one newest-first
   list, exactly as `TransactionResponse.from_payment` was scaffolded to
   do back when only Transfer existed.
+  It covers what the caller started (`direction: OUT`) and the
+  transfers that reached them (`direction: IN`), each transfer with
+  `counterparty_name` ("First L."). A transfer records its recipient and
+  both names when it is created (`app/services/parties.py`: ledger-service
+  says whose wallet the destination is, identity-service gives the
+  names). That lookup is best effort — a transfer never fails or waits
+  for it — and a transfer that failed or is in review is visible to its
+  sender only.
 * `GET /internal/v1/merchants/{id}` — a merchant's owner and status, for
   webhook-service to verify ownership when an endpoint is registered.
   Internal only, `X-Internal-Token` authenticated.
@@ -452,17 +460,31 @@ payment_db: idempotency_keys, transfers, payments, refunds, merchants, outbox_ev
 
 ### `notification-service`
 
-Consumes domain events and dispatches (mocked) notifications — spec
-Sections 15 and 16. A pure event consumer: no public API beyond
-`/health` and `/ready`, not routed through the gateway.
+Consumes domain events, dispatches (mocked) notifications — spec
+Sections 15 and 16 — and keeps them for the bell in the web app.
+
+* **The bell**: `GET /api/v1/notifications` returns the caller's newest
+  notifications and how many of all of them are unread;
+  `POST /api/v1/notifications/read` marks them read (opening the bell).
+  Bearer token verified locally against identity-service's JWKS. The web
+  app polls every 15 seconds; nothing is pushed to the browser.
+* **Both sides of a transfer are told.** `transfer.completed` produces
+  "Transfer completed — You sent 12,500.00 UZS to Bobur T." for the
+  sender and "Money received — Aziza K. sent you 12,500.00 UZS." for the
+  recipient; `transfer.failed` tells the sender only. The recipient and
+  both display names come in the event (payment-service records them
+  when the transfer is created); an event without them still notifies
+  the sender. Payments, refunds and announcements don't notify yet.
 
 * Consumes `transfer.completed` / `transfer.failed` from the `transfers`
   topic and dispatches each through three logging-mock channels
   (`app/services/providers.py` — Email/SMS/Push behind one interface, so
   a real provider can replace a mock later without touching the
   consumer). No paid external provider is required for v1, per spec.
-* **Consumer idempotency**: `notifications.event_id` is `UNIQUE` and
-  doubles as the guard — a redelivered event (the normal consequence of
+* **Consumer idempotency**: `(event_id, recipient_user_id)` is `UNIQUE`
+  and doubles as the guard, each person's notification in its own
+  transaction (a retry after the sender was told doesn't tell them
+  twice, and still tells the recipient) — a redelivered event (the normal consequence of
   Kafka's at-least-once delivery) is a no-op, not a second notification.
 * **Retry topics + dead-letter queue** (`app/services/dispatch.py`, spec
   Section 16): a failed event is classified, not just retried in place —
@@ -745,7 +767,9 @@ refresh cookie.
 * **User dashboard**: register and sign in; wallets with available /
   held / ledger balance, card number and each wallet's ledger entries;
   send a transfer by typing the recipient's card number and checking
-  the name that comes back; pay a merchant; history with per-operation detail (including
+  the name that comes back; pay a merchant; a notifications bell
+  (money received and sent, unread badge) on every page; history of
+  money sent, paid and received with per-operation detail (including
   why something is `PENDING` or `FAILED`); merchants with received
   payments, refunds, and webhook endpoints (secret shown once, rotate,
   re-enable, delivery history with every attempt); account page with
@@ -1143,13 +1167,13 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
 cd services/identity-service && .venv/bin/pytest -v     # 131 tests
-cd services/ledger-service && .venv/bin/pytest -v       # 64 tests
-cd services/payment-service && .venv/bin/pytest -v      # 136 tests
-cd services/notification-service && .venv/bin/pytest -v # 28 tests
+cd services/ledger-service && .venv/bin/pytest -v       # 65 tests
+cd services/payment-service && .venv/bin/pytest -v      # 141 tests
+cd services/notification-service && .venv/bin/pytest -v # 37 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
-cd services/audit-service && .venv/bin/pytest -v        # 49 tests
-cd services/assistant-service && .venv/bin/pytest -v    # 34 tests (model APIs faked: no key, no spend)
+cd services/audit-service && .venv/bin/pytest -v        # 50 tests
+cd services/assistant-service && .venv/bin/pytest -v    # 35 tests (model APIs faked: no key, no spend)
 ```
 
 Integration tests spin up a real PostgreSQL container via `testcontainers`
@@ -1209,7 +1233,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 80 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 84 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1258,7 +1282,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-50 tests that run against a live `docker compose` stack, through the
+52 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

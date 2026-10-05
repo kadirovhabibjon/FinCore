@@ -119,6 +119,13 @@ class TransactionType(enum.StrEnum):
     PAYMENT = "PAYMENT"
 
 
+class TransactionDirection(enum.StrEnum):
+    # Money leaving the caller (a transfer or payment they started).
+    OUT = "OUT"
+    # Money reaching the caller (a transfer someone sent them).
+    IN = "IN"
+
+
 class TransactionResponse(BaseModel):
     """A type-erased view over any business operation (Transfer or
     Payment) for the user-facing history endpoints
@@ -129,6 +136,11 @@ class TransactionResponse(BaseModel):
 
     id: UUID
     type: TransactionType
+    direction: TransactionDirection
+    # The other person, as "First L.": the recipient of a transfer the
+    # caller sent, or the sender of one they received. Null for payments
+    # and when it isn't known.
+    counterparty_name: str | None
     reference: str
     status: str
     amount_minor: int
@@ -138,10 +150,13 @@ class TransactionResponse(BaseModel):
     completed_at: datetime | None
 
     @classmethod
-    def from_transfer(cls, transfer: Transfer) -> "TransactionResponse":
+    def from_transfer(cls, transfer: Transfer, *, viewer_user_id: UUID) -> "TransactionResponse":
+        incoming = transfer.initiator_user_id != viewer_user_id
         return cls(
             id=transfer.id,
             type=TransactionType.TRANSFER,
+            direction=TransactionDirection.IN if incoming else TransactionDirection.OUT,
+            counterparty_name=transfer.sender_name if incoming else transfer.recipient_name,
             reference=transfer.reference,
             status=transfer.status.value,
             amount_minor=transfer.amount_minor,
@@ -156,6 +171,8 @@ class TransactionResponse(BaseModel):
         return cls(
             id=payment.id,
             type=TransactionType.PAYMENT,
+            direction=TransactionDirection.OUT,
+            counterparty_name=None,
             reference=payment.reference,
             status=payment.status.value,
             amount_minor=payment.amount_minor,
@@ -185,7 +202,10 @@ class AdminTransactionResponse(TransactionResponse):
     @classmethod
     def from_operation(cls, operation: Transfer | Payment) -> "AdminTransactionResponse":
         if isinstance(operation, Transfer):
-            base = TransactionResponse.from_transfer(operation)
+            # The console looks at an operation from its initiator's side.
+            base = TransactionResponse.from_transfer(
+                operation, viewer_user_id=operation.initiator_user_id
+            )
             counterparty_id = operation.destination_wallet_id
         else:
             base = TransactionResponse.from_payment(operation)

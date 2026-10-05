@@ -22,6 +22,7 @@ from app.db.session import get_db
 from app.repositories.transfer_repository import TransferRepository
 from app.services import ledger
 from app.services.idempotency import begin_idempotent_request, complete_idempotent_request
+from app.services.parties import resolve_parties
 from app.services.recipients import find_recipient
 from app.services.transfers import CreateTransferInput, create_transfer
 
@@ -67,6 +68,13 @@ async def post_transfer(
         session, user_id=user.user_id, key=key, fingerprint=fingerprint
     )
 
+    # Who is on each side, for the recipient's history and notification.
+    # After the idempotency check, so a replayed request doesn't repeat
+    # the lookups; never a reason to fail (app/services/parties.py).
+    parties = await resolve_parties(
+        initiator_user_id=user.user_id, destination_wallet_id=payload.destination_wallet_id
+    )
+
     # Create the Transfer and run the saga to its first stopping point.
     transfer = await create_transfer(
         session,
@@ -78,6 +86,9 @@ async def post_transfer(
             amount_minor=amount_minor,
             currency=payload.currency,
             description=payload.description,
+            recipient_user_id=parties.recipient_user_id,
+            sender_name=parties.sender_name,
+            recipient_name=parties.recipient_name,
         ),
     )
 

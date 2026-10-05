@@ -89,6 +89,15 @@ class Transfer(Base):
         unique=True,
         index=True,
     )
+    # The other side, recorded at creation (app/services/parties.py) so
+    # the recipient can see the transfer and both sides see a name
+    # ("Aziza K."). NULL when it couldn't be looked up, and on transfers
+    # made before these columns existed.
+    recipient_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True, index=True
+    )
+    sender_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    recipient_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

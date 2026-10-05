@@ -28,6 +28,28 @@
       "type": "string",
       "format": "uuid"
     },
+    "recipient_user_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid",
+      "description": "Owner of the destination wallet. Optional: null or absent when it could not be looked up, and on events published before this field existed."
+    },
+    "sender_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The initiator as \"First L.\", for messages to the recipient. Optional."
+    },
+    "recipient_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The recipient as \"First L.\", for messages to the sender. Optional."
+    },
     "amount_minor": {
       "type": "integer",
       "exclusiveMinimum": 0
@@ -64,7 +86,10 @@
       "currency": "UZS",
       "failure_reason": "insufficient funds",
       "status": "FAILED",
-      "completed_at": null
+      "completed_at": null,
+      "recipient_user_id": "3d6f0a1b-2c4e-4f8a-9b7c-5e1d2f3a4b6c",
+      "sender_name": "Aziza K.",
+      "recipient_name": "Bobur T."
     }
   ]
 }

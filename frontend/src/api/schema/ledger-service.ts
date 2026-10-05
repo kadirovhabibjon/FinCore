@@ -119,6 +119,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/accounts/wallets/{wallet_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Wallet Owner
+         * @description Whose wallet this is - for payment-service, which records the
+         *     recipient of a transfer so they can be told about it.
+         */
+        get: operations["get_wallet_owner_internal_v1_accounts_wallets__wallet_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/holds": {
         parameters: {
             query?: never;
@@ -705,6 +726,39 @@ export interface operations {
                 "x-internal-token": string;
             };
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletByCardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_wallet_owner_internal_v1_accounts_wallets__wallet_id__get: {
+        parameters: {
+            query?: never;
+            header: {
+                "x-internal-token": string;
+            };
+            path: {
+                wallet_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

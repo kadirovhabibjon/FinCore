@@ -12,12 +12,15 @@ export function TransactionPage() {
     queryFn: () => api.getTransaction(transactionId),
   });
   const type = summary.data?.type;
+  // A transfer someone else sent: the summary is all the recipient may
+  // see (the sender's wallets and fraud checks are the sender's).
+  const incoming = summary.data?.direction === "IN";
   // The type-specific resource adds what the summary leaves out
   // (wallets, merchant, fraud decision, failure reason).
   const transfer = useQuery({
     queryKey: ["transfer", transactionId],
     queryFn: () => api.getTransfer(transactionId),
-    enabled: type === "TRANSFER",
+    enabled: type === "TRANSFER" && !incoming,
   });
   const payment = useQuery({
     queryKey: ["payment", transactionId],
@@ -32,7 +35,7 @@ export function TransactionPage() {
 
   return (
     <section className="page narrow">
-      <h1>{item.type === "TRANSFER" ? "Transfer" : "Payment"}</h1>
+      <h1>{incoming ? "Money received" : item.type === "TRANSFER" ? "Transfer" : "Payment"}</h1>
       <OperationOutcome
         kind={item.type === "TRANSFER" ? "Transfer" : "Payment"}
         status={item.status}
@@ -42,6 +45,12 @@ export function TransactionPage() {
       />
       <ErrorAlert error={transfer.error ?? payment.error} />
       <dl className="card details">
+        {item.counterparty_name && (
+          <>
+            <dt>{incoming ? "From" : "To"}</dt>
+            <dd>{item.counterparty_name}</dd>
+          </>
+        )}
         <dt>Created</dt>
         <dd>
           <DateTime value={item.created_at} />
