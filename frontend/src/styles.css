@@ -1255,3 +1255,262 @@ body {
     content: none;
   }
 }
+
+/* === glass theme ==========================================================
+   Presentation only: translucent surfaces over a soft colour backdrop.
+   Nothing here changes layout or behaviour; it redefines the colour tokens
+   above and adds blur to the large surfaces. Text and status colours keep
+   their contrast; where backdrop-filter isn't supported the surfaces fall
+   back to nearly opaque. */
+
+:root {
+  --bg: #eef2fb;
+  --surface: rgb(255 255 255 / 62%);
+  --surface-strong: rgb(255 255 255 / 82%);
+  --surface-muted: rgb(226 232 245 / 62%);
+  --border: rgb(255 255 255 / 75%);
+  --hairline: rgb(30 50 100 / 11%);
+  --radius: 16px;
+  --shadow: 0 8px 28px rgb(31 60 130 / 10%), 0 1px 2px rgb(16 24 40 / 5%);
+  --blur: saturate(170%) blur(18px);
+  --backdrop:
+    radial-gradient(60vmax 60vmax at 8% -5%, rgb(120 160 255 / 55%), transparent 60%),
+    radial-gradient(55vmax 55vmax at 100% 10%, rgb(170 130 255 / 38%), transparent 60%),
+    radial-gradient(60vmax 60vmax at 85% 105%, rgb(90 210 230 / 38%), transparent 60%),
+    radial-gradient(50vmax 50vmax at 0% 100%, rgb(255 170 200 / 28%), transparent 60%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0f1c;
+    --surface: rgb(26 34 54 / 58%);
+    --surface-strong: rgb(22 29 46 / 84%);
+    --surface-muted: rgb(50 62 92 / 50%);
+    --border: rgb(255 255 255 / 10%);
+    --hairline: rgb(255 255 255 / 9%);
+    --shadow: 0 10px 32px rgb(0 0 0 / 38%);
+    --backdrop:
+      radial-gradient(60vmax 60vmax at 8% -5%, rgb(50 90 220 / 42%), transparent 60%),
+      radial-gradient(55vmax 55vmax at 100% 10%, rgb(120 70 220 / 32%), transparent 60%),
+      radial-gradient(60vmax 60vmax at 85% 105%, rgb(20 140 170 / 30%), transparent 60%),
+      radial-gradient(50vmax 50vmax at 0% 100%, rgb(170 50 110 / 20%), transparent 60%);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --surface: var(--surface-strong);
+  }
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  background: transparent;
+}
+
+/* The backdrop is its own fixed layer, so it stays put while pages scroll
+   (background-attachment: fixed is unreliable on phones). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--backdrop), var(--bg);
+  pointer-events: none;
+}
+
+/* Frosted surfaces. */
+.card,
+.auth-card,
+.chat-panel,
+.table,
+.empty {
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+}
+
+.card,
+.table,
+.chat-panel {
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+/* The top bar's glass is a layer behind its content, not a filter on the
+   bar itself: an element with backdrop-filter becomes the containing block
+   for position: fixed descendants, which would pull the phone tab bar (a
+   child of this header) up from the bottom of the screen into the bar. */
+.topbar {
+  background: transparent;
+  border-bottom: 1px solid var(--hairline);
+  box-shadow: 0 4px 24px rgb(31 60 130 / 6%);
+}
+
+.topbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--surface);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+}
+
+.empty {
+  background: var(--surface);
+  border: 1px dashed var(--hairline);
+}
+
+/* Lines inside a surface are hairlines, not the bright glass edge. */
+.table th,
+.table td,
+.chat-header,
+.chat-form {
+  border-color: var(--hairline);
+}
+
+.table th {
+  background: var(--surface-muted);
+}
+
+/* Fields stay more solid than the glass they sit on: what you type has to
+   be the easiest thing on the screen to read. */
+input,
+select,
+textarea,
+.chat-form textarea {
+  background: var(--surface-strong);
+  border-color: var(--hairline);
+  border-radius: 12px;
+}
+
+.button {
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgb(31 94 255 / 22%);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.12s ease;
+}
+
+.button:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.button-ghost {
+  background: var(--surface);
+  border-color: var(--hairline);
+  box-shadow: none;
+}
+
+.button-danger {
+  box-shadow: 0 6px 16px rgb(180 35 24 / 22%);
+}
+
+.nav-link {
+  border-radius: 10px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.nav-link.active {
+  background: var(--surface-strong);
+  box-shadow: 0 1px 3px rgb(16 24 40 / 8%);
+}
+
+.wallet-card {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.wallet-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px rgb(31 60 130 / 16%);
+}
+
+.wallet-balance {
+  letter-spacing: -0.01em;
+}
+
+.badge {
+  border: 1px solid var(--hairline);
+}
+
+.alert {
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+}
+
+.chat-assistant {
+  background: var(--surface-muted);
+}
+
+.chat-launcher {
+  box-shadow: 0 10px 28px rgb(31 94 255 / 35%);
+}
+
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: 0 20px 60px rgb(31 60 130 / 16%);
+}
+
+.secret,
+.error-details {
+  background: var(--surface-strong);
+}
+
+@media (max-width: 760px) {
+  /* The tab bar is glass too. */
+  .nav {
+    background: var(--surface);
+    -webkit-backdrop-filter: var(--blur);
+    backdrop-filter: var(--blur);
+    border-top: 1px solid var(--hairline);
+    box-shadow: 0 -4px 24px rgb(31 60 130 / 8%);
+  }
+
+  .nav .nav-link.active {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  /* Table rows are cards here: translucent, but without a blur layer each
+     (dozens of blurred rows make scrolling stutter on phones). */
+  .table {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+    border: none;
+    background: transparent;
+  }
+
+  .table tr {
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+  }
+
+  .table td,
+  .table tr:last-child td {
+    border-bottom-color: var(--hairline);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .nav-link,
+  .wallet-card {
+    transition: none;
+  }
+}
