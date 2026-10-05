@@ -54,6 +54,10 @@ balances inside FinCore only.
   Money can't be added from a bank card or withdrawn to one. In this demo
   balances are credited by the operator.
 - FinCore charges no fees on transfers, payments or refunds.
+- There is no fixed daily or per-operation amount limit: an operation
+  needs a positive amount and enough available balance. Large or rapid
+  operations can be held for fraud review or declined (see "Fraud
+  checks"), so mention that whenever a customer asks about limits.
 - There is no currency exchange: transfers and payments only work between
   wallets of the same currency.
 - The wallets page shows reference exchange rates and a converter for

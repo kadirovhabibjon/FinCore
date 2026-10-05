@@ -684,12 +684,27 @@ money or change anything.
 * A safety-classifier decline is re-run on Anthropic's recommended
   fallback model (`fallbacks: "default"`); a final refusal gets a polite
   reply.
-* **To turn it on**, put a Claude API key in
-  `services/assistant-service/.env` (`ANTHROPIC_API_KEY=...`, from
-  [platform.claude.com](https://platform.claude.com)) and run
-  `docker compose up -d assistant-service`. Without a key everything else
-  works and the chat says it isn't configured. Every message is billed
-  to that key.
+* It answers only about FinCore: anything else (general knowledge,
+  programming, other companies, …) gets a short "I can't answer that
+  kind of question".
+* **Two interchangeable model APIs** (`ASSISTANT_PROVIDER`), with the
+  same prompt, tools and limits: Claude (`anthropic`, paid per message)
+  or any OpenAI-compatible Chat Completions API with tool calling
+  (`openai_compatible`) — Google Gemini and Groq both have a free tier
+  that needs no card.
+* **To turn it on for free**, create a key at
+  [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+  (Gemini) or [console.groq.com/keys](https://console.groq.com/keys)
+  (Groq) and run `./scripts/set-assistant-key.sh`: it asks for the key
+  without echoing it, checks it, picks a model the key can use, writes
+  the git-ignored `services/assistant-service/.env` and restarts the
+  service. For Claude, `./scripts/set-anthropic-key.sh` does the same
+  with a key from [platform.claude.com](https://platform.claude.com).
+  Without a key everything else works and the chat says it isn't
+  configured. Free tiers have per-minute and per-day quotas and their
+  models are often overloaded, so a list of fallback models
+  (`LLM_FALLBACK_MODELS`) is tried in order; when none can answer the
+  chat says "busy, try again shortly".
 
 ### Web app (`frontend/`)
 
@@ -1118,7 +1133,7 @@ cd services/notification-service && .venv/bin/pytest -v # 28 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
 cd services/audit-service && .venv/bin/pytest -v        # 49 tests
-cd services/assistant-service && .venv/bin/pytest -v    # 23 tests (Claude API faked: no key, no spend)
+cd services/assistant-service && .venv/bin/pytest -v    # 34 tests (model APIs faked: no key, no spend)
 ```
 
 Integration tests spin up a real PostgreSQL container via `testcontainers`

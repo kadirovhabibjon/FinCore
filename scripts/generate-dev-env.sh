@@ -122,9 +122,10 @@ PAYMENT_SERVICE_BASE_URL=http://payment-service:8000
 KAFKA_BOOTSTRAP_SERVERS=kafka:9092
 EOF
 
-# The Claude API key isn't generated: paste your own into
-# services/assistant-service/.env (ANTHROPIC_API_KEY=...). Without one the
-# stack runs normally and the chat answers that it isn't configured.
+# The assistant's API key isn't generated: ./scripts/set-assistant-key.sh
+# (a free Gemini or Groq key) or ./scripts/set-anthropic-key.sh (Claude)
+# stores yours. Without one the stack runs normally and the chat answers
+# that it isn't configured.
 write_env assistant-service <<EOF
 SERVICE_NAME=assistant-service
 LOG_LEVEL=INFO

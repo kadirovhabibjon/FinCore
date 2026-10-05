@@ -36,5 +36,5 @@ async def ready() -> dict[str, str]:
     """No database or broker to check. Reports whether a Claude API key is
     configured, but stays ready without one: the rest of FinCore doesn't
     depend on the assistant, and the chat endpoint explains the 503."""
-    configured = "configured" if settings.anthropic_api_key else "not configured"
+    configured = "configured" if settings.assistant_configured else "not configured"
     return {"status": "ok", "assistant": configured}

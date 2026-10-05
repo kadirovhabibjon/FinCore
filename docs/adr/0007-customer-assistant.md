@@ -85,6 +85,43 @@ the real SDK. The tests therefore check the request the SDK actually
 builds, and they need no key and cost nothing. The e2e suite only checks
 routing, authentication and validation.
 
+### A second, free model API
+
+*Added when the project's owner chose not to buy Claude API credits: the
+chat was built and tested but could only answer "unavailable".*
+
+`ASSISTANT_PROVIDER=openai_compatible` routes a turn to
+`app/services/compatible.py`, which speaks the Chat Completions format
+that Google Gemini, Groq and others expose, several of them with a free
+tier. Everything that makes the answers trustworthy is shared with the
+Claude path: the same system prompt and knowledge base, the same
+read-only tools called with the customer's token, the same cap on tool
+rounds and the same rate limits. Only the wire format differs, so the
+choice of model is configuration (`LLM_BASE_URL`, `LLM_MODEL`,
+`LLM_API_KEY`), not code.
+
+* Plain `httpx`, no SDK: it is one endpoint, and an SDK per provider
+  would defeat the point.
+* Tool schemas are sent in the form every provider accepts (no `strict`,
+  no `additionalProperties`, no parameters object for a tool without
+  arguments).
+* What is lost compared with Claude: adaptive thinking, prompt caching,
+  the safety-fallback model and guaranteed-valid tool arguments. A
+  smaller free model follows the "only from the knowledge base and the
+  tools" rule less reliably, which is why the prompt's off-topic and
+  no-guessing rules were made more explicit, and why tool arguments that
+  don't parse go back to the model as an error instead of failing the
+  reply.
+* Free models are overloaded, rate-limited and retired far more often
+  than paid ones (the first live request met all three), so
+  `LLM_FALLBACK_MODELS` lists models to try in order. Once one answers,
+  the rest of the turn stays on it; a rejected key is not retried.
+* A free tier's quota is shared by all customers of the deployment; over
+  it the chat answers 503 "busy". Fine for a demo, not for production.
+* The provider sees customers' questions and the data the tools return,
+  as Anthropic does on the Claude path; a free tier may also use them to
+  improve its models. Another reason this option is for demos.
+
 ## Consequences
 
 * Answers are only as current as `knowledge.md`. Changing a rule in code
@@ -94,8 +131,9 @@ routing, authentication and validation.
 * Conversations aren't persisted or audited. If they ever need to be
   (support handover, quality review), that is a new decision: storing
   them means storing customers' financial questions.
-* Running it costs money per message, paid by whoever's key is
-  configured.
+* Running it on Claude costs money per message, paid by whoever's key
+  is configured; the free alternative trades that for quotas and a
+  weaker model.
 
 ## Alternatives Considered
 

@@ -1,8 +1,28 @@
+from typing import Literal
+
 from fincore_common import BaseServiceSettings
 
 
 class Settings(BaseServiceSettings):
     service_name: str = "assistant-service"
+
+    # Which model API answers the chat:
+    #   "anthropic"          - Claude (the settings just below);
+    #   "openai_compatible"  - any Chat Completions API with tool calling,
+    #                          such as Google Gemini's or Groq's, both of
+    #                          which have a free tier (the LLM_* settings).
+    assistant_provider: Literal["anthropic", "openai_compatible"] = "anthropic"
+
+    # OpenAI-compatible provider. Like the Claude key, an empty key means
+    # "not configured": the chat answers 503 until one is set.
+    llm_api_key: str = ""
+    llm_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    llm_model: str = "gemini-flash-latest"
+    # Tried in order when the model above is overloaded, over its quota or
+    # retired (free tiers do all three), comma-separated.
+    llm_fallback_models: str = "gemini-flash-lite-latest"
+    llm_max_tokens: int = 4096
+    llm_timeout_seconds: float = 60.0
 
     # Claude API. Empty means "not configured": the service still starts and
     # reports healthy, and the chat endpoint answers 503 until a key is set.
@@ -38,6 +58,13 @@ class Settings(BaseServiceSettings):
 
     identity_service_jwks_url: str
     jwt_issuer: str = "fincore-identity-service"
+
+    @property
+    def assistant_configured(self) -> bool:
+        """Whether the selected provider has a key to answer with."""
+        if self.assistant_provider == "openai_compatible":
+            return bool(self.llm_api_key)
+        return bool(self.anthropic_api_key)
 
 
 settings = Settings()  # type: ignore[call-arg]
