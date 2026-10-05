@@ -32,8 +32,10 @@ balances inside FinCore only.
   address, when it signed in, last activity). Any other session can be
   signed out from there. A signed-out device loses access at its next
   token refresh, at most 15 minutes later.
-- A session stays signed in for up to 30 days of inactivity on the same
-  browser.
+- For safety, a device left unused for 15 minutes is signed out
+  automatically and has to sign in again; coming back to FinCore after
+  that also asks for the sign-in. However active, a sign-in lasts at most
+  12 hours.
 - Account statuses: ACTIVE (normal), SUSPENDED or BLOCKED (set by FinCore
   staff; the account can't sign in and all its sessions end). Only staff
   can change a status; the assistant can't.

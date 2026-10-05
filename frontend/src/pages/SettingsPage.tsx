@@ -46,7 +46,7 @@ export function SettingsPage() {
       <h2>Active sessions</h2>
       <p className="muted">
         Every device signed in to your account. Signing one out ends it at its next token refresh —
-        within 15 minutes.
+        within 15 minutes. A device left unused for 15 minutes is signed out automatically.
       </p>
       <ErrorAlert error={sessions.error ?? revoke.error} />
       {sessions.isPending ? (

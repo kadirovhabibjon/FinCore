@@ -145,6 +145,33 @@ Roles are `USER`, `SUPPORT` and `ADMIN` (spec Section 5).
   last use. Users can list and revoke their own sessions, and the access
   token carries a `sid` claim so the UI can mark the current device.
 
+### Sessions end when the customer stops using them
+
+*Added after a customer left a shared device without signing out and
+was let straight back in days later: sessions lasted 30 days.*
+
+A payment app must not stay open on a device its owner has walked away
+from. Two limits apply, the stricter one in the browser and a backstop
+on the server.
+
+* **Browser, 15 minutes.** The SPA records the time of the last
+  interaction in localStorage (a timestamp, no secret). With no
+  interaction for 15 minutes it signs out, revoking the session. On
+  every load it checks the same timestamp first: coming back after the
+  limit — same tab, new tab, or a reopened browser — revokes the session
+  and shows the sign-in page instead of using the refresh cookie.
+* **Server, 30 minutes idle and 12 hours in total.** A refresh token now
+  lives 30 minutes, and each refresh issues a new one, so the window
+  slides while the customer is active. identity-service also checks the
+  session's own `last_used_at` and `created_at` on every refresh and
+  revokes a session past either limit. That ends sessions whose current
+  token was issued under the old 30-day lifetime, and it holds for
+  clients that don't run the SPA's timer.
+
+The server's idle window has to be longer than the access token's
+15 minutes: an active client only refreshes when its access token runs
+out.
+
 ## Consequences
 
 * A reload costs one extra `/refresh` round trip before the first

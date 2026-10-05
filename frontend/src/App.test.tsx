@@ -2,6 +2,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import { authTiming } from "./auth/tokenStore";
+
 import { USER, WALLET, fakeApi, json, noContent, problem, renderApp, signedInRoutes } from "./test/fakeApi";
 
 describe("signing in", () => {
@@ -572,5 +574,52 @@ describe("signing in with a phone number", () => {
     expect(await screen.findByRole("heading", { name: "Hello, Ada" })).toBeInTheDocument();
     const login = requests.find((r) => r.path === "/api/v1/auth/login");
     expect(login?.body).toEqual({ phone: "90 123 45 67", password: "correct-horse" });
+  });
+});
+
+describe("signing out after inactivity", () => {
+  const MINUTE = 60_000;
+
+  it("asks to sign in again when coming back after the idle limit", async () => {
+    localStorage.setItem("fincore:last-activity:customer", String(Date.now() - 16 * MINUTE));
+    // The refresh cookie would still work - it must not be used.
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "POST /api/v1/auth/logout": () => noContent(),
+    });
+
+    renderApp("/");
+
+    expect(await screen.findByRole("heading", { name: "Sign in to FinCore" })).toBeInTheDocument();
+    expect(requests.some((r) => r.path === "/api/v1/auth/refresh")).toBe(false);
+    expect(requests.some((r) => r.path === "/api/v1/auth/logout")).toBe(true);
+  });
+
+  it("stays signed in when coming back within the idle limit", async () => {
+    localStorage.setItem("fincore:last-activity:customer", String(Date.now() - 5 * MINUTE));
+    fakeApi({ ...signedInRoutes(), "GET /api/v1/wallets": () => json([]) });
+
+    renderApp("/");
+
+    expect(await screen.findByRole("heading", { name: "Hello, Ada" })).toBeInTheDocument();
+  });
+
+  it("signs out an open page left untouched", async () => {
+    authTiming.idleTimeoutMs = 150;
+    authTiming.idleCheckIntervalMs = 40;
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([]),
+      "POST /api/v1/auth/logout": () => noContent(),
+    });
+
+    renderApp("/");
+    expect(await screen.findByRole("heading", { name: "Hello, Ada" })).toBeInTheDocument();
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in to FinCore" }, { timeout: 3000 }),
+    ).toBeInTheDocument();
+    expect(requests.some((r) => r.path === "/api/v1/auth/logout")).toBe(true);
+    expect(localStorage.getItem("fincore:last-activity:customer")).toBeNull();
   });
 });

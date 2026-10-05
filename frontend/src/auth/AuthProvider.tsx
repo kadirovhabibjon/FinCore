@@ -7,10 +7,13 @@ import * as api from "../api/endpoints";
 import { AuthContext, type AuthState } from "./context";
 import {
   clearAccessToken,
+  clearActivity,
   clearSignedOutMark,
+  isIdleExpired,
   isMarkedSignedOut,
   markSignedOut,
   onSessionEnded,
+  recordActivity,
   refreshAccessToken,
   setSessionScope,
   authTiming,
@@ -73,6 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     setSessionScope(scope);
     (async () => {
+      // Away longer than the idle limit: this counts as having signed out,
+      // so the block below revokes the session instead of restoring it.
+      if (isIdleExpired(scope)) {
+        markSignedOut(scope);
+        clearActivity(scope);
+      }
       if (isMarkedSignedOut(scope)) {
         // The user signed out but the server didn't hear it: try again,
         // and stay signed out whatever happens.
@@ -91,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const restored = await restoreOnce();
         if (cancelled) return;
         if (restored.kind === "user") {
+          recordActivity(scope);
           setState({ status: "authenticated", user: restored.user });
           return;
         }
@@ -112,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (identifier: string, password: string) => {
       await api.login(identifier, password);
       clearSignedOutMark(scope);
+      recordActivity(scope);
       const user = await api.getMe();
       setState({ status: "authenticated", user });
     },
@@ -132,8 +143,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     if (revoked) clearSignedOutMark(scope);
     else markSignedOut(scope);
+    clearActivity(scope);
     signedOut();
   }, [scope, signedOut]);
+
+  // While signed in: note each interaction, and sign out once there has
+  // been none for the idle limit - also when the tab was in the background
+  // or the device asleep, since the check compares clock times.
+  const authenticated = state.status === "authenticated";
+  useEffect(() => {
+    if (!authenticated) return;
+    let lastWrite = 0;
+    const touch = () => {
+      const now = Date.now();
+      if (now - lastWrite < 5000) return; // at most one storage write per 5 s
+      lastWrite = now;
+      recordActivity(scope, now);
+    };
+    const check = () => {
+      if (isIdleExpired(scope)) void logout();
+    };
+    const events = ["pointerdown", "keydown", "scroll", "touchstart"] as const;
+    events.forEach((name) => window.addEventListener(name, touch, { passive: true }));
+    document.addEventListener("visibilitychange", check);
+    const timer = window.setInterval(check, authTiming.idleCheckIntervalMs);
+    return () => {
+      events.forEach((name) => window.removeEventListener(name, touch));
+      document.removeEventListener("visibilitychange", check);
+      window.clearInterval(timer);
+    };
+  }, [authenticated, scope, logout]);
 
   const refreshUser = useCallback(async () => {
     const user = await api.getMe();

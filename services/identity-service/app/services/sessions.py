@@ -77,8 +77,22 @@ async def rotate_refresh_token(db: DbSession, presented_token: str) -> IssuedRef
     if session is None or session.revoked_at is not None:
         raise InvalidTokenError("session revoked")
 
-    if stored.expires_at < datetime.now(UTC):
+    now = datetime.now(UTC)
+    if stored.expires_at < now:
         raise InvalidTokenError("refresh token expired")
+
+    # Idle and absolute limits, checked against the session itself so they
+    # also end sessions whose current token was issued under a longer TTL.
+    idle_since = session.last_used_at or session.created_at
+    idle_for = (now - idle_since).total_seconds()
+    age = (now - session.created_at).total_seconds()
+    if (
+        idle_for > settings.refresh_token_ttl_seconds
+        or age > settings.session_max_lifetime_seconds
+    ):
+        session.revoked_at = now
+        await db.commit()
+        raise InvalidTokenError("session expired; sign in again")
 
     claimed = await repository.mark_used_if_unused(stored.id)
     if not claimed:

@@ -15,7 +15,13 @@ export type RefreshResult = "ok" | "invalid" | "unavailable";
 
 /** Waits between attempts to reach the server on page load, and between
  * sign-out attempts. Tests shorten them. */
-export const authTiming = { retryDelaysMs: [500, 1500, 3000], requestTimeoutMs: 8000 };
+export const authTiming = {
+  retryDelaysMs: [500, 1500, 3000],
+  requestTimeoutMs: 8000,
+  /** No interaction for this long signs the user out (see lastActivity). */
+  idleTimeoutMs: 15 * 60 * 1000,
+  idleCheckIntervalMs: 15_000,
+};
 
 const TRANSPORT: Record<SessionScope, string> = { customer: "cookie", admin: "cookie-admin" };
 
@@ -126,6 +132,42 @@ export function clearSignedOutMark(which: SessionScope): void {
 export function isMarkedSignedOut(which: SessionScope): boolean {
   try {
     return localStorage.getItem(markerKey(which)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+// --- last activity ----------------------------------------------------------
+//
+// When the user last touched this app, kept in localStorage so it outlives
+// the tab. Someone who leaves without signing out and comes back later -
+// same tab, new tab or after closing the browser - is asked to sign in
+// again, instead of the still-valid refresh cookie letting them straight in.
+// identity-service enforces its own (longer) idle limit as the backstop.
+
+const activityKey = (which: SessionScope) => `fincore:last-activity:${which}`;
+
+export function recordActivity(which: SessionScope, at: number = Date.now()): void {
+  try {
+    localStorage.setItem(activityKey(which), String(at));
+  } catch {
+    // Storage blocked: the server-side idle limit still applies.
+  }
+}
+
+export function clearActivity(which: SessionScope): void {
+  try {
+    localStorage.removeItem(activityKey(which));
+  } catch {
+    // Nothing stored.
+  }
+}
+
+/** True when activity was recorded and it is older than the idle limit. */
+export function isIdleExpired(which: SessionScope, now: number = Date.now()): boolean {
+  try {
+    const stored = Number(localStorage.getItem(activityKey(which)));
+    return stored > 0 && now - stored > authTiming.idleTimeoutMs;
   } catch {
     return false;
   }

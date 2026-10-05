@@ -17,10 +17,15 @@ class Settings(BaseServiceSettings):
     jwt_key_id: str = "identity-2026-09"
     jwt_access_token_ttl_seconds: int = 900
 
-    # 30 days — long-lived by design (that's the point of a refresh
-    # token), which is exactly why it's rotated on every use and never
-    # stored as anything but a hash.
-    refresh_token_ttl_seconds: int = 60 * 60 * 24 * 30
+    # How long a session survives without being used. Every refresh
+    # issues a new token valid for this long, so the window slides while
+    # the customer is active and closes once they stop: someone who walks
+    # away from a device without signing out is not still signed in the
+    # next day. Must exceed the access-token TTL, since an active client
+    # only refreshes when its access token runs out.
+    refresh_token_ttl_seconds: int = 60 * 30
+    # However active, a session ends this long after sign-in.
+    session_max_lifetime_seconds: int = 60 * 60 * 12
 
     # Browser clients (the frontend, ADR-0006) opt into receiving the
     # refresh token as an httpOnly cookie instead of in the JSON body, by

@@ -147,6 +147,13 @@ Authentication, users, and RBAC — spec Sections 5 and 19.
   redemptions of the same token can't both succeed silently. Reusing an
   already-rotated token — replay or a lost race — revokes the entire
   session family.
+* Sessions end when they stop being used
+  ([ADR-0006](docs/adr/0006-browser-auth-storage.md)): a refresh token
+  lives 30 minutes and each refresh issues a new one, so the window
+  slides while the customer is active; a session idle for longer, or
+  older than 12 hours in total, is revoked at its next refresh. The web
+  app is stricter: 15 minutes without interaction signs out, including
+  when the page was closed and reopened later.
 * `POST /api/v1/auth/logout` — idempotent.
 * Browser mode ([ADR-0006](docs/adr/0006-browser-auth-storage.md)): with
   `X-Refresh-Token-Transport: cookie`, login/refresh return the refresh
@@ -1096,7 +1103,7 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 50 tests
-cd services/identity-service && .venv/bin/pytest -v     # 92 tests
+cd services/identity-service && .venv/bin/pytest -v     # 127 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 58 tests
 cd services/payment-service && .venv/bin/pytest -v      # 126 tests
 cd services/notification-service && .venv/bin/pytest -v # 28 tests
@@ -1163,7 +1170,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 55 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 64 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 

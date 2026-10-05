@@ -13,5 +13,7 @@ afterEach(() => {
 beforeEach(() => {
   // No real waiting between session-check and sign-out retries in tests.
   authTiming.retryDelaysMs = [0, 0, 0];
+  authTiming.idleTimeoutMs = 15 * 60 * 1000;
+  authTiming.idleCheckIntervalMs = 15_000;
   localStorage.clear();
 });
