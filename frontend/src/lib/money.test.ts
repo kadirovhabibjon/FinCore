@@ -33,8 +33,13 @@ describe("validateAmount", () => {
   });
 });
 
-it("labels a wallet by its available balance", () => {
+it("labels a wallet by its card number and available balance", () => {
   expect(
-    walletLabel({ id: "abcdef12-0000", currency: "USD", balance_minor: 10_000, held_minor: 2_500 }),
-  ).toBe("USD · abcdef12 · 75.00 USD available");
+    walletLabel({
+      card_number: "9955123456789011",
+      currency: "USD",
+      balance_minor: 10_000,
+      held_minor: 2_500,
+    }),
+  ).toBe("USD · 9955 1234 5678 9011 · 75.00 USD available");
 });

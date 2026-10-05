@@ -3,6 +3,8 @@
 // money — formatting splits the integer with BigInt, and input is
 // validated as a string and sent to the API as that same string.
 
+import { formatCardNumber } from "./card";
+
 // Mirrors fincore-common's SUPPORTED_CURRENCIES.
 export const CURRENCY_EXPONENTS: Readonly<Record<string, number>> = { UZS: 2, USD: 2 };
 export const SUPPORTED_CURRENCIES = Object.keys(CURRENCY_EXPONENTS);
@@ -28,15 +30,16 @@ export function formatMinor(amountMinor: number, currency: string): string {
   return `${negative ? "-" : ""}${groupThousands(whole)}${fraction} ${currency}`;
 }
 
-/** A wallet as one line of text, for <option>s: "UZS · 3f2b8c1e · 1,000.00 UZS available". */
+/** A wallet as one line of text, for <option>s:
+ * "UZS · 9955 1234 5678 9011 · 1,000.00 UZS available". */
 export function walletLabel(wallet: {
-  id: string;
+  card_number: string;
   currency: string;
   balance_minor: number;
   held_minor: number;
 }): string {
   const available = formatMinor(wallet.balance_minor - wallet.held_minor, wallet.currency);
-  return `${wallet.currency} · ${wallet.id.slice(0, 8)} · ${available} available`;
+  return `${wallet.currency} · ${formatCardNumber(wallet.card_number)} · ${available} available`;
 }
 
 /**
