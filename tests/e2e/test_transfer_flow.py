@@ -1,5 +1,7 @@
 import uuid
 
+import httpx
+
 from e2e_client import FinCoreClient, User
 
 
@@ -140,9 +142,9 @@ def test_recipient_lookup_gives_nothing_away(api: FinCoreClient, user: User) -> 
     own_card = api.wallet(user, own_wallet)["card_number"]
     typo = own_card[:-1] + str((int(own_card[-1]) + 1) % 10)
 
-    def lookup(card_number: str, **kwargs):
+    def lookup(card_number: str, headers: dict[str, str] | None = None) -> httpx.Response:
         return api.gateway.get(
-            "/api/v1/transfers/recipient", params={"card_number": card_number}, **kwargs
+            "/api/v1/transfers/recipient", params={"card_number": card_number}, headers=headers
         )
 
     assert lookup(own_card).status_code == 401  # signed-in customers only
