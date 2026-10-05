@@ -13,6 +13,7 @@ import { AdminWebhooksPage } from "./pages/admin/AdminWebhooksPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MerchantPage } from "./pages/MerchantPage";
 import { MerchantsPage } from "./pages/MerchantsPage";
+import { NewsItemPage, NewsPage } from "./pages/NewsPage";
 import { PayPage } from "./pages/PayPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -68,6 +69,8 @@ export function AppRoutes() {
           <Route path="transactions/:transactionId" element={<TransactionPage />} />
           <Route path="merchants" element={<MerchantsPage />} />
           <Route path="merchants/:merchantId" element={<MerchantPage />} />
+          <Route path="news" element={<NewsPage />} />
+          <Route path="news/:newsId" element={<NewsItemPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>

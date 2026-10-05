@@ -16,10 +16,12 @@ from fincore_common import (
 from fincore_common.kafka import EventConsumer, EventHandler
 
 from app.api.internal.dead_letters import router as dead_letters_router
+from app.api.v1.news import router as news_router
 from app.api.v1.notifications import router as notifications_router
 from app.core import kafka as kafka_module
 from app.core.config import settings
 from app.db import session as db_session
+from app.services import news as news_service
 from app.services.dispatch import process_retry_topic_message, process_with_retry_routing
 from app.services.providers import default_providers
 from app.services.retry import RetryPolicy
@@ -85,6 +87,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             _consume_forever("retry", kafka_module.retry_consumer, _handle_retry_topic_message)
         ),
     ]
+    if settings.news_poll_interval_seconds > 0:
+        tasks.append(asyncio.create_task(news_service.poll_forever()))
     yield
     for task in tasks:
         task.cancel()
@@ -109,6 +113,7 @@ configure_tracing(
 configure_metrics(app, service_name=settings.service_name)
 app.include_router(dead_letters_router)
 app.include_router(notifications_router)
+app.include_router(news_router)
 
 
 @app.get("/health")

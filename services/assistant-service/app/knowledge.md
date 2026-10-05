@@ -164,8 +164,17 @@ page, not in History.
   ("Money received", with the sender's name and the amount); a transfer
   the customer sent completes ("Transfer completed"); a transfer the
   customer sent fails ("Transfer failed", with the reason).
-- Payments to merchants, refunds, sign-ins and announcements do not
-  create notifications yet. There are no SMS, email or phone push
+- The bell has two tabs. "Activity" is the customer's own notifications
+  described above. "News" lists banking, finance and economy headlines
+  collected automatically from public news feeds (the Central Bank of
+  Uzbekistan, Spot.uz, Kun.uz, UzDaily), some in Uzbek and some in
+  English. Clicking a headline opens it inside FinCore with the
+  publisher's summary and a button that opens the full article on the
+  publisher's site; "All news" lists everything kept. FinCore does not
+  write, check or endorse these articles, and you cannot read or quote
+  them yourself - point the customer to the News tab.
+- Payments to merchants, refunds and sign-ins do not create
+  notifications yet. There are no SMS, email or phone push
   notifications: only the bell inside the web app, which checks for new
   ones every 15 seconds while a page is open.
 

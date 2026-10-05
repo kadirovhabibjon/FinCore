@@ -10,3 +10,8 @@ class DeadLetterNotFoundError(DomainError):
 class AlreadyReplayedError(DomainError):
     status_code = status.HTTP_409_CONFLICT
     title = "Already Replayed"
+
+
+class NewsNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "News Not Found"

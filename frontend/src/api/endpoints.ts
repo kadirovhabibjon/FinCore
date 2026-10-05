@@ -32,6 +32,8 @@ export type AdminTransaction = Payment["AdminTransactionResponse"];
 export type Merchant = Payment["MerchantResponse"];
 export type Notification = Notifications["NotificationResponse"];
 export type NotificationList = Notifications["NotificationListResponse"];
+export type NewsItem = Notifications["NewsResponse"];
+export type NewsList = Notifications["NewsListResponse"];
 export type ReviewDecision = Payment["ReviewDecision"];
 export type TransactionType = Payment["TransactionType"];
 export type WebhookEndpoint = Webhook["WebhookEndpointResponse"];
@@ -130,6 +132,12 @@ export const listNotifications = () =>
   apiRequest<NotificationList>("/api/v1/notifications", { query: { limit: 20 } });
 export const markNotificationsRead = () =>
   apiRequest<void>("/api/v1/notifications/read", { method: "POST" });
+
+/** Banking news from public feeds, newest first, with the unread count. */
+export const listNews = (limit = 20) =>
+  apiRequest<NewsList>("/api/v1/news", { query: { limit } });
+export const getNewsItem = (newsId: string) => apiRequest<NewsItem>(`/api/v1/news/${newsId}`);
+export const markNewsRead = () => apiRequest<void>("/api/v1/news/read", { method: "POST" });
 
 export const listMerchants = () => apiRequest<Merchant[]>("/api/v1/merchants");
 export const getMerchant = (merchantId: string) =>

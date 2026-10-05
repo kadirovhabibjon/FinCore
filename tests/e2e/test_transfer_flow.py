@@ -228,3 +228,21 @@ def test_both_people_see_a_transfer_in_history_and_are_notified(
 def test_notifications_need_a_signed_in_customer(api: FinCoreClient) -> None:
     assert api.gateway.get("/api/v1/notifications").status_code == 401
     assert api.gateway.post("/api/v1/notifications/read").status_code == 401
+
+
+def test_news_is_served_to_signed_in_customers(api: FinCoreClient, user: User) -> None:
+    """Whether any news exists depends on the outside world (public
+    feeds, fetched in the background), so only the contract is checked:
+    the route is up, needs a customer, and every item is complete."""
+    assert api.gateway.get("/api/v1/news").status_code == 401
+
+    response = api.gateway.get("/api/v1/news", headers=user.auth)
+
+    assert response.status_code == 200
+    listing = response.json()
+    assert listing["unread_count"] >= 0
+    for item in listing["items"]:
+        assert item["title"] and item["source"]
+        assert item["url"].startswith(("http://", "https://"))
+    assert api.gateway.post("/api/v1/news/read", headers=user.auth).status_code == 204
+    assert api.gateway.get("/api/v1/news", headers=user.auth).json()["unread_count"] == 0

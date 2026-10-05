@@ -11,6 +11,9 @@ dependencies = [
     "alembic>=1.13",
     "pydantic>=2.8",
     "pydantic-settings>=2.4",
+    # News feeds are XML from other sites: parsed with entity expansion
+    # and external entities refused.
+    "defusedxml>=0.7",
 ]
 # fincore-common (with its `kafka` extra) is not listed here: it is
 # installed separately as an editable local package, the same way every

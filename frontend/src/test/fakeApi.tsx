@@ -49,6 +49,7 @@ const DEFAULT_ROUTES: Record<string, Handler> = {
   "GET /api/v1/rates": () => json(RATES),
   // The bell is on every signed-in page.
   "GET /api/v1/notifications": () => json({ unread_count: 0, items: [] }),
+  "GET /api/v1/news": () => json({ unread_count: 0, items: [] }),
 };
 
 /**

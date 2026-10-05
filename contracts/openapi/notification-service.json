@@ -68,6 +68,72 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "NewsListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NewsResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "unread_count": {
+            "title": "Unread Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unread_count",
+          "items"
+        ],
+        "title": "NewsListResponse",
+        "type": "object"
+      },
+      "NewsResponse": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "published_at": {
+            "format": "date-time",
+            "title": "Published At",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unread": {
+            "title": "Unread",
+            "type": "boolean"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "source",
+          "url",
+          "published_at",
+          "unread"
+        ],
+        "title": "NewsResponse",
+        "type": "object"
+      },
       "NotificationListResponse": {
         "description": "One request serves the bell: the badge and the list under it.",
         "properties": {
@@ -184,6 +250,136 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/news": {
+      "get": {
+        "description": "Banking and finance news from public feeds, newest first, and how\nmany arrived since the caller last opened the news.",
+        "operationId": "list_news_api_v1_news_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewsListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List News",
+        "tags": [
+          "news"
+        ]
+      }
+    },
+    "/api/v1/news/read": {
+      "post": {
+        "description": "Everything fetched so far counts as seen by the caller. Idempotent.",
+        "operationId": "mark_news_read_api_v1_news_read_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark News Read",
+        "tags": [
+          "news"
+        ]
+      }
+    },
+    "/api/v1/news/{news_id}": {
+      "get": {
+        "operationId": "get_news_item_api_v1_news__news_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "news_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "News Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get News Item",
+        "tags": [
+          "news"
+        ]
+      }
+    },
     "/api/v1/notifications": {
       "get": {
         "description": "The caller's own notifications, newest first, and how many of all\nof them are unread.",

@@ -904,3 +904,83 @@ describe("history", () => {
     );
   });
 });
+
+describe("banking news", () => {
+  const article = {
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    title: "Markaziy bank asosiy stavkani saqlab qoldi",
+    summary: "Asosiy stavka 14 foiz darajasida qoldi. <b>not markup</b>",
+    source: "cbu.uz",
+    url: "https://cbu.uz/uz/press_center/news/1/",
+    published_at: "2026-10-05T09:00:00Z",
+    unread: true,
+  };
+
+  it("counts news in the bell's badge and opens an article inside the app", async () => {
+    let unread = 1;
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET]),
+      "GET /api/v1/news": () =>
+        json({ unread_count: unread, items: [{ ...article, unread: unread > 0 }] }),
+      "POST /api/v1/news/read": () => {
+        unread = 0;
+        return noContent();
+      },
+      [`GET /api/v1/news/${article.id}`]: () => json(article),
+    });
+    renderApp("/");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Notifications, 1 unread" }));
+
+    // Only news is new, so the bell opens on it, and seeing it marks it read.
+    const panel = await screen.findByRole("dialog", { name: "Notifications" });
+    expect(within(panel).getByRole("tab", { name: /News/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await waitFor(() => expect(requests.some((r) => r.path === "/api/v1/news/read")).toBe(true));
+    // Activity had nothing unread: it is not marked.
+    expect(requests.some((r) => r.path === "/api/v1/notifications/read")).toBe(false);
+
+    await userEvent.click(within(panel).getByText(article.title));
+
+    expect(await screen.findByRole("heading", { name: article.title })).toBeInTheDocument();
+    // A feed's text is shown as text, never interpreted as markup.
+    expect(screen.getByText(article.summary)).toBeInTheDocument();
+    const original = screen.getByRole("link", { name: /Read the full article on cbu\.uz/ });
+    expect(original).toHaveAttribute("href", article.url);
+    expect(original).toHaveAttribute("target", "_blank");
+    expect(original).toHaveAttribute("rel", "noopener noreferrer");
+    expect(screen.queryByRole("dialog", { name: "Notifications" })).not.toBeInTheDocument();
+  });
+
+  it("switching tabs shows the customer's own activity again", async () => {
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([]),
+      "GET /api/v1/news": () => json({ unread_count: 0, items: [{ ...article, unread: false }] }),
+    });
+    renderApp("/");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Notifications" }));
+    expect(await screen.findByText(/Nothing yet/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "News" }));
+    expect(screen.getByText(article.title)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "All news" })).toHaveAttribute("href", "/news");
+  });
+
+  it("lists every kept article on the news page", async () => {
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/news": () => json({ unread_count: 0, items: [article] }),
+    });
+    renderApp("/news");
+
+    expect(await screen.findByRole("heading", { name: "Banking & finance news" })).toBeInTheDocument();
+    const card = (await screen.findByText(article.title)).closest("a");
+    expect(card).toHaveAttribute("href", `/news/${article.id}`);
+    expect(requests.some((r) => r.path === "/api/v1/news/read")).toBe(false);
+  });
+});

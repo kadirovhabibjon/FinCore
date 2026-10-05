@@ -22,3 +22,7 @@ os.environ.setdefault(
     "postgresql+asyncpg://placeholder:placeholder@localhost:5432/placeholder",
 )
 os.environ.setdefault("INTERNAL_SERVICE_TOKEN", "test-only-internal-token")
+
+# No test may fetch real news feeds: the poller stays off, and tests of
+# the news code install their own transport.
+os.environ["NEWS_POLL_INTERVAL_SECONDS"] = "0"

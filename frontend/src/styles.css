@@ -1774,3 +1774,99 @@ textarea,
     width: auto;
   }
 }
+
+/* --- news in the bell, and the news pages ----------------------------- */
+
+.bell-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--hairline, var(--border));
+}
+
+.bell-tabs [role="tab"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bell-tabs [role="tab"][aria-selected="true"] {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.bell-count {
+  min-width: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--bad);
+  color: #fff;
+  font-size: 0.68rem;
+  line-height: 1.15rem;
+  text-align: center;
+}
+
+.bell-all {
+  margin-left: auto;
+  padding-right: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.bell-news {
+  flex: 1;
+  color: inherit;
+  text-decoration: none;
+}
+
+.bell-news:hover strong {
+  text-decoration: underline;
+}
+
+.page.narrow-wide {
+  max-width: 720px;
+}
+
+.news-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+
+.news-card:hover {
+  border-color: var(--accent);
+}
+
+.news-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.news-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.news-body p {
+  margin: 0;
+}

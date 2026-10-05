@@ -2,6 +2,64 @@
 // Do not edit by hand: run `npm run gen:api`.
 
 export interface paths {
+    "/api/v1/news": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List News
+         * @description Banking and finance news from public feeds, newest first, and how
+         *     many arrived since the caller last opened the news.
+         */
+        get: operations["list_news_api_v1_news_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/news/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark News Read
+         * @description Everything fetched so far counts as seen by the caller. Idempotent.
+         */
+        post: operations["mark_news_read_api_v1_news_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/news/{news_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get News Item */
+        get: operations["get_news_item_api_v1_news__news_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications": {
         parameters: {
             query?: never;
@@ -154,6 +212,36 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** NewsListResponse */
+        NewsListResponse: {
+            /** Items */
+            items: components["schemas"]["NewsResponse"][];
+            /** Unread Count */
+            unread_count: number;
+        };
+        /** NewsResponse */
+        NewsResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /** Source */
+            source: string;
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+            /** Unread */
+            unread: boolean;
+            /** Url */
+            url: string;
+        };
         /**
          * NotificationListResponse
          * @description One request serves the bell: the badge and the list under it.
@@ -207,6 +295,87 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_news_api_v1_news_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewsListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_news_read_api_v1_news_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_news_item_api_v1_news__news_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                news_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_my_notifications_api_v1_notifications_get: {
         parameters: {
             query?: {

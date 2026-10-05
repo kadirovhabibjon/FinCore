@@ -468,6 +468,18 @@ Sections 15 and 16 — and keeps them for the bell in the web app.
   `POST /api/v1/notifications/read` marks them read (opening the bell).
   Bearer token verified locally against identity-service's JWKS. The web
   app polls every 15 seconds; nothing is pushed to the browser.
+* **News**: a background poller reads public RSS feeds every 15
+  minutes — the Central Bank of Uzbekistan's press releases whole, and
+  Spot.uz, Kun.uz and UzDaily filtered to banking, finance and economy
+  stories by keyword — and keeps the newest 200 headlines with the
+  feed's own summary and a link (`NEWS_*` settings; 0 seconds switches
+  it off). `GET /api/v1/news`, `GET /api/v1/news/{id}` and
+  `POST /api/v1/news/read` serve the bell's News tab; "unread" is what
+  arrived since that customer last looked. A feed is someone else's
+  text: it is parsed with `defusedxml` (entity expansion and external
+  entities refused), capped at 2 MB, reduced to plain text, and its
+  link kept only if it is an http(s) address. Only the headline and
+  summary are shown; the article opens on the publisher's site.
 * **Both sides of a transfer are told.** `transfer.completed` produces
   "Transfer completed — You sent 12,500.00 UZS to Bobur T." for the
   sender and "Money received — Aziza K. sent you 12,500.00 UZS." for the
@@ -768,7 +780,7 @@ refresh cookie.
   held / ledger balance, card number and each wallet's ledger entries;
   send a transfer by typing the recipient's card number and checking
   the name that comes back; pay a merchant; a notifications bell
-  (money received and sent, unread badge) on every page; history of
+  (money received and sent, banking news, unread badge) on every page; history of
   money sent, paid and received with per-operation detail (including
   why something is `PENDING` or `FAILED`); merchants with received
   payments, refunds, and webhook endpoints (secret shown once, rotate,
@@ -1169,7 +1181,7 @@ cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
 cd services/identity-service && .venv/bin/pytest -v     # 131 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 65 tests
 cd services/payment-service && .venv/bin/pytest -v      # 141 tests
-cd services/notification-service && .venv/bin/pytest -v # 37 tests
+cd services/notification-service && .venv/bin/pytest -v # 50 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
 cd services/audit-service && .venv/bin/pytest -v        # 50 tests
@@ -1233,7 +1245,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 84 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 87 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1282,7 +1294,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-52 tests that run against a live `docker compose` stack, through the
+53 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit
