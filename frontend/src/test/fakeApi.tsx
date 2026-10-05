@@ -95,6 +95,7 @@ export const USER = {
 
 export const WALLET = {
   id: "22222222-2222-4222-8222-222222222222",
+  card_number: "9955000000000006",
   currency: "UZS",
   status: "ACTIVE",
   created_at: "2026-09-01T10:00:00Z",

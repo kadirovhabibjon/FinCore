@@ -22,6 +22,7 @@ export type RegisterRequest = Identity["RegisterRequest"];
 export type Wallet = Ledger["WalletResponse"];
 export type LedgerEntry = Ledger["LedgerEntryResponse"];
 export type Transfer = Payment["TransferResponse"];
+export type Recipient = Payment["RecipientResponse"];
 export type PaymentRecord = Payment["PaymentResponse"];
 export type Refund = Payment["RefundResponse"];
 export type Transaction = Payment["TransactionResponse"];
@@ -92,6 +93,9 @@ export const listWalletEntries = (walletId: string, page: Page) =>
 
 export const createTransfer = (body: Payment["CreateTransferRequest"], idempotencyKey: string) =>
   apiRequest<Transfer>("/api/v1/transfers", { method: "POST", body, idempotencyKey });
+/** Who a transfer to this card number (16 digits) would go to. */
+export const findRecipient = (cardNumber: string) =>
+  apiRequest<Recipient>("/api/v1/transfers/recipient", { query: { card_number: cardNumber } });
 export const getTransfer = (transferId: string) =>
   apiRequest<Transfer>(`/api/v1/transfers/${transferId}`);
 

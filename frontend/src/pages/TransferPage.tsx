@@ -3,8 +3,15 @@ import { useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import * as api from "../api/endpoints";
+import { ApiError } from "../api/client";
 import { ErrorAlert, Loading, Money } from "../components/ui";
 import { OperationOutcome } from "../components/OperationOutcome";
+import {
+  CARD_NUMBER_LENGTH,
+  cardDigits,
+  formatCardNumber,
+  isValidCardNumber,
+} from "../lib/card";
 import { validateAmount, walletLabel } from "../lib/money";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
 
@@ -13,20 +20,51 @@ export function TransferPage() {
   const queryClient = useQueryClient();
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: api.listWallets });
   const [sourceId, setSourceId] = useState(params.get("from") ?? "");
-  const [destinationId, setDestinationId] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [amountError, setAmountError] = useState<string | null>(null);
   const [idempotencyKey, renewKey] = useIdempotencyKey();
 
-  const source = wallets.data?.find((wallet) => wallet.id === sourceId) ?? wallets.data?.[0];
+  const source =
+    wallets.data?.find((wallet) => wallet.id === sourceId) ?? wallets.data?.[0];
+
+  // The recipient is looked up as soon as a complete, well-formed number
+  // is typed, so the sender sees a name before anything is sent.
+  const cardComplete = cardNumber.length === CARD_NUMBER_LENGTH;
+  const cardValid = isValidCardNumber(cardNumber);
+  const lookup = useQuery({
+    queryKey: ["recipient", cardNumber],
+    queryFn: () => api.findRecipient(cardNumber),
+    enabled: cardValid,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const recipient = cardValid ? lookup.data : undefined;
+  const notFound =
+    lookup.error instanceof ApiError && lookup.error.status === 404;
+  let recipientProblem: string | null = null;
+  if (cardComplete && !cardValid) {
+    recipientProblem = "Check the card number: a digit is wrong.";
+  } else if (cardValid && notFound) {
+    recipientProblem =
+      "No FinCore wallet can receive money at this card number.";
+  } else if (cardValid && lookup.error) {
+    recipientProblem =
+      "Couldn't look up this card right now. Try again shortly.";
+  } else if (recipient && source && recipient.wallet_id === source.id) {
+    recipientProblem = "This is the card of the wallet you are sending from.";
+  } else if (recipient && source && recipient.currency !== source.currency) {
+    recipientProblem = `This card is a ${recipient.currency} wallet. Choose your ${recipient.currency} wallet above to send to it.`;
+  }
+  const canSend = !!recipient && !recipientProblem;
 
   const transfer = useMutation({
     mutationFn: () =>
       api.createTransfer(
         {
           source_wallet_id: source!.id,
-          destination_wallet_id: destinationId.trim(),
+          destination_wallet_id: recipient!.wallet_id,
           amount: amount.trim(),
           currency: source!.currency,
           description: description.trim() || null,
@@ -51,7 +89,7 @@ export function TransferPage() {
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!source) return;
+    if (!source || !canSend) return;
     const problem = validateAmount(amount, source.currency);
     setAmountError(problem);
     if (!problem) transfer.mutate();
@@ -78,13 +116,37 @@ export function TransferPage() {
           status={transfer.data.status}
           failureReason={transfer.data.failure_reason}
           reference={transfer.data.reference}
-          amount={<Money minor={transfer.data.amount_minor} currency={transfer.data.currency} />}
+          amount={
+            <Money
+              minor={transfer.data.amount_minor}
+              currency={transfer.data.currency}
+            />
+          }
         />
+        {recipient && (
+          <p className="muted">
+            To {recipient.display_name} · card {formatCardNumber(cardNumber)}
+          </p>
+        )}
         <div className="actions">
-          <Link to={`/transactions/${transfer.data.id}`} className="button button-ghost">
+          <Link
+            to={`/transactions/${transfer.data.id}`}
+            className="button button-ghost"
+          >
             View details
           </Link>
-          <button type="button" className="button" onClick={() => transfer.reset()}>
+          <button
+            type="button"
+            className="button"
+            onClick={() => {
+              // A fresh form: the previous recipient and amount must not
+              // be one accidental click away from being sent again.
+              setCardNumber("");
+              setAmount("");
+              setDescription("");
+              transfer.reset();
+            }}
+          >
             Send another
           </button>
         </div>
@@ -99,7 +161,10 @@ export function TransferPage() {
         <ErrorAlert error={wallets.error ?? transfer.error} />
         <label>
           From
-          <select value={source?.id} onChange={(e) => edited(setSourceId)(e.target.value)}>
+          <select
+            value={source?.id}
+            onChange={(e) => edited(setSourceId)(e.target.value)}
+          >
             {wallets.data.map((wallet) => (
               <option key={wallet.id} value={wallet.id}>
                 {walletLabel(wallet)}
@@ -107,17 +172,49 @@ export function TransferPage() {
             ))}
           </select>
         </label>
-        <label>
-          To wallet id
-          <input
-            value={destinationId}
-            onChange={(e) => edited(setDestinationId)(e.target.value)}
-            placeholder="Recipient's wallet id"
-            required
-            pattern="[0-9a-fA-F-]{36}"
-            title="A wallet id, e.g. 3f2b8c1e-…"
-          />
-        </label>
+        <div className="field">
+          <label>
+            To card number
+            <input
+              value={formatCardNumber(cardNumber)}
+              onChange={(e) =>
+                edited(setCardNumber)(cardDigits(e.target.value))
+              }
+              placeholder="9955 0000 0000 0000"
+              inputMode="numeric"
+              autoComplete="off"
+              required
+              aria-invalid={!!recipientProblem}
+              aria-describedby="recipient-status"
+            />
+          </label>
+          <span id="recipient-status" aria-live="polite">
+            {recipientProblem ? (
+              <span className="field-error">{recipientProblem}</span>
+            ) : recipient ? (
+              <span className="recipient">
+                <span className="recipient-avatar" aria-hidden="true">
+                  {recipient.display_name.slice(0, 1).toUpperCase()}
+                </span>
+                <span>
+                  <strong>{recipient.display_name}</strong>
+                  {recipient.own && " (you)"}
+                  <span className="muted small">
+                    {" "}
+                    · {recipient.currency} wallet
+                  </span>
+                </span>
+              </span>
+            ) : cardValid ? (
+              <span className="muted small">Looking up the recipient…</span>
+            ) : (
+              <span className="muted small">
+                The recipient&apos;s 16-digit FinCore card number, shown on
+                their wallet.
+              </span>
+            )}
+          </span>
+        </div>
         <label>
           Amount ({source?.currency})
           <input
@@ -138,7 +235,11 @@ export function TransferPage() {
             maxLength={255}
           />
         </label>
-        <button type="submit" className="button" disabled={transfer.isPending}>
+        <button
+          type="submit"
+          className="button"
+          disabled={transfer.isPending || !canSend}
+        >
           {transfer.isPending ? "Sending…" : "Send"}
         </button>
       </form>

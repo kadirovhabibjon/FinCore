@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.domain.account import AccountKind
+from app.domain.account import AccountKind, AccountStatus
 from app.domain.hold import HoldStatus
 from app.domain.posting import EntryDirection, PostingType
 
@@ -75,3 +75,16 @@ class ReconciliationReportResponse(BaseModel):
     balance_mismatches: list[UUID]
     negative_available_wallets: list[UUID]
     duplicate_source_postings: list[tuple[str, str, str]]
+
+
+class WalletByCardResponse(BaseModel):
+    """Who a card number belongs to - for payment-service, which shows
+    the sender a recipient before a transfer. Never exposed publicly:
+    it carries the owner's user id."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    owner_user_id: UUID
+    currency: str
+    status: AccountStatus

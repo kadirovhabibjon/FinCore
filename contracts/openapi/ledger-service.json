@@ -469,6 +469,36 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "WalletByCardResponse": {
+        "description": "Who a card number belongs to - for payment-service, which shows\nthe sender a recipient before a transfer. Never exposed publicly:\nit carries the owner's user id.",
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "format": "uuid",
+            "title": "Owner User Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AccountStatus"
+          }
+        },
+        "required": [
+          "id",
+          "owner_user_id",
+          "currency",
+          "status"
+        ],
+        "title": "WalletByCardResponse",
+        "type": "object"
+      },
       "WalletCreateRequest": {
         "properties": {
           "currency": {
@@ -489,6 +519,10 @@
           "balance_minor": {
             "title": "Balance Minor",
             "type": "integer"
+          },
+          "card_number": {
+            "title": "Card Number",
+            "type": "string"
           },
           "created_at": {
             "format": "date-time",
@@ -514,6 +548,7 @@
         },
         "required": [
           "id",
+          "card_number",
           "currency",
           "status",
           "created_at",
@@ -814,6 +849,61 @@
           }
         },
         "summary": "Get System Account",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
+    "/internal/v1/accounts/wallet-by-card": {
+      "get": {
+        "description": "The wallet a card number belongs to, whatever its status: whether\na frozen or closed wallet may receive money is the caller's rule.",
+        "operationId": "get_wallet_by_card_internal_v1_accounts_wallet_by_card_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "card_number",
+            "required": true,
+            "schema": {
+              "maxLength": 16,
+              "minLength": 16,
+              "pattern": "^[0-9]{16}$",
+              "title": "Card Number",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-internal-token",
+            "required": true,
+            "schema": {
+              "title": "X-Internal-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletByCardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Wallet By Card",
         "tags": [
           "internal"
         ]

@@ -34,9 +34,9 @@ token_for() {
   random_token
 }
 
-# fraud/ledger/payment/webhook share one token: payment-service sends the
-# same secret to ledger's and fraud's internal APIs, and webhook-service
-# sends it to payment-service's. notification-service and audit-service
+# identity/fraud/ledger/payment/webhook share one token: payment-service
+# sends the same secret to identity's, ledger's and fraud's internal APIs,
+# and webhook-service sends it to payment-service's. notification-service and audit-service
 # each get their own — nothing else calls into them.
 SHARED_TOKEN="$(token_for ledger-service payment-service fraud-service webhook-service)"
 NOTIFICATION_TOKEN="$(token_for notification-service)"
@@ -66,6 +66,7 @@ JWT_KEY_ID=identity-dev
 JWT_ACCESS_TOKEN_TTL_SECONDS=900
 JWT_PRIVATE_KEY="$JWT_PRIVATE_KEY"
 KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+INTERNAL_SERVICE_TOKEN=$SHARED_TOKEN
 EOF
 
 write_env ledger-service <<EOF
@@ -96,6 +97,7 @@ IDENTITY_SERVICE_JWKS_URL=http://identity-service:8000/.well-known/jwks.json
 JWT_ISSUER=fincore-identity-service
 INTERNAL_SERVICE_TOKEN=$SHARED_TOKEN
 LEDGER_SERVICE_BASE_URL=http://ledger-service:8000
+IDENTITY_SERVICE_BASE_URL=http://identity-service:8000
 FRAUD_SERVICE_BASE_URL=http://fraud-service:8000
 FRAUD_SERVICE_TIMEOUT_SECONDS=2.0
 KAFKA_BOOTSTRAP_SERVERS=kafka:9092

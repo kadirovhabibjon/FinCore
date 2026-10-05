@@ -35,6 +35,22 @@ class WalletInfo:
     status: str
 
 
+@dataclass(frozen=True)
+class CardWallet:
+    """The wallet behind a card number, as ledger-service's internal
+    API reports it."""
+
+    id: UUID
+    owner_user_id: UUID
+    currency: str
+    status: str
+
+
+class LedgerUnavailableError(Exception):
+    """ledger-service couldn't answer a read. Only raised by lookups
+    where "couldn't ask" must not be mistaken for "doesn't exist"."""
+
+
 class HoldOutcome(enum.Enum):
     SUCCESS = "SUCCESS"
     BUSINESS_REJECTION = "BUSINESS_REJECTION"
@@ -309,6 +325,37 @@ class LedgerClient:
         response.raise_for_status()
         data = response.json()
         return UUID(data["id"])
+
+
+    async def find_wallet_by_card(self, card_number: str) -> CardWallet | None:
+        """The wallet a card number belongs to, or None when there is
+        none. Raises LedgerUnavailableError if ledger-service can't say."""
+        try:
+            async with async_client(
+                base_url=self._base_url,
+                timeout=self._timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = await client.get(
+                    "/internal/v1/accounts/wallet-by-card",
+                    params={"card_number": card_number},
+                    headers={"X-Internal-Token": self._internal_token},
+                )
+        except httpx.RequestError as exc:
+            raise LedgerUnavailableError(str(exc)) from exc
+
+        if response.status_code == 404:
+            return None
+        if response.status_code >= 500:
+            raise LedgerUnavailableError(f"ledger-service returned {response.status_code}")
+        response.raise_for_status()
+        data = response.json()
+        return CardWallet(
+            id=UUID(data["id"]),
+            owner_user_id=UUID(data["owner_user_id"]),
+            currency=data["currency"],
+            status=data["status"],
+        )
 
 
 ledger_client = LedgerClient(

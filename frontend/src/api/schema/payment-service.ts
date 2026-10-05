@@ -259,6 +259,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transfers/recipient": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recipient
+         * @description Who would receive a transfer sent to this card number: the wallet
+         *     to send to, its currency, and the owner's first name and last
+         *     initial. Signed-in customers only, and rate-limited at the gateway,
+         *     since it turns a card number into a name.
+         */
+        get: operations["get_recipient_api_v1_transfers_recipient_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transfers/{transfer_id}": {
         parameters: {
             query?: never;
@@ -566,6 +589,23 @@ export interface components {
          * @enum {string}
          */
         PaymentStatus: "CREATED" | "PROCESSING" | "SUCCESS" | "FAILED" | "EXPIRED" | "PARTIALLY_REFUNDED" | "REFUNDED";
+        /**
+         * RecipientResponse
+         * @description Who a card number belongs to, for the sender to confirm.
+         */
+        RecipientResponse: {
+            /** Currency */
+            currency: string;
+            /** Display Name */
+            display_name: string;
+            /** Own */
+            own: boolean;
+            /**
+             * Wallet Id
+             * Format: uuid
+             */
+            wallet_id: string;
+        };
         /** RefundResponse */
         RefundResponse: {
             /** Amount Minor */
@@ -1139,6 +1179,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransferResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_recipient_api_v1_transfers_recipient_get: {
+        parameters: {
+            query: {
+                card_number: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipientResponse"];
                 };
             };
             /** @description Validation Error */

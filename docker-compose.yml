@@ -181,6 +181,9 @@ services:
       - services/payment-service/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://payment:payment@postgres:5432/payment_db
+      # For the recipient lookup by card number; set here so a .env
+      # generated before that feature needs no change.
+      IDENTITY_SERVICE_BASE_URL: http://identity-service:8000
     depends_on:
       postgres:
         condition: service_healthy

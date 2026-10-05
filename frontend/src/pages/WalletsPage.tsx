@@ -6,6 +6,7 @@ import * as api from "../api/endpoints";
 import { useAuth } from "../auth/context";
 import { ExchangeRates } from "../components/ExchangeRates";
 import { Empty, ErrorAlert, Loading, Money, ShortId, StatusBadge } from "../components/ui";
+import { formatCardNumber } from "../lib/card";
 import { SUPPORTED_CURRENCIES } from "../lib/money";
 
 export function WalletsPage() {
@@ -60,6 +61,9 @@ export function WalletsPage() {
                   {wallet.currency} wallet <ShortId id={wallet.id} />
                 </span>
                 <StatusBadge status={wallet.status} />
+              </div>
+              <div className="card-number" aria-label="Card number">
+                {formatCardNumber(wallet.card_number)}
               </div>
               <div className="wallet-balance">
                 <Money minor={wallet.balance_minor - wallet.held_minor} currency={wallet.currency} />

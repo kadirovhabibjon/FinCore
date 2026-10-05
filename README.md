@@ -217,6 +217,13 @@ identity_db: users, roles, user_roles, sessions, refresh_tokens, outbox_events
 Wallets, double-entry postings, balances, and holds — the source of truth
 for money (ADR-0002, spec Section 8).
 
+* Every wallet has a **card number**
+  ([ADR-0008](docs/adr/0008-wallet-card-numbers.md)): 16 digits, unique,
+  assigned when the wallet is opened, returned as `card_number`. It is
+  what a customer shares to receive money, instead of the wallet's UUID.
+  FinCore's own numbering (prefix `9955`, Luhn check digit), not a
+  payment card. `GET /internal/v1/accounts/wallet-by-card` resolves one
+  for payment-service.
 * `POST /api/v1/wallets`, `GET /api/v1/wallets`, `GET /api/v1/wallets/{id}`,
   `GET /api/v1/wallets/{id}/entries` — protected by a bearer token that
   `ledger-service` verifies **entirely on its own**, using
@@ -288,6 +295,14 @@ as distinct.
 Transfers, payments, refunds, merchants, idempotency, and the
 distributed transaction — spec Sections 9, 10, 11, and 20.
 
+* `GET /api/v1/transfers/recipient?card_number=…` — who a transfer to
+  that card number would reach: the wallet id to send to, its currency,
+  and the owner's first name and last initial (`"Aziza K."`).
+  payment-service asks ledger-service whose wallet the number is and
+  identity-service (`GET /internal/v1/users/{id}`) for the name. A
+  mistyped number is a `422` before any lookup; an unknown card, a
+  frozen wallet and a blocked owner are the same `404`. Signed-in
+  customers only, 30 lookups a minute per client at the gateway.
 * `POST /api/v1/transfers` — the flow runs in this exact order:
   authorize (does the source wallet belong to the caller — relayed to
   `ledger-service`'s own public wallet endpoint rather than duplicating
@@ -728,8 +743,9 @@ origin: no CORS, a strict `default-src 'self'` CSP, and a first-party
 refresh cookie.
 
 * **User dashboard**: register and sign in; wallets with available /
-  held / ledger balance and each wallet's ledger entries; send a
-  transfer; pay a merchant; history with per-operation detail (including
+  held / ledger balance, card number and each wallet's ledger entries;
+  send a transfer by typing the recipient's card number and checking
+  the name that comes back; pay a merchant; history with per-operation detail (including
   why something is `PENDING` or `FAILED`); merchants with received
   payments, refunds, and webhook endpoints (secret shown once, rotate,
   re-enable, delivery history with every attempt); account page with
@@ -1125,10 +1141,10 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 ## Testing
 
 ```bash
-cd libs/fincore-common && .venv/bin/pytest -v           # 50 tests
-cd services/identity-service && .venv/bin/pytest -v     # 127 tests
-cd services/ledger-service && .venv/bin/pytest -v       # 58 tests
-cd services/payment-service && .venv/bin/pytest -v      # 126 tests
+cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
+cd services/identity-service && .venv/bin/pytest -v     # 131 tests
+cd services/ledger-service && .venv/bin/pytest -v       # 64 tests
+cd services/payment-service && .venv/bin/pytest -v      # 136 tests
 cd services/notification-service && .venv/bin/pytest -v # 28 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
@@ -1193,7 +1209,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 73 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 80 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1242,7 +1258,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-48 tests that run against a live `docker compose` stack, through the
+50 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit
@@ -1383,6 +1399,8 @@ problem, the decision, and what was rejected and why:
 * [ADR-0007](docs/adr/0007-customer-assistant.md) — the AI customer
   assistant: grounded in a code-derived knowledge base and read-only
   tools over the customer's own data, never allowed to move money.
+* [ADR-0008](docs/adr/0008-wallet-card-numbers.md) — wallet card numbers
+  and looking up a transfer's recipient by one.
 
 Plus [`docs/glossary.md`](docs/glossary.md) (shared vocabulary),
 [`docs/context-map.md`](docs/context-map.md) (service boundaries and

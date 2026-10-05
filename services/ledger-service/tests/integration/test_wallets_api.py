@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from fincore_common import generate_card_number, is_valid_card_number
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
@@ -8,6 +9,7 @@ from app.db import session as db_session
 from app.domain.account import AccountKind, LedgerAccount
 from app.domain.posting import EntryDirection, PostingType
 from app.main import app
+from app.services import wallets as wallets_service
 from app.services.postings import EntryInput, create_posting
 
 pytestmark = pytest.mark.usefixtures("migrated_database")
@@ -196,3 +198,45 @@ async def test_wallet_entries_requires_ownership(issue_access_token) -> None:
         )
 
     assert response.status_code == 404
+
+
+async def test_every_wallet_gets_its_own_valid_card_number(issue_access_token) -> None:
+    headers = {"Authorization": f"Bearer {issue_access_token(uuid.uuid4())}"}
+
+    async with await _client() as client:
+        uzs = await client.post("/api/v1/wallets", json={"currency": "UZS"}, headers=headers)
+        usd = await client.post("/api/v1/wallets", json={"currency": "USD"}, headers=headers)
+        listed = await client.get("/api/v1/wallets", headers=headers)
+        fetched = await client.get(f"/api/v1/wallets/{uzs.json()['id']}", headers=headers)
+
+    numbers = {uzs.json()["card_number"], usd.json()["card_number"]}
+    assert len(numbers) == 2
+    assert all(is_valid_card_number(number) for number in numbers)
+    # The number is the wallet's for good, not drawn again on each read.
+    assert {wallet["card_number"] for wallet in listed.json()} == numbers
+    assert fetched.json()["card_number"] == uzs.json()["card_number"]
+
+
+async def test_a_card_number_collision_draws_another_number(
+    issue_access_token, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async with await _client() as client:
+        taken = (
+            await client.post(
+                "/api/v1/wallets",
+                json={"currency": "UZS"},
+                headers={"Authorization": f"Bearer {issue_access_token(uuid.uuid4())}"},
+            )
+        ).json()["card_number"]
+
+        fresh = generate_card_number()
+        draws = iter([taken, fresh])
+        monkeypatch.setattr(wallets_service, "generate_card_number", lambda: next(draws))
+        response = await client.post(
+            "/api/v1/wallets",
+            json={"currency": "UZS"},
+            headers={"Authorization": f"Bearer {issue_access_token(uuid.uuid4())}"},
+        )
+
+    assert response.status_code == 201
+    assert response.json()["card_number"] == fresh

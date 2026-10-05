@@ -16,8 +16,10 @@ router = APIRouter(prefix="/api/v1/wallets", tags=["wallets"])
 
 
 def _wallet_response(account: LedgerAccount, balance: AccountBalance) -> WalletResponse:
+    assert account.card_number is not None  # every USER_WALLET has one
     return WalletResponse(
         id=account.id,
+        card_number=account.card_number,
         currency=account.currency,
         status=account.status,
         created_at=account.created_at,

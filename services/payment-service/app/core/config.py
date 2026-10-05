@@ -19,6 +19,13 @@ class Settings(BaseServiceSettings):
     ledger_service_base_url: str
     ledger_service_timeout_seconds: float = 5.0
 
+    # identity-service's internal API: the name shown for a transfer
+    # recipient found by card number. Has a default (unlike the two
+    # above) so a .env written before this lookup existed still boots;
+    # docker-compose.yml sets the in-network address.
+    identity_service_base_url: str = "http://localhost:8091"
+    identity_service_timeout_seconds: float = 3.0
+
     fraud_service_base_url: str
     fraud_service_timeout_seconds: float = 0.3
 

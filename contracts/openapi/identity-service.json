@@ -141,6 +141,35 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "InternalUserResponse": {
+        "description": "The little another service may know about a user: who they are\nby name and whether the account is usable. No email, phone or roles.",
+        "properties": {
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/UserStatus"
+          }
+        },
+        "required": [
+          "id",
+          "first_name",
+          "last_name",
+          "status"
+        ],
+        "title": "InternalUserResponse",
+        "type": "object"
+      },
       "LoginRequest": {
         "description": "Sign in with email or phone number - exactly one - and password.",
         "properties": {
@@ -1064,6 +1093,58 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/internal/v1/users/{user_id}": {
+      "get": {
+        "operationId": "get_user_internal_v1_users__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-internal-token",
+            "required": true,
+            "schema": {
+              "title": "X-Internal-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalUserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get User",
+        "tags": [
+          "internal"
+        ]
       }
     },
     "/ready": {

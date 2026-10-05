@@ -57,6 +57,10 @@ class LedgerAccount(Base):
     owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True
     )
+    # The number a customer shares to receive money (fincore_common.
+    # card_number). Wallets only; system accounts have none - enforced
+    # below by ck_ledger_accounts_wallet_has_card_number.
+    card_number: Mapped[str | None] = mapped_column(String(16), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     status: Mapped[AccountStatus] = mapped_column(
         Enum(AccountStatus, name="account_status", native_enum=True),
@@ -73,6 +77,16 @@ class LedgerAccount(Base):
             "(kind = 'USER_WALLET' AND owner_user_id IS NOT NULL) OR "
             "(kind != 'USER_WALLET' AND owner_user_id IS NULL)",
             name="ck_ledger_accounts_wallet_has_owner",
+        ),
+        CheckConstraint(
+            "(kind = 'USER_WALLET') = (card_number IS NOT NULL)",
+            name="ck_ledger_accounts_wallet_has_card_number",
+        ),
+        Index(
+            "uq_ledger_accounts_card_number",
+            "card_number",
+            unique=True,
+            postgresql_where=text("card_number IS NOT NULL"),
         ),
         # v1: one wallet per (owner_user_id, currency) — spec Section 6.
         # A plain UNIQUE(owner_user_id, currency) would not work: SQL

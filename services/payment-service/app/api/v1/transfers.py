@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from fastapi.encoders import jsonable_encoder
 from fincore_common import parse_decimal_string
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +10,7 @@ from app.api.v1.dependencies import (
     get_authenticated_user,
     get_idempotency_fingerprint,
 )
-from app.api.v1.schemas import CreateTransferRequest, TransferResponse
+from app.api.v1.schemas import CreateTransferRequest, RecipientResponse, TransferResponse
 from app.core.exceptions import (
     CurrencyMismatchError,
     InvalidAmountError,
@@ -22,6 +22,7 @@ from app.db.session import get_db
 from app.repositories.transfer_repository import TransferRepository
 from app.services import ledger
 from app.services.idempotency import begin_idempotent_request, complete_idempotent_request
+from app.services.recipients import find_recipient
 from app.services.transfers import CreateTransferInput, create_transfer
 
 router = APIRouter(prefix="/api/v1/transfers", tags=["transfers"])
@@ -90,6 +91,25 @@ async def post_transfer(
         resource_id=transfer.id,
     )
     return response
+
+
+# Declared before /{transfer_id}, which would otherwise capture "recipient".
+@router.get("/recipient", response_model=RecipientResponse)
+async def get_recipient(
+    card_number: str = Query(..., min_length=16, max_length=32),
+    user: AuthenticatedUser = Depends(get_authenticated_user),
+) -> RecipientResponse:
+    """Who would receive a transfer sent to this card number: the wallet
+    to send to, its currency, and the owner's first name and last
+    initial. Signed-in customers only, and rate-limited at the gateway,
+    since it turns a card number into a name."""
+    recipient = await find_recipient(card_number, caller_user_id=user.user_id)
+    return RecipientResponse(
+        wallet_id=recipient.wallet_id,
+        currency=recipient.currency,
+        display_name=recipient.display_name,
+        own=recipient.own,
+    )
 
 
 @router.get("/{transfer_id}", response_model=TransferResponse)

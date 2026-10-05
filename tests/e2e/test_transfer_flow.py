@@ -98,3 +98,63 @@ def test_transferring_from_someone_elses_wallet_is_not_found(
 
     assert response.status_code == 404
     assert api.wallet(other_user, victims_wallet)["balance_minor"] == 10_000
+
+
+def test_money_is_sent_to_a_card_number_after_seeing_who_it_belongs_to(
+    api: FinCoreClient, user: User, other_user: User
+) -> None:
+    """The Send page's flow end to end, across three services: the
+    recipient shares their wallet's card number; the sender looks it up
+    (payment-service asks ledger-service whose wallet it is and
+    identity-service for the name) and sends to the wallet it names."""
+    source = api.funded_wallet(user, 50_000)
+    destination = api.create_wallet(other_user)
+    card_number = api.wallet(other_user, destination)["card_number"]
+    profile = api.gateway.get("/api/v1/users/me", headers=other_user.auth).json()
+
+    spaced = " ".join(card_number[i : i + 4] for i in range(0, 16, 4))
+    lookup = api.gateway.get(
+        "/api/v1/transfers/recipient", params={"card_number": spaced}, headers=user.auth
+    )
+
+    assert lookup.status_code == 200
+    recipient = lookup.json()
+    assert recipient == {
+        "wallet_id": destination,
+        "currency": "UZS",
+        # First name and last initial only: never the full name, email or phone.
+        "display_name": f"{profile['first_name']} {profile['last_name'][0].upper()}.",
+        "own": False,
+    }
+
+    response = api.transfer(
+        user, source=source, destination=recipient["wallet_id"], amount="120.00"
+    )
+
+    assert response.json()["status"] == "COMPLETED"
+    assert api.wallet(other_user, destination)["balance_minor"] == 12_000
+
+
+def test_recipient_lookup_gives_nothing_away(api: FinCoreClient, user: User) -> None:
+    own_wallet = api.create_wallet(user)
+    own_card = api.wallet(user, own_wallet)["card_number"]
+    typo = own_card[:-1] + str((int(own_card[-1]) + 1) % 10)
+
+    def lookup(card_number: str, **kwargs):
+        return api.gateway.get(
+            "/api/v1/transfers/recipient", params={"card_number": card_number}, **kwargs
+        )
+
+    assert lookup(own_card).status_code == 401  # signed-in customers only
+    assert lookup(own_card, headers=user.auth).json()["own"] is True
+    assert lookup(typo, headers=user.auth).status_code == 422
+    # Well-formed but nobody's: the same 404 a frozen wallet would get.
+    assert lookup("9955000000000006", headers=user.auth).status_code == 404
+    # The services' internal lookups are not reachable from outside.
+    assert api.gateway.get(f"/internal/v1/users/{uuid.uuid4()}").status_code == 404
+    assert (
+        api.gateway.get(
+            "/internal/v1/accounts/wallet-by-card", params={"card_number": own_card}
+        ).status_code
+        == 404
+    )

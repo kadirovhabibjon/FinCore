@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from fincore_common import generate_card_number
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -26,7 +27,12 @@ async def test_creating_a_wallet_succeeds() -> None:
 
     async with db_session.async_session_factory() as session:
         session.add(
-            LedgerAccount(kind=AccountKind.USER_WALLET, owner_user_id=user_id, currency="UZS")
+            LedgerAccount(
+                kind=AccountKind.USER_WALLET,
+                owner_user_id=user_id,
+                currency="UZS",
+                card_number=generate_card_number(),
+            )
         )
         await session.commit()
 
@@ -45,13 +51,23 @@ async def test_a_user_cannot_have_two_wallets_in_the_same_currency() -> None:
 
     async with db_session.async_session_factory() as session:
         session.add(
-            LedgerAccount(kind=AccountKind.USER_WALLET, owner_user_id=user_id, currency="UZS")
+            LedgerAccount(
+                kind=AccountKind.USER_WALLET,
+                owner_user_id=user_id,
+                currency="UZS",
+                card_number=generate_card_number(),
+            )
         )
         await session.commit()
 
     async with db_session.async_session_factory() as session:
         session.add(
-            LedgerAccount(kind=AccountKind.USER_WALLET, owner_user_id=user_id, currency="UZS")
+            LedgerAccount(
+                kind=AccountKind.USER_WALLET,
+                owner_user_id=user_id,
+                currency="UZS",
+                card_number=generate_card_number(),
+            )
         )
         with pytest.raises(IntegrityError):
             await session.commit()
@@ -62,10 +78,20 @@ async def test_a_user_can_have_wallets_in_different_currencies() -> None:
 
     async with db_session.async_session_factory() as session:
         session.add(
-            LedgerAccount(kind=AccountKind.USER_WALLET, owner_user_id=user_id, currency="UZS")
+            LedgerAccount(
+                kind=AccountKind.USER_WALLET,
+                owner_user_id=user_id,
+                currency="UZS",
+                card_number=generate_card_number(),
+            )
         )
         session.add(
-            LedgerAccount(kind=AccountKind.USER_WALLET, owner_user_id=user_id, currency="USD")
+            LedgerAccount(
+                kind=AccountKind.USER_WALLET,
+                owner_user_id=user_id,
+                currency="USD",
+                card_number=generate_card_number(),
+            )
         )
         await session.commit()
 
@@ -98,7 +124,12 @@ async def test_a_system_account_cannot_have_an_owner() -> None:
 async def test_a_user_wallet_must_have_an_owner() -> None:
     async with db_session.async_session_factory() as session:
         session.add(
-            LedgerAccount(kind=AccountKind.USER_WALLET, owner_user_id=None, currency="UZS")
+            LedgerAccount(
+                kind=AccountKind.USER_WALLET,
+                owner_user_id=None,
+                currency="UZS",
+                card_number=generate_card_number(),
+            )
         )
         with pytest.raises(IntegrityError):
             await session.commit()

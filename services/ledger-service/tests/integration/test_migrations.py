@@ -83,3 +83,41 @@ def test_downgrade_then_upgrade_is_repeatable(
 
     assert "ledger_accounts" in _table_names(postgres_url)
     assert len(_system_account_rows(postgres_url)) == 10
+
+
+def test_existing_wallets_are_given_card_numbers(alembic_config: Config, postgres_url: str) -> None:
+    """Wallets opened before card numbers existed must come out of the
+    migration with a valid, distinct number each (system accounts with
+    none), or the constraint added at its end could not hold."""
+    from fincore_common import is_valid_card_number
+
+    async def _run(statement: str) -> list:
+        engine = create_async_engine(postgres_url)
+        try:
+            async with engine.begin() as connection:
+                result = await connection.execute(text(statement))
+                return list(result) if result.returns_rows else []
+        finally:
+            await engine.dispose()
+
+    command.downgrade(alembic_config, "base")
+    command.upgrade(alembic_config, "af2fd3d94381")
+    asyncio.run(
+        _run(
+            "INSERT INTO ledger_accounts (id, kind, owner_user_id, currency) "
+            "SELECT gen_random_uuid(), 'USER_WALLET', gen_random_uuid(), 'UZS' "
+            "FROM generate_series(1, 25)"
+        )
+    )
+
+    command.upgrade(alembic_config, "head")
+
+    rows = asyncio.run(_run("SELECT kind, card_number FROM ledger_accounts"))
+    wallet_numbers = [row.card_number for row in rows if row.kind == "USER_WALLET"]
+    assert len(wallet_numbers) == len(set(wallet_numbers)) == 25
+    assert all(is_valid_card_number(number) for number in wallet_numbers)
+    assert all(row.card_number is None for row in rows if row.kind != "USER_WALLET")
+
+    # Leave the shared database empty of this test's wallets.
+    command.downgrade(alembic_config, "base")
+    command.upgrade(alembic_config, "head")

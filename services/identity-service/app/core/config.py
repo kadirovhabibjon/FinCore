@@ -36,6 +36,13 @@ class Settings(BaseServiceSettings):
     refresh_cookie_path: str = "/api/v1/auth"
     refresh_cookie_secure: bool = True
 
+    # Shared secret for /internal/* (spec Section 19): payment-service
+    # sends it to look up a transfer recipient's name. Empty means no
+    # caller is trusted: the internal API then rejects every request,
+    # rather than this service refusing to start for want of a setting
+    # that nothing about signing in depends on.
+    internal_service_token: str = ""
+
     # Outbox relay (spec Section 14.1): account events (registration,
     # status and role changes) go to audit-service through Kafka, written
     # in the same transaction as the change so none can be lost.

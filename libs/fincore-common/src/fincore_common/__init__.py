@@ -4,6 +4,7 @@ from .auth import (
     JWTVerifier,
     require_internal_token,
 )
+from .card_number import generate_card_number, is_valid_card_number, normalize_card_number
 from .config import BaseServiceSettings
 from .correlation import (
     HEADER_NAME,
@@ -40,6 +41,9 @@ __all__ = [
     "InvalidTokenError",
     "JWTVerifier",
     "require_internal_token",
+    "generate_card_number",
+    "is_valid_card_number",
+    "normalize_card_number",
     "BaseServiceSettings",
     "HEADER_NAME",
     "CorrelationIdMiddleware",

@@ -119,3 +119,26 @@ class RefundExceedsRemainingAmountError(DomainError):
 
     status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
     title = "Refund Exceeds Remaining Amount"
+
+
+class InvalidCardNumberError(DomainError):
+    """Not a well-formed FinCore card number (16 digits, FinCore's
+    prefix, valid check digit) - a typo, caught before any lookup."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Invalid Card Number"
+
+
+class RecipientNotFoundError(DomainError):
+    """No wallet can receive money at this card number. One answer for
+    "no such card", "wallet frozen or closed" and "owner's account not
+    active": telling them apart would reveal an account's state to
+    anyone who knows its card number."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Recipient Not Found"
+
+
+class RecipientLookupUnavailableError(DomainError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    title = "Recipient Lookup Unavailable"

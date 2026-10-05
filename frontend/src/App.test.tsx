@@ -159,12 +159,27 @@ describe("roles", () => {
 
 describe("sending money", () => {
   const destination = "33333333-3333-4333-8333-333333333333";
+  const card = "9955123456789011";
+  const recipientRoute = {
+    "GET /api/v1/transfers/recipient": () =>
+      json({ wallet_id: destination, currency: "UZS", display_name: "Bobur T.", own: false }),
+  };
+
+  /** Types the recipient's card number and waits for their name. */
+  async function enterCard() {
+    await userEvent.type(await screen.findByLabelText("To card number"), card);
+    await screen.findByText("Bobur T.");
+  }
 
   it("validates the amount before calling the API", async () => {
-    const { requests } = fakeApi({ ...signedInRoutes(), "GET /api/v1/wallets": () => json([WALLET]) });
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      ...recipientRoute,
+      "GET /api/v1/wallets": () => json([WALLET]),
+    });
     renderApp("/transfer");
 
-    await userEvent.type(await screen.findByLabelText("To wallet id"), destination);
+    await enterCard();
     await userEvent.type(screen.getByLabelText(/Amount/), "10.555");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
@@ -176,6 +191,7 @@ describe("sending money", () => {
     let attempts = 0;
     const { requests } = fakeApi({
       ...signedInRoutes(),
+      ...recipientRoute,
       "GET /api/v1/wallets": () => json([WALLET]),
       "GET /api/v1/transactions": () => json([]),
       "POST /api/v1/transfers": (request) => {
@@ -205,7 +221,7 @@ describe("sending money", () => {
     });
     renderApp(`/transfer?from=${WALLET.id}`);
 
-    await userEvent.type(await screen.findByLabelText("To wallet id"), destination);
+    await enterCard();
     await userEvent.type(screen.getByLabelText(/Amount/), "10.50");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Service Unavailable");
@@ -242,6 +258,7 @@ describe("sending money", () => {
     };
     const { requests } = fakeApi({
       ...signedInRoutes(),
+      ...recipientRoute,
       "GET /api/v1/wallets": () => json([WALLET]),
       "GET /api/v1/transactions": () => json([]),
       "POST /api/v1/transfers": () => json(created, 201),
@@ -249,7 +266,7 @@ describe("sending money", () => {
     renderApp("/transfer");
 
     for (let i = 0; i < 2; i += 1) {
-      await userEvent.type(await screen.findByLabelText("To wallet id"), destination);
+      await enterCard();
       await userEvent.type(screen.getByLabelText(/Amount/), "1");
       await userEvent.click(screen.getByRole("button", { name: "Send" }));
       await screen.findByText("The money has moved.");
@@ -261,6 +278,69 @@ describe("sending money", () => {
       .map((r) => r.headers["idempotency-key"]);
     await waitFor(() => expect(keys).toHaveLength(2));
     expect(keys[0]).not.toBe(keys[1]);
+  });
+
+  it("shows who a card number belongs to before anything can be sent", async () => {
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      ...recipientRoute,
+      "GET /api/v1/wallets": () => json([WALLET]),
+    });
+    renderApp("/transfer");
+
+    const input = await screen.findByLabelText("To card number");
+    const send = screen.getByRole("button", { name: "Send" });
+    expect(send).toBeDisabled();
+
+    // Pasted with spaces: shown grouped, looked up as plain digits.
+    await userEvent.click(input);
+    await userEvent.paste("9955 1234 5678 9011");
+
+    expect(await screen.findByText("Bobur T.")).toBeInTheDocument();
+    expect(input).toHaveValue("9955 1234 5678 9011");
+    expect(send).toBeEnabled();
+    const lookup = requests.find((r) => r.path === "/api/v1/transfers/recipient");
+    expect(lookup?.search).toBe("?card_number=9955123456789011");
+  });
+
+  it("catches a mistyped card number without asking the server", async () => {
+    const { requests } = fakeApi({ ...signedInRoutes(), "GET /api/v1/wallets": () => json([WALLET]) });
+    renderApp("/transfer");
+
+    await userEvent.type(await screen.findByLabelText("To card number"), "9955123456789012");
+
+    expect(await screen.findByText(/a digit is wrong/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(requests.some((r) => r.path === "/api/v1/transfers/recipient")).toBe(false);
+  });
+
+  it("says when no wallet has the card number", async () => {
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET]),
+      "GET /api/v1/transfers/recipient": () => problem(404, "Recipient Not Found"),
+    });
+    renderApp("/transfer");
+
+    await userEvent.type(await screen.findByLabelText("To card number"), card);
+
+    expect(await screen.findByText(/No FinCore wallet can receive money/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
+
+  it("won't send to a card in another currency", async () => {
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET]),
+      "GET /api/v1/transfers/recipient": () =>
+        json({ wallet_id: destination, currency: "USD", display_name: "Bobur T.", own: false }),
+    });
+    renderApp("/transfer");
+
+    await userEvent.type(await screen.findByLabelText("To card number"), card);
+
+    expect(await screen.findByText(/This card is a USD wallet/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   });
 });
 

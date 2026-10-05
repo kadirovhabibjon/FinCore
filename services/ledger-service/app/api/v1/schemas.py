@@ -15,6 +15,8 @@ class WalletResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    # What the owner shares to receive money: 16 digits, FinCore's own.
+    card_number: str
     currency: str
     status: AccountStatus
     created_at: datetime

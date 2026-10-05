@@ -62,6 +62,15 @@ class AccountRepository:
             return None
         return account
 
+    async def get_wallet_by_card_number(self, card_number: str) -> LedgerAccount | None:
+        result = await self._session.execute(
+            select(LedgerAccount).where(
+                LedgerAccount.card_number == card_number,
+                LedgerAccount.kind == AccountKind.USER_WALLET,
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def get_entries_for_account(
         self, account_id: UUID, *, limit: int = 50, offset: int = 0
     ) -> list[LedgerEntry]:

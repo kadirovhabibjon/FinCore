@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -46,3 +48,56 @@ async def test_requires_the_internal_token_header() -> None:
         )
 
     assert response.status_code == 422
+
+
+async def test_finds_the_wallet_a_card_number_belongs_to(issue_access_token) -> None:
+    owner = uuid.uuid4()
+    async with await _client() as client:
+        wallet = (
+            await client.post(
+                "/api/v1/wallets",
+                json={"currency": "USD"},
+                headers={"Authorization": f"Bearer {issue_access_token(owner)}"},
+            )
+        ).json()
+        response = await client.get(
+            "/internal/v1/accounts/wallet-by-card",
+            params={"card_number": wallet["card_number"]},
+            headers=_HEADERS,
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": wallet["id"],
+        "owner_user_id": str(owner),
+        "currency": "USD",
+        "status": "ACTIVE",
+    }
+
+
+async def test_an_unknown_or_malformed_card_number_finds_nothing() -> None:
+    async with await _client() as client:
+        unknown = await client.get(
+            "/internal/v1/accounts/wallet-by-card",
+            params={"card_number": "9955000000000000"},
+            headers=_HEADERS,
+        )
+        malformed = await client.get(
+            "/internal/v1/accounts/wallet-by-card",
+            params={"card_number": "9955-not-a-number"},
+            headers=_HEADERS,
+        )
+
+    assert unknown.status_code == 404
+    assert malformed.status_code == 422
+
+
+async def test_card_lookup_requires_the_internal_token() -> None:
+    async with await _client() as client:
+        response = await client.get(
+            "/internal/v1/accounts/wallet-by-card",
+            params={"card_number": "9955000000000000"},
+            headers={"X-Internal-Token": "wrong"},
+        )
+
+    assert response.status_code == 403

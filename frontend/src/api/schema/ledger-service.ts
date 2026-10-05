@@ -98,6 +98,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/accounts/wallet-by-card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Wallet By Card
+         * @description The wallet a card number belongs to, whatever its status: whether
+         *     a frozen or closed wallet may receive money is the caller's rule.
+         */
+        get: operations["get_wallet_by_card_internal_v1_accounts_wallet_by_card_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/holds": {
         parameters: {
             query?: never;
@@ -444,6 +465,27 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /**
+         * WalletByCardResponse
+         * @description Who a card number belongs to - for payment-service, which shows
+         *     the sender a recipient before a transfer. Never exposed publicly:
+         *     it carries the owner's user id.
+         */
+        WalletByCardResponse: {
+            /** Currency */
+            currency: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Owner User Id
+             * Format: uuid
+             */
+            owner_user_id: string;
+            status: components["schemas"]["AccountStatus"];
+        };
         /** WalletCreateRequest */
         WalletCreateRequest: {
             /** Currency */
@@ -453,6 +495,8 @@ export interface components {
         WalletResponse: {
             /** Balance Minor */
             balance_minor: number;
+            /** Card Number */
+            card_number: string;
             /**
              * Created At
              * Format: date-time
@@ -639,6 +683,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemAccountResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_wallet_by_card_internal_v1_accounts_wallet_by_card_get: {
+        parameters: {
+            query: {
+                card_number: string;
+            };
+            header: {
+                "x-internal-token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletByCardResponse"];
                 };
             };
             /** @description Validation Error */

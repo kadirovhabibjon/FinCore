@@ -14,6 +14,7 @@ import {
   ShortId,
   StatusBadge,
 } from "../components/ui";
+import { formatCardNumber } from "../lib/card";
 
 const PAGE_SIZE = 25;
 
@@ -38,8 +39,11 @@ export function WalletPage() {
             {currency} wallet <ShortId id={wallet.data.id} />
           </h1>
           <p className="muted">
-            Share this wallet id to receive transfers{" "}
-            <CopyButton text={wallet.data.id} label="Copy id" />
+            Card number{" "}
+            <strong className="card-number">{formatCardNumber(wallet.data.card_number)}</strong>{" "}
+            <CopyButton text={wallet.data.card_number} label="Copy number" />
+            <br />
+            Share it to receive transfers: the sender types it on the Send page.
           </p>
         </div>
         <Link to={`/transfer?from=${wallet.data.id}`} className="button">

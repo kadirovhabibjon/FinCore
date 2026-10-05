@@ -492,6 +492,36 @@
         "title": "PaymentStatus",
         "type": "string"
       },
+      "RecipientResponse": {
+        "description": "Who a card number belongs to, for the sender to confirm.",
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "own": {
+            "title": "Own",
+            "type": "boolean"
+          },
+          "wallet_id": {
+            "format": "uuid",
+            "title": "Wallet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet_id",
+          "currency",
+          "display_name",
+          "own"
+        ],
+        "title": "RecipientResponse",
+        "type": "object"
+      },
       "RefundResponse": {
         "properties": {
           "amount_minor": {
@@ -1606,6 +1636,56 @@
           }
         ],
         "summary": "Post Transfer",
+        "tags": [
+          "transfers"
+        ]
+      }
+    },
+    "/api/v1/transfers/recipient": {
+      "get": {
+        "description": "Who would receive a transfer sent to this card number: the wallet\nto send to, its currency, and the owner's first name and last\ninitial. Signed-in customers only, and rate-limited at the gateway,\nsince it turns a card number into a name.",
+        "operationId": "get_recipient_api_v1_transfers_recipient_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "card_number",
+            "required": true,
+            "schema": {
+              "maxLength": 32,
+              "minLength": 16,
+              "title": "Card Number",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipientResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Recipient",
         "tags": [
           "transfers"
         ]

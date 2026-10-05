@@ -1600,3 +1600,45 @@ textarea,
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+/* --- card numbers and the transfer recipient -------------------------- */
+
+.card-number {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.wallet-card .card-number {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.recipient {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: var(--good-bg);
+  font-weight: 400;
+}
+
+.recipient-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}

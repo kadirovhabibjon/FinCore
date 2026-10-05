@@ -67,9 +67,19 @@ balances inside FinCore only.
 
 ## Sending money (transfers)
 
-- Send → choose a source wallet, enter the recipient's wallet id (the
-  recipient copies it from their wallet page with "Copy id"), the amount,
-  and an optional note (up to 255 characters).
+- Every wallet has its own 16-digit FinCore card number starting with
+  9955 (shown on the wallet, with a "Copy number" button on the wallet's
+  page). It is what a customer gives someone to receive money. It is a
+  FinCore number only: not a Visa, Mastercard, Uzcard or Humo card, it
+  can't be used in shops, ATMs or other apps, and money can't be sent
+  from FinCore to cards of other banks.
+- Send → choose a source wallet, type the recipient's card number, check
+  the name that appears (first name and last initial, for example
+  "Aziza K."), then enter the amount and an optional note (up to 255
+  characters). Send stays disabled until a recipient is found.
+- If no name appears: a wrong digit is reported straight away; "no
+  FinCore wallet can receive money at this card number" means the number
+  isn't a wallet's or that wallet can't receive money right now.
 - Rules: the amount must be greater than 0 with at most 2 decimals; the
   source and destination must be different wallets of the same currency;
   the source must belong to the sender; the available balance must cover

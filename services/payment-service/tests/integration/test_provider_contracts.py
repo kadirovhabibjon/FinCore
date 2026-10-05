@@ -29,6 +29,7 @@ _HOLD_ID = str(uuid.uuid4())
 def _wallet(wallet_id: str) -> dict:
     return {
         "id": wallet_id,
+        "card_number": "9955000000000004",
         "currency": "UZS",
         "status": "ACTIVE",
         "created_at": _NOW.isoformat(),

@@ -48,7 +48,8 @@ TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "list_my_wallets",
-        "description": "Every wallet the customer owns, with its id, currency, status and "
+        "description": "Every wallet the customer owns, with its id, card number "
+        "(what others type to send them money), currency, status and "
         "balances: available (spendable now), on_hold (reserved by payments in progress) "
         "and ledger balance.",
         "input_schema": _schema(),
@@ -156,10 +157,19 @@ def _present(value: Any) -> Any:
     return shown
 
 
+def _card(number: Any) -> str | None:
+    """"9955 1234 5678 9012", the way the app shows it."""
+    if not isinstance(number, str):
+        return None
+    return " ".join(number[i : i + 4] for i in range(0, len(number), 4))
+
+
 def _wallet(wallet: dict[str, Any]) -> dict[str, Any]:
     currency = wallet["currency"]
     return {
         "id": wallet["id"],
+        # Absent only from a ledger-service older than card numbers.
+        "card_number": _card(wallet.get("card_number")),
         "currency": currency,
         "status": wallet["status"],
         "available": _money(wallet["balance_minor"] - wallet["held_minor"], currency),

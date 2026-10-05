@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.internal.schemas import SystemAccountResponse
+from app.api.internal.schemas import SystemAccountResponse, WalletByCardResponse
 from app.core.auth import require_internal_service
-from app.core.exceptions import UnknownAccountError
+from app.core.exceptions import UnknownAccountError, WalletNotFoundError
 from app.db.session import get_db
 from app.domain.account import AccountKind
 from app.repositories.account_repository import AccountRepository
@@ -31,3 +31,16 @@ async def get_system_account(
     if account is None:
         raise UnknownAccountError(f"no {kind.value} account for {currency}")
     return SystemAccountResponse.model_validate(account)
+
+
+@router.get("/wallet-by-card", response_model=WalletByCardResponse)
+async def get_wallet_by_card(
+    card_number: str = Query(..., min_length=16, max_length=16, pattern=r"^[0-9]{16}$"),
+    session: AsyncSession = Depends(get_db),
+) -> WalletByCardResponse:
+    """The wallet a card number belongs to, whatever its status: whether
+    a frozen or closed wallet may receive money is the caller's rule."""
+    account = await AccountRepository(session).get_wallet_by_card_number(card_number)
+    if account is None:
+        raise WalletNotFoundError("no wallet has this card number")
+    return WalletByCardResponse.model_validate(account)

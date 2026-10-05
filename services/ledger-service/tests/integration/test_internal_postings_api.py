@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from fincore_common import generate_card_number
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
@@ -22,7 +23,10 @@ async def _client() -> AsyncClient:
 async def _create_wallet(currency: str = "UZS") -> LedgerAccount:
     async with db_session.async_session_factory() as session:
         account = LedgerAccount(
-            kind=AccountKind.USER_WALLET, owner_user_id=uuid.uuid4(), currency=currency
+            kind=AccountKind.USER_WALLET,
+            owner_user_id=uuid.uuid4(),
+            currency=currency,
+            card_number=generate_card_number(),
         )
         session.add(account)
         await session.flush()
