@@ -103,25 +103,25 @@ export function AdminTransactionsPage() {
             <tbody>
               {transactions.data?.map((item) => (
                 <tr key={item.id}>
-                  <td>
+                  <td data-label="When">
                     <DateTime value={item.created_at} />
                   </td>
-                  <td>
+                  <td data-label="Reference">
                     {item.reference}
                     <div className="muted small">
                       {item.type} → <ShortId id={item.counterparty_id} />
                     </div>
                   </td>
-                  <td>
+                  <td data-label="User">
                     <ShortId id={item.initiator_user_id} />
                   </td>
-                  <td>
+                  <td data-label="Status">
                     <StatusBadge status={item.status} />
                     {item.failure_reason && (
                       <div className="muted small">{item.failure_reason}</div>
                     )}
                   </td>
-                  <td>
+                  <td data-label="Fraud">
                     {item.fraud_decision ? <StatusBadge status={item.fraud_decision} /> : "—"}
                     {item.reviewed_by_user_id && (
                       <div className="muted small">
@@ -129,7 +129,7 @@ export function AdminTransactionsPage() {
                       </div>
                     )}
                   </td>
-                  <td className="num">
+                  <td className="num" data-label="Amount">
                     <Money minor={item.amount_minor} currency={item.currency} />
                   </td>
                 </tr>

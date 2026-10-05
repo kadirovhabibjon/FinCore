@@ -85,13 +85,13 @@ export function WalletPage() {
             <tbody>
               {entries.data?.map((entry) => (
                 <tr key={entry.id}>
-                  <td>
+                  <td data-label="When">
                     <DateTime value={entry.created_at} />
                   </td>
-                  <td>
+                  <td data-label="Posting">
                     <ShortId id={entry.posting_id} />
                   </td>
-                  <td className={`num ${entry.direction === "CREDIT" ? "credit" : "debit"}`}>
+                  <td className={`num ${entry.direction === "CREDIT" ? "credit" : "debit"}`} data-label="Amount">
                     {entry.direction === "CREDIT" ? "+" : "−"}
                     <Money minor={entry.amount_minor} currency={entry.currency} />
                   </td>

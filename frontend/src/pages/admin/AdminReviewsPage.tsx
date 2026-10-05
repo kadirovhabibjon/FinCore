@@ -63,24 +63,24 @@ export function AdminReviewsPage() {
           <tbody>
             {reviews.data?.map((item) => (
               <tr key={item.id}>
-                <td>
+                <td data-label="Waiting since">
                   <DateTime value={item.created_at} />
                 </td>
-                <td>
+                <td data-label="Reference">
                   {item.reference}
                   <div className="muted small">{item.type}</div>
                 </td>
-                <td>
+                <td data-label="Customer">
                   <ShortId id={item.initiator_user_id} />
                 </td>
-                <td>
+                <td data-label="Destination">
                   <span className="muted small">{item.type === "TRANSFER" ? "wallet" : "merchant"}</span>{" "}
                   <ShortId id={item.counterparty_id} />
                 </td>
-                <td className="num">
+                <td className="num" data-label="Amount">
                   <Money minor={item.amount_minor} currency={item.currency} />
                 </td>
-                <td className="num">
+                <td className="num" data-label="">
                   {isAdmin ? (
                     <div className="actions">
                       <button

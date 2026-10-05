@@ -67,18 +67,18 @@ export function SettingsPage() {
           <tbody>
             {sessions.data?.map((session) => (
               <tr key={session.id}>
-                <td>
+                <td data-label="Device">
                   {session.user_agent ?? "Unknown device"}
                   {session.current && <span className="badge badge-good">This device</span>}
                 </td>
-                <td>{session.ip_address ?? "—"}</td>
-                <td>
+                <td data-label="IP address">{session.ip_address ?? "—"}</td>
+                <td data-label="Signed in">
                   <DateTime value={session.created_at} />
                 </td>
-                <td>
+                <td data-label="Last active">
                   <DateTime value={session.last_used_at} />
                 </td>
-                <td className="num">
+                <td className="num" data-label="">
                   {!session.current && (
                     <button
                       type="button"

@@ -60,13 +60,13 @@ export function MerchantsPage() {
           <tbody>
             {merchants.data?.map((merchant) => (
               <tr key={merchant.id}>
-                <td>
+                <td data-label="Name">
                   <Link to={`/merchants/${merchant.id}`}>{merchant.name}</Link>
                 </td>
-                <td>
+                <td data-label="Status">
                   <StatusBadge status={merchant.status} />
                 </td>
-                <td>
+                <td data-label="Created">
                   <DateTime value={merchant.created_at} />
                 </td>
               </tr>

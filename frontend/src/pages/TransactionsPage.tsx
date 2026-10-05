@@ -44,18 +44,18 @@ export function TransactionsPage() {
             <tbody>
               {transactions.data?.map((item) => (
                 <tr key={item.id}>
-                  <td>
+                  <td data-label="When">
                     <DateTime value={item.created_at} />
                   </td>
-                  <td>
+                  <td data-label="Reference">
                     <Link to={`/transactions/${item.id}`}>{item.reference}</Link>
                     {item.description && <div className="muted small">{item.description}</div>}
                   </td>
-                  <td>{item.type}</td>
-                  <td>
+                  <td data-label="Type">{item.type}</td>
+                  <td data-label="Status">
                     <StatusBadge status={item.status} />
                   </td>
-                  <td className="num">
+                  <td className="num" data-label="Amount">
                     <Money minor={item.amount_minor} currency={item.currency} />
                   </td>
                 </tr>

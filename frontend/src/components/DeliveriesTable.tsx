@@ -16,17 +16,17 @@ export function DeliveriesTable({ deliveries }: { deliveries: WebhookDelivery[] 
       <tbody>
         {deliveries.map((delivery) => (
           <tr key={delivery.id}>
-            <td>
+            <td data-label="When">
               <DateTime value={delivery.created_at} />
             </td>
-            <td>
+            <td data-label="Event">
               {delivery.event_type}
               {delivery.last_error && <div className="muted small">{delivery.last_error}</div>}
             </td>
-            <td>
+            <td data-label="Status">
               <StatusBadge status={delivery.status} />
             </td>
-            <td>
+            <td data-label="Attempts">
               <details>
                 <summary>{delivery.attempts}</summary>
                 <ol className="attempts">

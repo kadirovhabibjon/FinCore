@@ -77,21 +77,21 @@ export function AdminUsersPage() {
             <tbody>
               {users.data?.map((user) => (
                 <tr key={user.id}>
-                  <td>
+                  <td data-label="Name">
                     {user.first_name} {user.last_name}
                     <div className="small">
                       <Link to={`/admin/transactions?user_id=${user.id}`}>transactions</Link>
                     </div>
                   </td>
-                  <td>
+                  <td data-label="Email / phone">
                     {user.email}
                     <div className="muted small">{user.phone}</div>
                   </td>
-                  <td>{user.roles.join(", ")}</td>
-                  <td>
+                  <td data-label="Roles">{user.roles.join(", ")}</td>
+                  <td data-label="Joined">
                     <DateTime value={user.created_at} />
                   </td>
-                  <td>
+                  <td data-label="Status">
                     {isAdmin && user.id !== me?.id ? (
                       <select
                         aria-label={`Status of ${user.email}`}

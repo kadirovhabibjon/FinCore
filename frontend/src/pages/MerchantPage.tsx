@@ -88,20 +88,20 @@ function ReceivedPayments({ merchantId }: { merchantId: string }) {
             <tbody>
               {payments.data?.map((payment) => (
                 <tr key={payment.id}>
-                  <td>
+                  <td data-label="When">
                     <DateTime value={payment.created_at} />
                   </td>
-                  <td>{payment.reference}</td>
-                  <td>
+                  <td data-label="Reference">{payment.reference}</td>
+                  <td data-label="Status">
                     <StatusBadge status={payment.status} />
                   </td>
-                  <td className="num">
+                  <td className="num" data-label="Amount">
                     <Money minor={payment.amount_minor} currency={payment.currency} />
                   </td>
-                  <td className="num">
+                  <td className="num" data-label="Refunded">
                     <Money minor={payment.refunded_amount_minor} currency={payment.currency} />
                   </td>
-                  <td className="num">
+                  <td className="num" data-label="">
                     {REFUNDABLE.has(payment.status) && (
                       <button
                         type="button"
