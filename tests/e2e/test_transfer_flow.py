@@ -271,3 +271,31 @@ def test_someone_sent_to_before_is_offered_again(
     # Having been paid by someone doesn't put them in your list.
     assert recents(other_user) == []
     assert api.gateway.get("/api/v1/transfers/recipients").status_code == 401
+
+
+def test_a_receipt_and_a_statement_can_be_downloaded_by_those_it_concerns(
+    api: FinCoreClient, user: User, other_user: User
+) -> None:
+    source = api.funded_wallet(user, 50_000)
+    destination = api.create_wallet(other_user)
+    transfer = api.transfer(
+        user, source=source, destination=destination, amount="12.50"
+    ).json()
+    receipt_path = f"/api/v1/transactions/{transfer['id']}/receipt.pdf"
+
+    for party in (user, other_user):
+        receipt = api.gateway.get(receipt_path, headers=party.auth)
+        assert receipt.status_code == 200
+        assert receipt.headers["content-type"] == "application/pdf"
+        assert receipt.content.startswith(b"%PDF-")
+        assert transfer["reference"] in receipt.headers["content-disposition"]
+    assert api.gateway.get(receipt_path).status_code == 401
+    stranger = api.register_and_login()
+    assert api.gateway.get(receipt_path, headers=stranger.auth).status_code == 404
+
+    statement = api.gateway.get("/api/v1/transactions/export.csv", headers=other_user.auth)
+    assert statement.status_code == 200
+    assert statement.headers["content-type"].startswith("text/csv")
+    header, row = statement.content.decode("utf-8-sig").strip().split("\r\n")
+    assert header.startswith("date_utc,type,direction,reference,status,amount,currency")
+    assert f"TRANSFER,IN,{transfer['reference']},COMPLETED,12.50,UZS" in row

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
 import * as api from "../api/endpoints";
+import { DownloadButton } from "../components/DownloadButton";
 import { OperationOutcome } from "../components/OperationOutcome";
 import { DateTime, ErrorAlert, Loading, Money, StatusBadge } from "../components/ui";
 
@@ -51,6 +52,12 @@ export function TransactionPage() {
         amount={<Money minor={item.amount_minor} currency={item.currency} />}
       />
       <ErrorAlert error={transfer.error ?? payment.error} />
+      <div className="actions receipt-actions">
+        <DownloadButton
+          label="Download receipt (PDF)"
+          fetchFile={() => api.downloadReceipt(item.id)}
+        />
+      </div>
       <dl className="card details">
         {item.counterparty_name && (
           <>

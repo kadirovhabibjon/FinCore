@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import * as api from "../api/endpoints";
+import { DownloadButton } from "../components/DownloadButton";
 import { DateTime, Empty, ErrorAlert, Loading, Money, Pager, StatusBadge } from "../components/ui";
 
 const PAGE_SIZE = 25;
@@ -38,6 +39,7 @@ export function TransactionsPage() {
             Money you sent, paid and received, newest first.
           </p>
         </div>
+        <DownloadButton label="Download CSV" fetchFile={api.downloadStatement} />
       </header>
       <ErrorAlert error={transactions.error} />
       {transactions.isPending ? (

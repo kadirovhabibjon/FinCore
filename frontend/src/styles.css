@@ -2064,3 +2064,8 @@ textarea:focus {
   font-size: 1.5rem;
   font-variant-numeric: tabular-nums;
 }
+
+.receipt-actions {
+  justify-content: flex-start;
+  margin-bottom: 1rem;
+}

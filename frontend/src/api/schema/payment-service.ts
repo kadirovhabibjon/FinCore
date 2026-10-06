@@ -377,6 +377,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transactions/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Transactions
+         * @description The caller's history as a CSV file for a spreadsheet: the same
+         *     operations `GET /api/v1/transactions` lists (newest first, up to
+         *     5,000), one per row, amounts as decimal strings.
+         */
+        get: operations["export_transactions_api_v1_transactions_export_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transactions/{transaction_id}": {
         parameters: {
             query?: never;
@@ -386,6 +408,29 @@ export interface paths {
         };
         /** Get Transaction */
         get: operations["get_transaction_api_v1_transactions__transaction_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transactions/{transaction_id}/receipt.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Receipt
+         * @description A one-page PDF receipt for a transfer, payment or exchange the
+         *     caller can see in their history: one they started, or a transfer
+         *     that reached them. It says what the app shows that customer, and
+         *     for an operation that is not finished or failed, says so.
+         */
+        get: operations["download_receipt_api_v1_transactions__transaction_id__receipt_pdf_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1754,6 +1799,26 @@ export interface operations {
             };
         };
     };
+    export_transactions_api_v1_transactions_export_csv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The statement as a CSV file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
+                };
+            };
+        };
+    };
     get_transaction_api_v1_transactions__transaction_id__get: {
         parameters: {
             query?: never;
@@ -1772,6 +1837,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_receipt_api_v1_transactions__transaction_id__receipt_pdf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transaction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The receipt as a PDF. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
                 };
             };
             /** @description Validation Error */

@@ -2449,6 +2449,29 @@
         ]
       }
     },
+    "/api/v1/transactions/export.csv": {
+      "get": {
+        "description": "The caller's history as a CSV file for a spreadsheet: the same\noperations `GET /api/v1/transactions` lists (newest first, up to\n5,000), one per row, amounts as decimal strings.",
+        "operationId": "export_transactions_api_v1_transactions_export_csv_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "The statement as a CSV file."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Transactions",
+        "tags": [
+          "transactions"
+        ]
+      }
+    },
     "/api/v1/transactions/{transaction_id}": {
       "get": {
         "operationId": "get_transaction_api_v1_transactions__transaction_id__get",
@@ -2492,6 +2515,51 @@
           }
         ],
         "summary": "Get Transaction",
+        "tags": [
+          "transactions"
+        ]
+      }
+    },
+    "/api/v1/transactions/{transaction_id}/receipt.pdf": {
+      "get": {
+        "description": "A one-page PDF receipt for a transfer, payment or exchange the\ncaller can see in their history: one they started, or a transfer\nthat reached them. It says what the app shows that customer, and\nfor an operation that is not finished or failed, says so.",
+        "operationId": "download_receipt_api_v1_transactions__transaction_id__receipt_pdf_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "transaction_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Transaction Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/pdf": {}
+            },
+            "description": "The receipt as a PDF."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Download Receipt",
         "tags": [
           "transactions"
         ]

@@ -2,7 +2,7 @@
 // from the generated contract schemas (src/api/schema), never written by
 // hand, so a backend contract change breaks the build here first.
 import { refreshTransportHeaders, setAccessToken } from "../auth/tokenStore";
-import { apiRequest } from "./client";
+import { apiDownload, apiRequest } from "./client";
 import type { components as IdentitySchemas } from "./schema/identity-service";
 import type { components as LedgerSchemas } from "./schema/ledger-service";
 import type { components as PaymentSchemas } from "./schema/payment-service";
@@ -212,6 +212,13 @@ export const listNews = (limit = 20) =>
   apiRequest<NewsList>("/api/v1/news", { query: { limit } });
 export const getNewsItem = (newsId: string) => apiRequest<NewsItem>(`/api/v1/news/${newsId}`);
 export const markNewsRead = () => apiRequest<void>("/api/v1/news/read", { method: "POST" });
+
+/** One operation as a PDF receipt. */
+export const downloadReceipt = (transactionId: string) =>
+  apiDownload(`/api/v1/transactions/${transactionId}/receipt.pdf`, "fincore-receipt.pdf");
+/** The whole history as a CSV file for a spreadsheet. */
+export const downloadStatement = () =>
+  apiDownload("/api/v1/transactions/export.csv", "fincore-history.csv");
 
 export const listMerchants = () => apiRequest<Merchant[]>("/api/v1/merchants");
 export const getMerchant = (merchantId: string) =>

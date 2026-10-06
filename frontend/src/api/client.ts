@@ -88,3 +88,40 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
+
+/** A file the API serves as an attachment (a PDF receipt, a CSV
+ * statement), with the name the server gave it. */
+export interface Download {
+  blob: Blob;
+  filename: string;
+}
+
+/** Fetches a file with the customer's token - a plain link can't carry
+ * one - going through the same refresh-and-replay as `apiRequest`. */
+export async function apiDownload(path: string, fallbackName: string): Promise<Download> {
+  let response = await send(path, { headers: { Accept: "*/*" } });
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed === "unavailable") {
+      throw new ApiError(503, "Can't reach FinCore", "Check your connection and try again.");
+    }
+    if (refreshed === "ok") response = await send(path, { headers: { Accept: "*/*" } });
+    if (response.status === 401) endSession();
+  }
+  if (!response.ok) throw await toApiError(response);
+  const named = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "");
+  return { blob: await response.blob(), filename: named?.[1] ?? fallbackName };
+}
+
+/** Hands a fetched file to the browser's own "save" behaviour. */
+export function saveDownload({ blob, filename }: Download): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // After the click has been handled; revoking at once can cancel it.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

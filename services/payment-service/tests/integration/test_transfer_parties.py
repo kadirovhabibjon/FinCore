@@ -352,3 +352,56 @@ async def test_an_amount_that_is_not_positive_is_a_validation_error_not_a_crash(
 
     assert first.status_code == second.status_code == 422
     assert first.json()["title"] == "Invalid Amount"
+
+
+async def test_receipts_and_the_statement_are_for_those_who_can_see_the_operation(
+    monkeypatch: pytest.MonkeyPatch, issue_access_token
+) -> None:
+    import csv
+    import io
+
+    from pypdf import PdfReader
+
+    parties = Parties()
+    _wire(monkeypatch, _ledger_app(parties), _identity_app(parties))
+    sender = {"Authorization": f"Bearer {issue_access_token(parties.sender)}"}
+    recipient = {"Authorization": f"Bearer {issue_access_token(parties.recipient)}"}
+    stranger = {"Authorization": f"Bearer {issue_access_token(uuid.uuid4())}"}
+
+    async with _client() as client:
+        transfer = await _send(client, sender["Authorization"].removeprefix("Bearer "), parties)
+        path = f"/api/v1/transactions/{transfer['id']}/receipt.pdf"
+        mine = await client.get(path, headers=sender)
+        theirs = await client.get(path, headers=recipient)
+        hidden = await client.get(path, headers=stranger)
+        anonymous = await client.get(path)
+        statement = await client.get("/api/v1/transactions/export.csv", headers=recipient)
+        empty = await client.get("/api/v1/transactions/export.csv", headers=stranger)
+        no_token = await client.get("/api/v1/transactions/export.csv")
+
+    assert mine.status_code == 200
+    assert mine.headers["content-type"] == "application/pdf"
+    assert mine.headers["content-disposition"] == (
+        f'attachment; filename="fincore-{transfer["reference"]}.pdf"'
+    )
+    assert mine.headers["cache-control"] == "no-store"
+    sent = PdfReader(io.BytesIO(mine.content)).pages[0].extract_text()
+    received = PdfReader(io.BytesIO(theirs.content)).pages[0].extract_text()
+    assert "Transfer receipt" in sent and "Bobur T." in sent and _CARD[-4:] in sent
+    assert "Money received receipt" in received and "Aziza K." in received
+    assert _CARD[-4:] not in received
+    assert hidden.status_code == 404 and anonymous.status_code == 401
+
+    assert statement.status_code == 200
+    assert statement.headers["content-type"].startswith("text/csv")
+    assert "attachment; filename=\"fincore-history-" in statement.headers["content-disposition"]
+    [row] = list(csv.DictReader(io.StringIO(statement.content.decode("utf-8-sig"))))
+    assert (row["type"], row["direction"], row["amount"], row["currency"]) == (
+        "TRANSFER",
+        "IN",
+        "25.00",
+        "UZS",
+    )
+    assert row["counterparty"] == "Aziza K." and row["reference"] == transfer["reference"]
+    assert empty.content.decode("utf-8-sig").strip().count("\n") == 0  # header only
+    assert no_token.status_code == 401

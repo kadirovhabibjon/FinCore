@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { authTiming } from "./auth/tokenStore";
 
@@ -1596,5 +1596,92 @@ describe("currency exchange", () => {
     expect(within(row).getByText("100.00 USD")).toBeInTheDocument();
     expect(row).not.toHaveTextContent("−");
     expect(row).not.toHaveTextContent("+");
+  });
+});
+
+describe("receipts and statements", () => {
+  function file(body: string, type: string, filename: string): Response {
+    return new Response(body, {
+      status: 200,
+      headers: { "Content-Type": type, "Content-Disposition": `attachment; filename="${filename}"` },
+    });
+  }
+
+  /** jsdom has no object URLs and doesn't follow download links: record
+   * what the page hands to the browser instead. */
+  function captureSaves() {
+    const saved: { name: string; blob: Blob }[] = [];
+    let last: Blob | null = null;
+    Object.assign(URL, {
+      createObjectURL: (blob: Blob) => {
+        last = blob;
+        return "blob:test";
+      },
+      revokeObjectURL: () => undefined,
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      if (this.download && last) saved.push({ name: this.download, blob: last });
+    });
+    return saved;
+  }
+
+  const transfer = {
+    id: "13131313-1313-4131-8131-131313131313",
+    type: "TRANSFER",
+    direction: "IN",
+    counterparty_name: "Aziza K.",
+    reference: "TRF-PDF",
+    status: "COMPLETED",
+    amount_minor: 2_500,
+    currency: "UZS",
+    received_amount_minor: null,
+    received_currency: null,
+    description: null,
+    created_at: "2026-10-06T09:00:00Z",
+    completed_at: "2026-10-06T09:00:01Z",
+  };
+
+  it("downloads the history as a CSV file with the customer's token", async () => {
+    const saved = captureSaves();
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/transactions": () => json([transfer]),
+      "GET /api/v1/transactions/export.csv": () =>
+        file("date_utc,type\r\n", "text/csv", "fincore-history-2026-10-06.csv"),
+    });
+    renderApp("/transactions");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Download CSV" }));
+
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0]?.name).toBe("fincore-history-2026-10-06.csv");
+    expect(await saved[0]?.blob.text()).toBe("date_utc,type\r\n");
+    const request = requests.find((r) => r.path.endsWith("/export.csv"));
+    expect(request?.headers.authorization).toBe("Bearer access-1");
+  });
+
+  it("downloads a receipt for one operation, and says so if it can't", async () => {
+    const saved = captureSaves();
+    let available = true;
+    fakeApi({
+      ...signedInRoutes(),
+      [`GET /api/v1/transactions/${transfer.id}`]: () => json(transfer),
+      [`GET /api/v1/transactions/${transfer.id}/receipt.pdf`]: () =>
+        available
+          ? file("%PDF-1.7 test", "application/pdf", "fincore-TRF-PDF.pdf")
+          : problem(404, "Transaction Not Found"),
+    });
+    renderApp(`/transactions/${transfer.id}`);
+
+    const button = await screen.findByRole("button", { name: "Download receipt (PDF)" });
+    await userEvent.click(button);
+    await waitFor(() => expect(saved.map((s) => s.name)).toEqual(["fincore-TRF-PDF.pdf"]));
+
+    available = false;
+    await userEvent.click(button);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Transaction Not Found");
+    expect(saved).toHaveLength(1);
   });
 });
