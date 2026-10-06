@@ -1210,9 +1210,9 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
-cd services/identity-service && .venv/bin/pytest -v     # 161 tests
+cd services/identity-service && .venv/bin/pytest -v     # 172 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 65 tests
-cd services/payment-service && .venv/bin/pytest -v      # 161 tests
+cd services/payment-service && .venv/bin/pytest -v      # 172 tests
 cd services/notification-service && .venv/bin/pytest -v # 68 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests

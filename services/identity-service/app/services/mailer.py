@@ -18,7 +18,27 @@ def is_configured() -> bool:
     return bool(settings.smtp_host)
 
 
+# Names nobody can receive mail at, reserved for documentation and tests
+# (RFC 2606, RFC 6761). Test accounts live there; mailing them would only
+# produce bounces in the sender's inbox.
+_RESERVED_DOMAINS = ("example.com", "example.net", "example.org")
+_RESERVED_SUFFIXES = (".test", ".example", ".invalid", ".localhost")
+
+
+def is_deliverable(address: str) -> bool:
+    domain = address.rsplit("@", 1)[-1].strip().lower().rstrip(".")
+    reserved = domain in _RESERVED_DOMAINS or any(
+        domain.endswith(suffix) or domain.endswith(f".{name}")
+        for suffix in _RESERVED_SUFFIXES
+        for name in _RESERVED_DOMAINS
+    )
+    return bool(domain) and not reserved
+
+
 def _send(message: EmailMessage) -> None:
+    if not is_deliverable(str(message["To"])):
+        logger.info("not sending mail to a reserved test domain")
+        return
     context = ssl.create_default_context()
     with smtplib.SMTP(
         settings.smtp_host, settings.smtp_port, timeout=settings.smtp_timeout_seconds

@@ -84,6 +84,37 @@ async def test_the_new_device_email_names_the_device_and_says_what_to_do(
     assert "change your password" in body
 
 
+@pytest.mark.parametrize(
+    ("address", "deliverable"),
+    [
+        ("aziza@gmail.com", True),
+        ("someone@mail.uz", True),
+        ("e2e-1234@example.com", False),
+        ("x@sub.example.org", False),
+        ("x@EXAMPLE.NET", False),
+        ("x@anything.test", False),
+        ("x@nowhere.invalid", False),
+        ("not-an-address", True),  # no "@": the whole string is the domain; SMTP rejects it
+        ("x@", False),
+    ],
+)
+def test_reserved_test_domains_are_never_mailed(address: str, deliverable: bool) -> None:
+    assert mailer.is_deliverable(address) is deliverable
+
+
+def test_nothing_is_handed_to_the_mail_server_for_a_test_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    opened: list[str] = []
+    monkeypatch.setattr(mailer.smtplib, "SMTP", lambda *args, **kwargs: opened.append("smtp"))
+    message = EmailMessage()
+    message["To"] = "e2e-1234@example.com"
+
+    mailer._send(message)
+
+    assert opened == []
+
+
 def test_configured_means_a_host_is_set(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "smtp_host", "")
     assert not mailer.is_configured()
