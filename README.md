@@ -154,6 +154,12 @@ Authentication, users, and RBAC — spec Sections 5 and 19.
   older than 12 hours in total, is revoked at its next refresh. The web
   app is stricter: 15 minutes without interaction signs out, including
   when the page was closed and reopened later.
+* **New-device email**: a sign-in from a browser or phone the account
+  has not used before (its User-Agent with the version numbers removed,
+  so an update is not a new device) emails the owner the device and IP
+  address, after the response and never failing the sign-in. The first
+  sign-in ever sends nothing. A courtesy signal, not a control: a
+  copied User-Agent gets no email.
 * **Forgot password**: `POST /api/v1/auth/password-reset/request`
   emails a 6-digit code to the account's address;
   `POST /api/v1/auth/password-reset/confirm` sets a new password with
@@ -1204,9 +1210,9 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
-cd services/identity-service && .venv/bin/pytest -v     # 149 tests
+cd services/identity-service && .venv/bin/pytest -v     # 161 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 65 tests
-cd services/payment-service && .venv/bin/pytest -v      # 149 tests
+cd services/payment-service && .venv/bin/pytest -v      # 161 tests
 cd services/notification-service && .venv/bin/pytest -v # 68 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests

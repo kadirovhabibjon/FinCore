@@ -67,6 +67,23 @@ async def test_the_contact_change_notice_says_what_changed_and_what_to_do(
     assert "If you did not" in body and "change your password" in body
 
 
+async def test_the_new_device_email_names_the_device_and_says_what_to_do(
+    smtp: list[EmailMessage],
+) -> None:
+    await mailer.send_new_device(
+        to="aziza@example.com",
+        first_name="Aziza",
+        device="Safari on iPhone",
+        ip_address="203.0.113.7",
+    )
+
+    [message] = smtp
+    assert message["Subject"] == "New sign-in to your FinCore account"
+    body = " ".join(message.get_content().split())
+    assert "from Safari on iPhone (IP address 203.0.113.7)" in body
+    assert "change your password" in body
+
+
 def test_configured_means_a_host_is_set(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "smtp_host", "")
     assert not mailer.is_configured()

@@ -26,6 +26,7 @@ from app.domain.user import User
 from app.repositories.user_repository import UserRepository
 from app.services import mailer
 from app.services.authentication import authenticate_user
+from app.services.devices import describe_device, is_new_device
 from app.services.password_reset import confirm_reset, request_reset
 from app.services.registration import RegistrationData, register_user
 from app.services.sessions import (
@@ -147,6 +148,7 @@ async def login(
     payload: LoginRequest,
     request: Request,
     response: Response,
+    background: BackgroundTasks,
     session: AsyncSession = Depends(get_db),
     transport: str | None = Header(default=None, alias="X-Refresh-Token-Transport"),
 ) -> TokenResponse:
@@ -156,12 +158,20 @@ async def login(
         # Checked before a session exists, so a customer account gets no
         # admin-console session at all, not one the console then refuses.
         raise InsufficientRoleError("the admin console is for staff accounts only")
-    issued = await start_session(
-        session,
-        user,
-        user_agent=request.headers.get("user-agent"),
-        ip_address=_client_ip(request),
-    )
+    user_agent = request.headers.get("user-agent")
+    ip_address = _client_ip(request)
+    # Asked before the session below exists, or every device would be known.
+    unfamiliar = mailer.is_configured() and await is_new_device(session, user.id, user_agent)
+    issued = await start_session(session, user, user_agent=user_agent, ip_address=ip_address)
+    if unfamiliar:
+        # After the response: signing in never waits for, or fails on, an email.
+        background.add_task(
+            mailer.send_new_device,
+            to=user.email,
+            first_name=user.first_name,
+            device=describe_device(user_agent),
+            ip_address=ip_address,
+        )
     return await _token_response(session, issued, response, _cookie_name(transport), roles)
 
 

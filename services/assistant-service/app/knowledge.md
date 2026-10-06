@@ -202,7 +202,13 @@ page, not in History.
   publisher's site; "All news" lists everything kept. FinCore does not
   write, check or endorse these articles, and you cannot read or quote
   them yourself - point the customer to the News tab.
-- Sign-ins do not create notifications in the bell. There are no SMS, email or phone push
+- Sign-ins do not create notifications in the bell. Instead, when the
+  account is signed in to from a browser or phone it has not been used
+  on before, an email goes to the account's address naming the device
+  (for example "Safari on iPhone") and the IP address. The very first
+  sign-in after registering sends nothing. If the customer did not sign
+  in themselves, they should change their password in Account, which
+  signs every other device out. There are no SMS, email or phone push
   notifications: only the bell inside the web app, which checks for new
   ones every 15 seconds while a page is open.
 

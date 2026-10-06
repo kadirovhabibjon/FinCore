@@ -75,3 +75,27 @@ async def send_contact_changed(*, to: str, first_name: str, what: str) -> None:
         await asyncio.to_thread(_send, message)
     except Exception as exc:
         logger.error("contact change email could not be sent: %s", type(exc).__name__)
+
+
+async def send_new_device(*, to: str, first_name: str, device: str, ip_address: str | None) -> None:
+    """Tells the owner their account was signed in to from a device it
+    had not been used on. Sent in the background after a successful
+    sign-in; never raises."""
+    where = f" (IP address {ip_address})" if ip_address else ""
+    message = EmailMessage()
+    message["Subject"] = "New sign-in to your FinCore account"
+    message["From"] = settings.smtp_from or settings.smtp_username
+    message["To"] = to
+    message.set_content(
+        f"Hello {first_name},\n\n"
+        f"Your FinCore account was just signed in to from {device}{where}, a device "
+        "it has not been used on before.\n\n"
+        "If this was you, there is nothing to do.\n\n"
+        "If it was not, someone else knows your password: sign in, change your "
+        "password in Account (that signs every other device out), and check the "
+        "sessions listed there.\n"
+    )
+    try:
+        await asyncio.to_thread(_send, message)
+    except Exception as exc:
+        logger.error("new device email could not be sent: %s", type(exc).__name__)
