@@ -128,6 +128,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/money-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Money Requests
+         * @description Requests the caller made (OUTGOING) and requests made to the
+         *     caller (INCOMING), newest first.
+         */
+        get: operations["list_money_requests_api_v1_money_requests_get"];
+        put?: never;
+        /**
+         * Create Money Request
+         * @description Asks the owner of a card to send the caller money. Nothing moves
+         *     until that person pays; they are notified and can pay or decline.
+         *     The card must belong to someone else and be in the same currency as
+         *     the wallet the money should arrive in. A customer may have 20
+         *     unanswered requests, 3 to any one person.
+         */
+        post: operations["create_money_request_api_v1_money_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/money-requests/{request_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Money Request
+         * @description The requester withdraws a request nobody has answered yet.
+         */
+        post: operations["cancel_money_request_api_v1_money_requests__request_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/money-requests/{request_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline Money Request
+         * @description The person asked says no. The requester is notified.
+         */
+        post: operations["decline_money_request_api_v1_money_requests__request_id__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/money-requests/{request_id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay Money Request
+         * @description Pays a request made to the caller, as an ordinary transfer from
+         *     `source_wallet_id` (fraud check, ledger posting and all). Needs an
+         *     Idempotency-Key like any money movement. The result's `status` says
+         *     how it went: PAID, PROCESSING (in progress or waiting for review),
+         *     or PENDING again with `last_failure` if the transfer failed. A
+         *     request can be paid once: a second payment gets 409.
+         */
+        post: operations["pay_money_request_api_v1_money_requests__request_id__pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/payments": {
         parameters: {
             query?: never;
@@ -455,6 +549,20 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** CreateMoneyRequest */
+        CreateMoneyRequest: {
+            /** Amount */
+            amount: string;
+            /** From Card Number */
+            from_card_number: string;
+            /** Note */
+            note?: string | null;
+            /**
+             * Wallet Id
+             * Format: uuid
+             */
+            wallet_id: string;
+        };
         /** CreatePaymentRequest */
         CreatePaymentRequest: {
             /** Amount */
@@ -556,6 +664,48 @@ export interface components {
          * @enum {string}
          */
         MerchantStatus: "ACTIVE" | "SUSPENDED";
+        /** MoneyRequestResponse */
+        MoneyRequestResponse: {
+            /** Amount Minor */
+            amount_minor: number;
+            /** Counterparty Name */
+            counterparty_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            direction: components["schemas"]["RequestDirection"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Failure */
+            last_failure: string | null;
+            /** Note */
+            note: string | null;
+            /** Reference */
+            reference: string;
+            status: components["schemas"]["RequestState"];
+            /** Transfer Id */
+            transfer_id: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PayMoneyRequest */
+        PayMoneyRequest: {
+            /**
+             * Source Wallet Id
+             * Format: uuid
+             */
+            source_wallet_id: string;
+        };
         /** PaymentResponse */
         PaymentResponse: {
             /** Amount Minor */
@@ -686,6 +836,17 @@ export interface components {
          * @enum {string}
          */
         RefundStatus: "PENDING" | "COMPLETED" | "FAILED";
+        /**
+         * RequestDirection
+         * @enum {string}
+         */
+        RequestDirection: "INCOMING" | "OUTGOING";
+        /**
+         * RequestState
+         * @description What a customer sees.
+         * @enum {string}
+         */
+        RequestState: "PENDING" | "PROCESSING" | "PAID" | "DECLINED" | "CANCELLED";
         /**
          * ReviewDecision
          * @enum {string}
@@ -1029,6 +1190,169 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaymentResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_money_requests_api_v1_money_requests_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyRequestResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_money_request_api_v1_money_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMoneyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyRequestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_money_request_api_v1_money_requests__request_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyRequestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decline_money_request_api_v1_money_requests__request_id__decline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyRequestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pay_money_request_api_v1_money_requests__request_id__pay_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayMoneyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyRequestResponse"];
                 };
             };
             /** @description Validation Error */

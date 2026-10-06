@@ -2,7 +2,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.encoders import jsonable_encoder
-from fincore_common import parse_decimal_string
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import (
@@ -16,9 +15,9 @@ from app.api.v1.schemas import (
     RecipientResponse,
     TransferResponse,
 )
+from app.core.amounts import parse_positive_amount
 from app.core.exceptions import (
     CurrencyMismatchError,
-    InvalidAmountError,
     SameWalletTransferError,
     TransferNotFoundError,
     WalletNotFoundError,
@@ -62,10 +61,7 @@ async def post_transfer(
         raise CurrencyMismatchError(
             f"source wallet is {source_wallet.currency}, request is {payload.currency}"
         )
-    try:
-        amount_minor = parse_decimal_string(payload.amount, payload.currency)
-    except ValueError as exc:
-        raise InvalidAmountError(str(exc)) from exc
+    amount_minor = parse_positive_amount(payload.amount, payload.currency)
 
     # Idempotency check.
     key, fingerprint = idem

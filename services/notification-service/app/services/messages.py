@@ -180,9 +180,50 @@ def _payment_messages(envelope: EventEnvelope) -> list[Message]:
     raise UnhandledEventTypeError(event_type)
 
 
+def _money_request_messages(envelope: EventEnvelope) -> list[Message]:
+    """A new request tells the person asked; a declined one tells the
+    person who asked. (A paid one is a transfer, and is told as one.)"""
+    data = envelope.data
+    amount = _amount(data)
+    note = data.get("note")
+
+    if envelope.event_type == EventType.MONEY_REQUEST_CREATED:
+        requester = data.get("requester_name")
+        who = requester or "Someone"
+        words = f": \u201c{note}\u201d" if note else ""
+        return [
+            Message(
+                UUID(data["payer_user_id"]),
+                envelope.event_type.value,
+                "Money request",
+                f"{who} asks you for {amount}{words}. Open Requests to pay or decline.",
+                _facts(data, counterparty=requester, note=note),
+            )
+        ]
+
+    if envelope.event_type == EventType.MONEY_REQUEST_DECLINED:
+        payer = data.get("payer_name")
+        return [
+            Message(
+                UUID(data["requester_user_id"]),
+                envelope.event_type.value,
+                "Request declined",
+                f"{payer or 'The person you asked'} declined your request for {amount}.",
+                _facts(data, counterparty=payer),
+            )
+        ]
+
+    raise UnhandledEventTypeError(envelope.event_type)
+
+
 _TRANSFER_EVENTS = frozenset({EventType.TRANSFER_COMPLETED, EventType.TRANSFER_FAILED})
 _PAYMENT_EVENTS = frozenset(
     {EventType.PAYMENT_COMPLETED, EventType.PAYMENT_FAILED, EventType.PAYMENT_REFUNDED}
+)
+
+
+_MONEY_REQUEST_EVENTS = frozenset(
+    {EventType.MONEY_REQUEST_CREATED, EventType.MONEY_REQUEST_DECLINED}
 )
 
 
@@ -195,4 +236,6 @@ def compose_messages(envelope: EventEnvelope) -> list[Message]:
         return _transfer_messages(envelope)
     if envelope.event_type in _PAYMENT_EVENTS:
         return _payment_messages(envelope)
+    if envelope.event_type in _MONEY_REQUEST_EVENTS:
+        return _money_request_messages(envelope)
     raise UnhandledEventTypeError(envelope.event_type)

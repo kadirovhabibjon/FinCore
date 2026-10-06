@@ -320,3 +320,35 @@ async def test_a_failed_transfer_does_not_make_a_recent_recipient(
         )
 
     assert response.json() == []
+
+
+@pytest.mark.parametrize("amount", ["0", "0.00", "-5.00"])
+async def test_an_amount_that_is_not_positive_is_a_validation_error_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch, issue_access_token, amount: str
+) -> None:
+    """ "0" is a well-formed amount, so it used to get as far as the
+    database's CHECK and come back as a 500."""
+    parties = Parties()
+    _wire(monkeypatch, _ledger_app(parties), _identity_app(parties))
+    token = issue_access_token(parties.sender)
+    key = str(uuid.uuid4())
+
+    async def send() -> httpx.Response:
+        return await client.post(
+            "/api/v1/transfers",
+            json={
+                "source_wallet_id": str(parties.source_wallet),
+                "destination_wallet_id": str(parties.destination_wallet),
+                "amount": amount,
+                "currency": "UZS",
+            },
+            headers={"Authorization": f"Bearer {token}", "Idempotency-Key": key},
+        )
+
+    async with _client() as client:
+        first = await send()
+        # Rejected before the idempotency key was taken: the same key is not "in progress".
+        second = await send()
+
+    assert first.status_code == second.status_code == 422
+    assert first.json()["title"] == "Invalid Amount"

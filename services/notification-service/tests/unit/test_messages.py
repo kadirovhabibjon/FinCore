@@ -205,3 +205,57 @@ def test_an_event_from_another_topic_is_refused() -> None:
 
     with pytest.raises(UnhandledEventTypeError):
         compose_messages(envelope)
+
+
+def _request(event_type: EventType, **overrides: object) -> EventEnvelope:
+    data = {
+        "request_id": str(uuid.uuid4()),
+        "reference": "REQ-ABC123",
+        "requester_user_id": str(_USER_ID),
+        "payer_user_id": str(uuid.uuid4()),
+        "requester_name": "Aziza K.",
+        "payer_name": "Bobur T.",
+        "amount_minor": 50_000_00,
+        "currency": "UZS",
+        "note": "Dinner",
+        "status": "PENDING",
+    }
+    data.update(overrides)
+    return EventEnvelope(event_type=event_type, producer="payment-service", data=data)
+
+
+def test_a_money_request_tells_the_person_asked_who_wants_how_much_and_why() -> None:
+    envelope = _request(EventType.MONEY_REQUEST_CREATED)
+
+    [message] = compose_messages(envelope)
+
+    assert str(message.recipient_user_id) == envelope.data["payer_user_id"]
+    assert message.notification_type == "money_request.created"
+    assert message.subject == "Money request"
+    assert message.body == (
+        "Aziza K. asks you for 50,000.00 UZS: \u201cDinner\u201d. Open Requests to pay or decline."
+    )
+    assert message.params == {
+        "amount": "50,000.00 UZS",
+        "reference": "REQ-ABC123",
+        "counterparty": "Aziza K.",
+        "note": "Dinner",
+    }
+
+
+def test_a_request_without_a_note_or_a_name_still_reads_properly() -> None:
+    envelope = _request(EventType.MONEY_REQUEST_CREATED, note=None, requester_name=None)
+
+    [message] = compose_messages(envelope)
+
+    assert message.body == "Someone asks you for 50,000.00 UZS. Open Requests to pay or decline."
+
+
+def test_a_declined_request_tells_the_person_who_asked() -> None:
+    envelope = _request(EventType.MONEY_REQUEST_DECLINED, status="DECLINED")
+
+    [message] = compose_messages(envelope)
+
+    assert message.recipient_user_id == _USER_ID
+    assert message.subject == "Request declined"
+    assert message.body == "Bobur T. declined your request for 50,000.00 UZS."

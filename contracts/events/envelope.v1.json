@@ -23,6 +23,8 @@
       "enum": [
         "fraud.detected",
         "fraud.review_required",
+        "money_request.created",
+        "money_request.declined",
         "payment.completed",
         "payment.failed",
         "payment.refunded",

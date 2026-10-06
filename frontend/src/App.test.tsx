@@ -1348,3 +1348,124 @@ describe("QR codes", () => {
     expect(screen.queryByText(/Scan to send money to this card/)).not.toBeInTheDocument();
   });
 });
+
+describe("money requests", () => {
+  const card = "9955123456789011";
+  const incoming = {
+    id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+    reference: "REQ-IN",
+    direction: "INCOMING",
+    status: "PENDING",
+    amount_minor: 50_000,
+    currency: "UZS",
+    note: "Dinner",
+    counterparty_name: "Aziza K.",
+    transfer_id: null,
+    last_failure: null,
+    created_at: "2026-10-06T09:00:00Z",
+    updated_at: "2026-10-06T09:00:00Z",
+  };
+  const outgoing = { ...incoming, id: "ffffffff-ffff-4fff-8fff-ffffffffffff", reference: "REQ-OUT", direction: "OUTGOING", counterparty_name: "Bobur T.", note: null };
+
+  it("pays a request only after confirming, with an idempotency key", async () => {
+    let current = [incoming];
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET]),
+      "GET /api/v1/money-requests": () => json(current),
+      [`POST /api/v1/money-requests/${incoming.id}/pay`]: () => {
+        current = [{ ...incoming, status: "PAID" }];
+        return json(current[0]);
+      },
+    });
+    renderApp("/requests");
+
+    const row = (await screen.findByText("REQ-IN", { exact: false })).closest("li") as HTMLElement;
+    expect(within(row).getByText("“Dinner”")).toBeInTheDocument();
+    await userEvent.click(within(row).getByRole("button", { name: "Pay" }));
+    // Nothing is sent by the first click.
+    expect(requests.some((r) => r.path.endsWith("/pay"))).toBe(false);
+    expect(within(row).getByText(/Send/)).toHaveTextContent(/500\.00 UZS to Aziza K\./);
+
+    await userEvent.click(within(row).getByRole("button", { name: "Yes, send" }));
+
+    expect(await within(row).findByText("PAID")).toBeInTheDocument();
+    const pay = requests.find((r) => r.path.endsWith("/pay"));
+    expect(pay?.body).toEqual({ source_wallet_id: WALLET.id });
+    expect(pay?.headers["idempotency-key"]).toBeTruthy();
+    expect(within(row).queryByRole("button", { name: "Pay" })).not.toBeInTheDocument();
+  });
+
+  it("declines one request and cancels one of the customer's own", async () => {
+    let current = [incoming, outgoing];
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET]),
+      "GET /api/v1/money-requests": () => json(current),
+      [`POST /api/v1/money-requests/${incoming.id}/decline`]: () => {
+        current = current.map((r) => (r.id === incoming.id ? { ...r, status: "DECLINED" } : r));
+        return json(current[0]);
+      },
+      [`POST /api/v1/money-requests/${outgoing.id}/cancel`]: () => {
+        current = current.map((r) => (r.id === outgoing.id ? { ...r, status: "CANCELLED" } : r));
+        return json(current[1]);
+      },
+    });
+    renderApp("/requests");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Decline" }));
+    expect(await screen.findByText("DECLINED")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("CANCELLED")).toBeInTheDocument();
+    expect(
+      requests.filter((r) => r.method === "POST" && r.path.includes("/money-requests/")),
+    ).toHaveLength(2);
+  });
+
+  it("asks someone for money after showing who they are", async () => {
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET]),
+      "GET /api/v1/transfers/recipient": () =>
+        json({ wallet_id: "33333333-3333-4333-8333-333333333333", currency: "UZS", display_name: "Bobur T.", own: false }),
+      "POST /api/v1/money-requests": () => json(outgoing, 201),
+    });
+    renderApp("/requests");
+
+    const send = await screen.findByRole("button", { name: "Send request" });
+    expect(send).toBeDisabled();
+    await userEvent.type(screen.getByLabelText("Ask the owner of card"), card);
+    expect(await screen.findByText("Bobur T.")).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/Amount/), "500");
+    await userEvent.type(screen.getByLabelText("What for (optional)"), "Dinner");
+    await userEvent.click(send);
+
+    expect(await screen.findByText(/Request sent to Bobur T\./)).toBeInTheDocument();
+    expect(requests.find((r) => r.method === "POST" && r.path === "/api/v1/money-requests")?.body).toEqual({
+      wallet_id: WALLET.id,
+      from_card_number: card,
+      amount: "500",
+      note: "Dinner",
+    });
+    expect(screen.getByLabelText("Ask the owner of card")).toHaveValue("");
+  });
+
+  it("won't ask the customer's own card, and says who is waiting on the wallets page", async () => {
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET]),
+      "GET /api/v1/money-requests": () => json([incoming, outgoing]),
+      "GET /api/v1/transfers/recipient": () =>
+        json({ wallet_id: WALLET.id, currency: "UZS", display_name: "Ada L.", own: true }),
+    });
+    renderApp("/");
+
+    const link = await screen.findByRole("link", { name: /1 person is asking you for money/ });
+    await userEvent.click(link);
+
+    await userEvent.type(await screen.findByLabelText("Ask the owner of card"), card);
+    expect(await screen.findByText("That is your own card.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send request" })).toBeDisabled();
+  });
+});

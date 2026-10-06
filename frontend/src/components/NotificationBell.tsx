@@ -15,6 +15,8 @@ const KIND: Record<string, { mark: string; className: string }> = {
   "payment.completed": { mark: "↑", className: "notification-out" },
   "payment.failed": { mark: "!", className: "notification-failed" },
   "payment.refunded": { mark: "↩", className: "notification-in" },
+  "money_request.created": { mark: "?", className: "notification-request" },
+  "money_request.declined": { mark: "✕", className: "notification-failed" },
   announcement: { mark: "i", className: "notification-announcement" },
 };
 
@@ -182,7 +184,16 @@ export function NotificationBell() {
                         {kind.mark}
                       </span>
                       <span className="notification-text">
-                        <strong>{item.title}</strong>
+                        <strong>
+                          {item.type.startsWith("money_request.") ? (
+                            // Where it can be answered.
+                            <Link to="/requests" onClick={() => setOpen(false)}>
+                              {item.title}
+                            </Link>
+                          ) : (
+                            item.title
+                          )}
+                        </strong>
                         <span>{item.body}</span>
                         <span className="muted small">
                           <DateTime value={item.created_at} />

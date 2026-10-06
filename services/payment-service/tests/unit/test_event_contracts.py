@@ -120,3 +120,33 @@ def test_a_payload_the_contract_does_not_allow_is_caught() -> None:
 
     with pytest.raises(AssertionError, match="internal_note"):
         assert_valid_event(wire)
+
+
+@pytest.mark.parametrize(
+    ("event_type", "status", "with_names"),
+    [
+        (EventType.MONEY_REQUEST_CREATED, "PENDING", True),
+        (EventType.MONEY_REQUEST_CREATED, "PENDING", False),
+        (EventType.MONEY_REQUEST_DECLINED, "DECLINED", True),
+    ],
+)
+def test_money_request_events_match_their_contract(
+    event_type: EventType, status: str, with_names: bool
+) -> None:
+    from app.domain.money_request import MoneyRequest, MoneyRequestStatus
+    from app.services.money_requests import _event
+
+    request = MoneyRequest(
+        id=uuid.uuid4(),
+        reference="REQ-CONTRACT01",
+        requester_user_id=uuid.uuid4(),
+        requester_wallet_id=uuid.uuid4(),
+        payer_user_id=uuid.uuid4(),
+        requester_name="Aziza K." if with_names else None,
+        payer_name="Bobur T." if with_names else None,
+        amount_minor=50_000,
+        currency="UZS",
+        note="Dinner" if with_names else None,
+    )
+
+    assert_valid_event(_on_the_wire(_event(request, event_type, MoneyRequestStatus(status))))

@@ -2,7 +2,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 from fastapi.encoders import jsonable_encoder
-from fincore_common import parse_decimal_string
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import (
@@ -16,9 +15,9 @@ from app.api.v1.schemas import (
     PaymentResponse,
     RefundResponse,
 )
+from app.core.amounts import parse_positive_amount
 from app.core.exceptions import (
     CurrencyMismatchError,
-    InvalidAmountError,
     MerchantNotActiveError,
     MerchantNotFoundError,
     PaymentNotEligibleForRefundError,
@@ -67,10 +66,7 @@ async def post_payment(
         raise CurrencyMismatchError(
             f"source wallet is {source_wallet.currency}, request is {payload.currency}"
         )
-    try:
-        amount_minor = parse_decimal_string(payload.amount, payload.currency)
-    except ValueError as exc:
-        raise InvalidAmountError(str(exc)) from exc
+    amount_minor = parse_positive_amount(payload.amount, payload.currency)
 
     # Idempotency check.
     key, fingerprint = idem
@@ -152,10 +148,7 @@ async def post_refund(
             f"payment is {payment.status.value}, not eligible for refund"
         )
 
-    try:
-        amount_minor = parse_decimal_string(payload.amount, payment.currency)
-    except ValueError as exc:
-        raise InvalidAmountError(str(exc)) from exc
+    amount_minor = parse_positive_amount(payload.amount, payment.currency)
 
     remaining = payment.amount_minor - payment.refunded_amount_minor
     if amount_minor > remaining:

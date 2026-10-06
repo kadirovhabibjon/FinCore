@@ -18,6 +18,7 @@ import { MerchantsPage } from "./pages/MerchantsPage";
 import { NewsItemPage, NewsPage } from "./pages/NewsPage";
 import { PayPage } from "./pages/PayPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { RequestsPage } from "./pages/RequestsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TransactionPage } from "./pages/TransactionPage";
 import { TransactionsPage } from "./pages/TransactionsPage";
@@ -73,6 +74,7 @@ export function AppRoutes() {
           <Route path="transactions/:transactionId" element={<TransactionPage />} />
           <Route path="merchants" element={<MerchantsPage />} />
           <Route path="merchants/:merchantId" element={<MerchantPage />} />
+          <Route path="requests" element={<RequestsPage />} />
           <Route path="news" element={<NewsPage />} />
           <Route path="news/:newsId" element={<NewsItemPage />} />
           <Route path="settings" element={<SettingsPage />} />

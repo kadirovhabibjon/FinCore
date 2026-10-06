@@ -368,6 +368,22 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
 * `GET /api/v1/admin/transactions` (SUPPORT, ADMIN) — every user's
   transfers and payments, filterable by type, status and user.
   Roles come from the access token's `roles` claim.
+* **Money requests** (`/api/v1/money-requests`): a customer asks the
+  owner of a card for an amount into one of their own wallets; the
+  person asked is notified and can pay or decline, the requester can
+  cancel. A request moves nothing: paying it (`POST …/{id}/pay`, with
+  an `Idempotency-Key`) creates an ordinary transfer, so it gets the
+  same fraud check and ledger posting. **It can be paid once**: paying
+  starts with an atomic `PENDING → PAYING` claim, so of two payments
+  started together exactly one proceeds (the other gets `409`). The
+  request then follows its transfer: `PAID` when it completes,
+  `PROCESSING` while it is held for review, `PENDING` again (with the
+  reason) if it failed; a claim abandoned by a crash frees itself after
+  two minutes. Limits against pestering: 20 unanswered requests per
+  customer, 3 to any one person.
+* Amounts must be greater than zero everywhere (`422 Invalid Amount`).
+  `"0"` is a well-formed amount and used to get as far as the database's
+  CHECK constraint, reaching the customer as a `500`.
 * `GET /api/v1/transactions`, `GET /api/v1/transactions/{id}` — a
   type-erased view merging Transfer *and* Payment into one newest-first
   list, exactly as `TransactionResponse.from_payment` was scaffolded to
@@ -818,7 +834,8 @@ refresh cookie.
   account page; wallets with available /
   held / ledger balance, card number and each wallet's ledger entries;
   send a transfer by typing the recipient's card number and checking
-  the name that comes back; pay a merchant; a QR code on each wallet for receiving money (a link
+  the name that comes back; pay a merchant; ask someone for money and pay or decline those who
+  ask (Requests page); a QR code on each wallet for receiving money (a link
   to the Send page with the card filled in, drawn in the browser) and a
   camera scanner on Send that reads one; a notifications bell
   (money received and sent, banking news, unread badge) on every page; history of
@@ -1221,11 +1238,11 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
 cd services/identity-service && .venv/bin/pytest -v     # 171 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 65 tests
-cd services/payment-service && .venv/bin/pytest -v      # 143 tests
-cd services/notification-service && .venv/bin/pytest -v # 68 tests
+cd services/payment-service && .venv/bin/pytest -v      # 158 tests
+cd services/notification-service && .venv/bin/pytest -v # 73 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
-cd services/audit-service && .venv/bin/pytest -v        # 51 tests
+cd services/audit-service && .venv/bin/pytest -v        # 53 tests
 cd services/assistant-service && .venv/bin/pytest -v    # 35 tests (model APIs faked: no key, no spend)
 ```
 
@@ -1286,7 +1303,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 105 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 109 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1335,7 +1352,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-58 tests that run against a live `docker compose` stack, through the
+60 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

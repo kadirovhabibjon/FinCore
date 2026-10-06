@@ -24,6 +24,8 @@ class Recipient:
     display_name: str
     # The card is one of the caller's own wallets.
     own: bool
+    # Never sent to a browser: for services that act on the lookup.
+    owner_user_id: UUID | None = None
 
 
 def display_name(first_name: str, last_name: str) -> str:
@@ -57,4 +59,5 @@ async def find_recipient(card_number: str, *, caller_user_id: UUID) -> Recipient
         currency=wallet.currency,
         display_name=display_name(owner.first_name, owner.last_name),
         own=wallet.owner_user_id == caller_user_id,
+        owner_user_id=wallet.owner_user_id,
     )

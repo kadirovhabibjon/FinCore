@@ -175,6 +175,46 @@
         "title": "CreateMerchantRequest",
         "type": "object"
       },
+      "CreateMoneyRequest": {
+        "properties": {
+          "amount": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Amount",
+            "type": "string"
+          },
+          "from_card_number": {
+            "maxLength": 32,
+            "minLength": 16,
+            "title": "From Card Number",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "wallet_id": {
+            "format": "uuid",
+            "title": "Wallet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet_id",
+          "from_card_number",
+          "amount"
+        ],
+        "title": "CreateMoneyRequest",
+        "type": "object"
+      },
       "CreatePaymentRequest": {
         "properties": {
           "amount": {
@@ -383,6 +423,118 @@
         ],
         "title": "MerchantStatus",
         "type": "string"
+      },
+      "MoneyRequestResponse": {
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "counterparty_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterparty Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/RequestDirection"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_failure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Failure"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RequestState"
+          },
+          "transfer_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transfer Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "direction",
+          "status",
+          "amount_minor",
+          "currency",
+          "note",
+          "counterparty_name",
+          "transfer_id",
+          "last_failure",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MoneyRequestResponse",
+        "type": "object"
+      },
+      "PayMoneyRequest": {
+        "properties": {
+          "source_wallet_id": {
+            "format": "uuid",
+            "title": "Source Wallet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_wallet_id"
+        ],
+        "title": "PayMoneyRequest",
+        "type": "object"
       },
       "PaymentResponse": {
         "properties": {
@@ -642,6 +794,26 @@
           "FAILED"
         ],
         "title": "RefundStatus",
+        "type": "string"
+      },
+      "RequestDirection": {
+        "enum": [
+          "INCOMING",
+          "OUTGOING"
+        ],
+        "title": "RequestDirection",
+        "type": "string"
+      },
+      "RequestState": {
+        "description": "What a customer sees.",
+        "enum": [
+          "PENDING",
+          "PROCESSING",
+          "PAID",
+          "DECLINED",
+          "CANCELLED"
+        ],
+        "title": "RequestState",
         "type": "string"
       },
       "ReviewDecision": {
@@ -1363,6 +1535,274 @@
         "summary": "List Merchant Payments",
         "tags": [
           "merchants"
+        ]
+      }
+    },
+    "/api/v1/money-requests": {
+      "get": {
+        "description": "Requests the caller made (OUTGOING) and requests made to the\ncaller (INCOMING), newest first.",
+        "operationId": "list_money_requests_api_v1_money_requests_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MoneyRequestResponse"
+                  },
+                  "title": "Response List Money Requests Api V1 Money Requests Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Money Requests",
+        "tags": [
+          "money-requests"
+        ]
+      },
+      "post": {
+        "description": "Asks the owner of a card to send the caller money. Nothing moves\nuntil that person pays; they are notified and can pay or decline.\nThe card must belong to someone else and be in the same currency as\nthe wallet the money should arrive in. A customer may have 20\nunanswered requests, 3 to any one person.",
+        "operationId": "create_money_request_api_v1_money_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMoneyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyRequestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Money Request",
+        "tags": [
+          "money-requests"
+        ]
+      }
+    },
+    "/api/v1/money-requests/{request_id}/cancel": {
+      "post": {
+        "description": "The requester withdraws a request nobody has answered yet.",
+        "operationId": "cancel_money_request_api_v1_money_requests__request_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyRequestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cancel Money Request",
+        "tags": [
+          "money-requests"
+        ]
+      }
+    },
+    "/api/v1/money-requests/{request_id}/decline": {
+      "post": {
+        "description": "The person asked says no. The requester is notified.",
+        "operationId": "decline_money_request_api_v1_money_requests__request_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyRequestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decline Money Request",
+        "tags": [
+          "money-requests"
+        ]
+      }
+    },
+    "/api/v1/money-requests/{request_id}/pay": {
+      "post": {
+        "description": "Pays a request made to the caller, as an ordinary transfer from\n`source_wallet_id` (fraud check, ledger posting and all). Needs an\nIdempotency-Key like any money movement. The result's `status` says\nhow it went: PAID, PROCESSING (in progress or waiting for review),\nor PENDING again with `last_failure` if the transfer failed. A\nrequest can be paid once: a second payment gets 409.",
+        "operationId": "pay_money_request_api_v1_money_requests__request_id__pay_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayMoneyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneyRequestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Pay Money Request",
+        "tags": [
+          "money-requests"
         ]
       }
     },

@@ -17,6 +17,7 @@ from fincore_common import (
 from app.api.internal.merchants import router as internal_merchants_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.merchants import router as merchants_router
+from app.api.v1.money_requests import router as money_requests_router
 from app.api.v1.payments import router as payments_router
 from app.api.v1.transactions import router as transactions_router
 from app.api.v1.transfers import router as transfers_router
@@ -152,6 +153,7 @@ app.include_router(transfers_router)
 app.include_router(payments_router)
 app.include_router(merchants_router)
 app.include_router(transactions_router)
+app.include_router(money_requests_router)
 app.include_router(admin_router)
 app.include_router(internal_merchants_router)
 

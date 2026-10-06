@@ -11,7 +11,15 @@ from app.db.base import Base
 
 # Import every ORM model module here so Base.metadata is fully populated
 # before autogenerate compares it against the database.
-from app.domain import idempotency, merchant, outbox, payment, refund, transfer  # noqa: F401
+from app.domain import (  # noqa: F401
+    idempotency,
+    merchant,
+    money_request,
+    outbox,
+    payment,
+    refund,
+    transfer,
+)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

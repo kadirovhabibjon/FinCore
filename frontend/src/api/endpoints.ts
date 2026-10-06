@@ -26,6 +26,7 @@ export type LedgerEntry = Ledger["LedgerEntryResponse"];
 export type Transfer = Payment["TransferResponse"];
 export type Recipient = Payment["RecipientResponse"];
 export type RecentRecipient = Payment["RecentRecipientResponse"];
+export type MoneyRequest = Payment["MoneyRequestResponse"];
 export type PaymentRecord = Payment["PaymentResponse"];
 export type Refund = Payment["RefundResponse"];
 export type Transaction = Payment["TransactionResponse"];
@@ -141,6 +142,22 @@ export const findRecipient = (cardNumber: string) =>
   apiRequest<Recipient>("/api/v1/transfers/recipient", { query: { card_number: cardNumber } });
 export const getTransfer = (transferId: string) =>
   apiRequest<Transfer>(`/api/v1/transfers/${transferId}`);
+
+// Asking someone for money. Paying a request is a transfer, so it
+// carries an Idempotency-Key like one.
+export const listMoneyRequests = () => apiRequest<MoneyRequest[]>("/api/v1/money-requests");
+export const createMoneyRequest = (body: Payment["CreateMoneyRequest"]) =>
+  apiRequest<MoneyRequest>("/api/v1/money-requests", { method: "POST", body });
+export const payMoneyRequest = (requestId: string, sourceWalletId: string, idempotencyKey: string) =>
+  apiRequest<MoneyRequest>(`/api/v1/money-requests/${requestId}/pay`, {
+    method: "POST",
+    body: { source_wallet_id: sourceWalletId },
+    idempotencyKey,
+  });
+export const declineMoneyRequest = (requestId: string) =>
+  apiRequest<MoneyRequest>(`/api/v1/money-requests/${requestId}/decline`, { method: "POST" });
+export const cancelMoneyRequest = (requestId: string) =>
+  apiRequest<MoneyRequest>(`/api/v1/money-requests/${requestId}/cancel`, { method: "POST" });
 
 export const createPayment = (body: Payment["CreatePaymentRequest"], idempotencyKey: string) =>
   apiRequest<PaymentRecord>("/api/v1/payments", { method: "POST", body, idempotencyKey });

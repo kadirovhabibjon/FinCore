@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 _TOPIC_BY_AGGREGATE_TYPE = {
     "Transfer": lambda: settings.transfers_topic,
     "Payment": lambda: settings.payments_topic,
+    # A money request is a prelude to a transfer and is told to the same
+    # audiences, so it shares the transfers topic.
+    "MoneyRequest": lambda: settings.transfers_topic,
 }
 
 

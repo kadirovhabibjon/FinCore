@@ -14,6 +14,15 @@ export function WalletsPage() {
   const queryClient = useQueryClient();
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: api.listWallets });
   const [currency, setCurrency] = useState(SUPPORTED_CURRENCIES[0] ?? "UZS");
+  // Failing quietly: the wallets matter more than this shortcut.
+  const requests = useQuery({
+    queryKey: ["money-requests"],
+    queryFn: api.listMoneyRequests,
+    retry: false,
+  });
+  const waiting =
+    requests.data?.filter((item) => item.direction === "INCOMING" && item.status === "PENDING")
+      .length ?? 0;
   const create = useMutation({
     mutationFn: api.createWallet,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["wallets"] }),
@@ -48,6 +57,18 @@ export function WalletsPage() {
         </form>
       </header>
       <ErrorAlert error={create.error ?? wallets.error} />
+      <p className="requests-bar">
+        {waiting > 0 ? (
+          <Link to="/requests" className="requests-waiting">
+            {waiting === 1
+              ? "1 person is asking you for money"
+              : `${waiting} people are asking you for money`}{" "}
+            →
+          </Link>
+        ) : (
+          <Link to="/requests">Request money from someone →</Link>
+        )}
+      </p>
       {wallets.isPending ? (
         <Loading what="Loading wallets" />
       ) : wallets.data?.length === 0 ? (

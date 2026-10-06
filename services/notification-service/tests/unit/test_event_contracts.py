@@ -54,3 +54,22 @@ def test_every_contract_example_tells_its_initiator_something_complete(
     assert first.params["reference"] == envelope.data["reference"]
     assert first.params["amount"].endswith(envelope.data["currency"])
     assert len({message.recipient_user_id for message in messages}) == len(messages)
+
+
+@pytest.mark.parametrize(
+    ("event_type", "told"),
+    [
+        (EventType.MONEY_REQUEST_CREATED, "payer_user_id"),
+        (EventType.MONEY_REQUEST_DECLINED, "requester_user_id"),
+    ],
+)
+def test_money_request_examples_tell_the_other_person(event_type: EventType, told: str) -> None:
+    envelope = EventEnvelope(
+        event_type=event_type, producer="payment-service", data=event_example(event_type.value)
+    )
+    assert_valid_event(envelope.model_dump(mode="json"))
+
+    [message] = compose_messages(envelope)
+
+    assert message.recipient_user_id == UUID(envelope.data[told])
+    assert message.params["amount"].endswith(envelope.data["currency"])

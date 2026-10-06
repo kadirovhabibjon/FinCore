@@ -142,3 +142,32 @@ class RecipientNotFoundError(DomainError):
 class RecipientLookupUnavailableError(DomainError):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     title = "Recipient Lookup Unavailable"
+
+
+class MoneyRequestNotFoundError(DomainError):
+    """Also covers a request the caller is not a party to."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Money Request Not Found"
+
+
+class MoneyRequestNotOpenError(DomainError):
+    """The request was already paid, declined or cancelled, or a payment
+    for it is in progress."""
+
+    status_code = status.HTTP_409_CONFLICT
+    title = "Money Request Not Open"
+
+
+class CannotRequestFromSelfError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Cannot Request From Yourself"
+
+
+class TooManyOpenRequestsError(DomainError):
+    """A cap on unanswered requests, so the feature can't be used to
+    pester someone: a request puts a notification in another person's
+    bell without their consent."""
+
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    title = "Too Many Open Requests"

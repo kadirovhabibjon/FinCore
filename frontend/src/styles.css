@@ -2006,3 +2006,38 @@ textarea:focus {
   background: #000;
   object-fit: cover;
 }
+
+/* --- money requests ---------------------------------------------------- */
+
+.requests-bar {
+  margin: 0 0 1rem;
+}
+
+.requests-waiting {
+  display: inline-block;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.request-note {
+  overflow-wrap: anywhere;
+}
+
+.request-confirm {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--hairline, var(--border));
+}
+
+.request-confirm p {
+  margin: 0 0 0.6rem;
+}
+
+.notification-request {
+  background: var(--warn-bg);
+  color: var(--warn);
+}

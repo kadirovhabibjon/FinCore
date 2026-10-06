@@ -177,6 +177,29 @@ final; the assistant can't approve, reject or speed them up.
   and its owner can re-enable it. Addresses on private or internal
   networks are rejected.
 
+## Asking for money (Requests)
+
+- The Requests page (linked from the Wallets page: "Request money from
+  someone", or "N people are asking you for money") has three parts:
+  requests made to the customer, a form to ask someone, and the
+  customer's own requests.
+- To ask: choose the wallet to receive into, type the other person's
+  FinCore card number, check the name that appears, enter the amount and
+  optionally what it is for, then "Send request". The card must belong
+  to someone else and be in the same currency as the receiving wallet.
+- The person asked gets a notification and can press Pay (then confirm
+  "Yes, send") or Decline. Paying sends an ordinary transfer from their
+  wallet in that currency: it needs enough balance and passes the same
+  fraud checks, so a large one can wait for review ("PROCESSING").
+- A request moves no money by itself and can be paid only once. If the
+  payment fails (for example insufficient funds) the request stays open
+  and can be paid again. The requester can cancel a request nobody has
+  answered; a declined, cancelled or paid request is final.
+- Limits: at most 20 unanswered requests per customer and 3 to the same
+  person.
+- Statuses: PENDING (waiting for an answer), PROCESSING (being paid),
+  PAID, DECLINED, CANCELLED.
+
 ## Transaction history
 
 History lists, newest first, the transfers and payments the customer
