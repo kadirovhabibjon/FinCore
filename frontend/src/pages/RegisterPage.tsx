@@ -4,8 +4,11 @@ import { Link, useNavigate } from "react-router-dom";
 import * as api from "../api/endpoints";
 import { ErrorAlert } from "../components/ui";
 import { PasswordInput } from "../components/PasswordInput";
+import { LanguageSwitch } from "../components/LanguageSwitch";
+import { useI18n } from "../i18n";
 
 export function RegisterPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [error, setError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -41,25 +44,26 @@ export function RegisterPage() {
 
   return (
     <div className="auth-page">
+      <LanguageSwitch className="auth-lang" />
       <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>Create your account</h1>
+        <h1>{t("register.title")}</h1>
         <ErrorAlert error={error} />
         <div className="row">
           <label>
-            First name
+            {t("common.firstName")}
             <input name="first_name" autoComplete="given-name" required maxLength={100} />
           </label>
           <label>
-            Last name
+            {t("common.lastName")}
             <input name="last_name" autoComplete="family-name" required maxLength={100} />
           </label>
         </div>
         <label>
-          Email
+          {t("common.email")}
           <input name="email" type="email" autoComplete="email" required />
         </label>
         <label>
-          Phone
+          {t("register.phone")}
           <input
             name="phone"
             type="tel"
@@ -69,7 +73,7 @@ export function RegisterPage() {
           />
         </label>
         <label>
-          Password
+          {t("common.password")}
           <PasswordInput
             name="password"
             autoComplete="new-password"
@@ -78,20 +82,20 @@ export function RegisterPage() {
           />
         </label>
         <label>
-          Repeat password
+          {t("register.repeatPassword")}
           <PasswordInput
             name="confirm_password"
             autoComplete="new-password"
             required
             aria-invalid={mismatch}
           />
-          {mismatch && <span className="field-error">The two passwords differ.</span>}
+          {mismatch && <span className="field-error">{t("register.mismatch")}</span>}
         </label>
         <button type="submit" className="button" disabled={submitting}>
-          {submitting ? "Creating…" : "Create account"}
+          {submitting ? t("register.submitting") : t("register.submit")}
         </button>
         <p className="muted">
-          Already registered? <Link to="/login">Sign in</Link>
+          {t("register.already")} <Link to="/login">{t("common.signIn")}</Link>
         </p>
       </form>
     </div>

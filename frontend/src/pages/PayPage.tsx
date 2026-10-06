@@ -7,9 +7,11 @@ import { OperationOutcome } from "../components/OperationOutcome";
 import { ErrorAlert, Loading, Money } from "../components/ui";
 import { validateAmount, walletLabel } from "../lib/money";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
+import { useI18n } from "../i18n";
 
 export function PayPage() {
   const [params] = useSearchParams();
+  const { t, tr } = useI18n();
   const queryClient = useQueryClient();
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: api.listWallets });
   const [sourceId, setSourceId] = useState("");
@@ -55,13 +57,13 @@ export function PayPage() {
     if (!problem) payment.mutate();
   }
 
-  if (wallets.isPending) return <Loading what="Loading wallets" />;
+  if (wallets.isPending) return <Loading what={t("wallets.loading")} />;
   if (!wallets.data?.length) {
     return (
       <section className="page">
-        <h1>Pay a merchant</h1>
+        <h1>{t("pay.title")}</h1>
         <p>
-          You need a wallet first. <Link to="/">Create one</Link>.
+          {tr("send.needWallet", { link: <Link to="/">{t("send.createOne")}</Link> })}
         </p>
       </section>
     );
@@ -70,9 +72,9 @@ export function PayPage() {
   if (payment.isSuccess) {
     return (
       <section className="page narrow">
-        <h1>Pay a merchant</h1>
+        <h1>{t("pay.title")}</h1>
         <OperationOutcome
-          kind="Payment"
+          kind={t("kind.payment")}
           status={payment.data.status}
           failureReason={payment.data.failure_reason}
           reference={payment.data.reference}
@@ -80,10 +82,10 @@ export function PayPage() {
         />
         <div className="actions">
           <Link to={`/transactions/${payment.data.id}`} className="button button-ghost">
-            View details
+            {t("send.details")}
           </Link>
           <button type="button" className="button" onClick={() => payment.reset()}>
-            New payment
+            {t("pay.new")}
           </button>
         </div>
       </section>
@@ -92,11 +94,11 @@ export function PayPage() {
 
   return (
     <section className="page narrow">
-      <h1>Pay a merchant</h1>
+      <h1>{t("pay.title")}</h1>
       <form className="card form" onSubmit={onSubmit}>
         <ErrorAlert error={wallets.error ?? payment.error} />
         <label>
-          From
+          {t("send.from")}
           <select value={source?.id} onChange={(e) => edited(setSourceId)(e.target.value)}>
             {wallets.data.map((wallet) => (
               <option key={wallet.id} value={wallet.id}>
@@ -106,17 +108,17 @@ export function PayPage() {
           </select>
         </label>
         <label>
-          Merchant id
+          {t("pay.merchantId")}
           <input
             value={merchantId}
             onChange={(e) => edited(setMerchantId)(e.target.value)}
             required
             pattern="[0-9a-fA-F-]{36}"
-            title="The merchant's id, e.g. 3f2b8c1e-…"
+            title={t("pay.merchantHint")}
           />
         </label>
         <label>
-          Amount ({source?.currency})
+          {t("send.amount", { currency: source?.currency ?? "" })}
           <input
             value={amount}
             onChange={(e) => edited(setAmount)(e.target.value)}
@@ -128,7 +130,7 @@ export function PayPage() {
           {amountError && <span className="field-error">{amountError}</span>}
         </label>
         <label>
-          Note (optional)
+          {t("send.note")}
           <input
             value={description}
             onChange={(e) => edited(setDescription)(e.target.value)}
@@ -136,7 +138,7 @@ export function PayPage() {
           />
         </label>
         <button type="submit" className="button" disabled={payment.isPending}>
-          {payment.isPending ? "Paying…" : "Pay"}
+          {payment.isPending ? t("pay.paying") : t("pay.submit")}
         </button>
       </form>
     </section>

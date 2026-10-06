@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 import * as api from "../api/endpoints";
 import { DateTime, Empty, ErrorAlert, Loading, StatusBadge } from "../components/ui";
+import { useI18n } from "../i18n";
 
 export function MerchantsPage() {
   const queryClient = useQueryClient();
@@ -17,6 +18,8 @@ export function MerchantsPage() {
     },
   });
 
+  const { t } = useI18n();
+
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     create.mutate(name.trim());
@@ -26,47 +29,47 @@ export function MerchantsPage() {
     <section className="page">
       <header className="page-header">
         <div>
-          <h1>Merchants</h1>
-          <p className="muted">Accept payments, issue refunds and receive webhooks.</p>
+          <h1>{t("merchants.title")}</h1>
+          <p className="muted">{t("merchants.subtitle")}</p>
         </div>
         <form className="inline-form" onSubmit={onSubmit}>
           <input
-            aria-label="Merchant name"
-            placeholder="Shop name"
+            aria-label={t("merchants.name")}
+            placeholder={t("merchants.namePlaceholder")}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
             maxLength={255}
           />
           <button type="submit" className="button" disabled={create.isPending}>
-            Create merchant
+            {t("merchants.create")}
           </button>
         </form>
       </header>
       <ErrorAlert error={create.error ?? merchants.error} />
       {merchants.isPending ? (
-        <Loading what="Loading merchants" />
+        <Loading what={t("merchants.loading")} />
       ) : merchants.data?.length === 0 ? (
-        <Empty>You don&apos;t own any merchants yet.</Empty>
+        <Empty>{t("merchants.empty")}</Empty>
       ) : (
         <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Created</th>
+              <th>{t("merchants.colName")}</th>
+              <th>{t("merchants.colStatus")}</th>
+              <th>{t("merchants.colCreated")}</th>
             </tr>
           </thead>
           <tbody>
             {merchants.data?.map((merchant) => (
               <tr key={merchant.id}>
-                <td data-label="Name">
+                <td data-label={t("merchants.colName")}>
                   <Link to={`/merchants/${merchant.id}`}>{merchant.name}</Link>
                 </td>
-                <td data-label="Status">
+                <td data-label={t("merchants.colStatus")}>
                   <StatusBadge status={merchant.status} />
                 </td>
-                <td data-label="Created">
+                <td data-label={t("merchants.colCreated")}>
                   <DateTime value={merchant.created_at} />
                 </td>
               </tr>

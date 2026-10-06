@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { formatCardNumber } from "../lib/card";
 import { receiveLink } from "../lib/qr";
+import { useI18n } from "../i18n";
 
 const SIZE = 220;
 
@@ -10,6 +11,7 @@ const SIZE = 220;
  * it too. Drawn on a canvas in the browser: nothing is fetched. */
 export function CardQr({ cardNumber }: { cardNumber: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const { t } = useI18n();
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -35,19 +37,18 @@ export function CardQr({ cardNumber }: { cardNumber: string }) {
   return (
     <figure className="card-qr">
       {failed ? (
-        <p className="muted">The code can&apos;t be drawn in this browser. Share the number.</p>
+        <p className="muted">{t("qr.unavailable")}</p>
       ) : (
         <canvas
           ref={canvas}
           width={SIZE}
           height={SIZE}
           role="img"
-          aria-label={`QR code for card ${formatCardNumber(cardNumber)}`}
+          aria-label={t("qr.label", { card: formatCardNumber(cardNumber) })}
         />
       )}
       <figcaption className="muted small">
-        Scan to send money to this card: with a phone&apos;s camera, or with Scan QR code on
-        FinCore&apos;s Send page.
+        {t("qr.caption")}
       </figcaption>
     </figure>
   );

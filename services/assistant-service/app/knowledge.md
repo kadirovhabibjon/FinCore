@@ -237,6 +237,13 @@ visible only to the sender: the recipient sees it once the money has
 actually arrived. A merchant's received payments are on the merchant's
 page, not in History.
 
+- Language: the site is available in Uzbek, Russian and English. The
+  switch (UZ / RU / EN) is in the top bar next to the bell, and on the
+  sign-in page; the choice is remembered on that device. Emails, PDF
+  receipts and the CSV statement are in English whatever the site
+  language is. Notifications that arrived before a language was chosen
+  may stay in English.
+
 - Statistics: History → "Statistics" shows money in and money out per
   month for the last 6 or 12 months, one currency at a time, as a chart
   with totals and a table. Money out is transfers sent and payments made

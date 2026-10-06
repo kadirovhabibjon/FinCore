@@ -5,13 +5,14 @@ import { Link } from "react-router-dom";
 import * as api from "../api/endpoints";
 import { DownloadButton } from "../components/DownloadButton";
 import { DateTime, Empty, ErrorAlert, Loading, Money, Pager, StatusBadge } from "../components/ui";
+import { useI18n, type MessageKey } from "../i18n";
 
 const PAGE_SIZE = 25;
 
-function describe(item: api.Transaction): string {
-  if (item.type === "PAYMENT") return "Payment";
-  if (item.type === "EXCHANGE") return "Exchanged";
-  return item.direction === "IN" ? "Received" : "Sent";
+function describe(item: api.Transaction): MessageKey {
+  if (item.type === "PAYMENT") return "history.payment";
+  if (item.type === "EXCHANGE") return "history.exchanged";
+  return item.direction === "IN" ? "history.received" : "history.sent";
 }
 
 const NOT_MOVED = new Set(["FAILED", "EXPIRED", "CANCELLED"]);
@@ -25,6 +26,7 @@ function sign(item: api.Transaction): string {
 
 export function TransactionsPage() {
   const [offset, setOffset] = useState(0);
+  const { t } = useI18n();
   const transactions = useQuery({
     queryKey: ["transactions", offset],
     queryFn: () => api.listTransactions({ limit: PAGE_SIZE, offset }),
@@ -34,59 +36,59 @@ export function TransactionsPage() {
     <section className="page">
       <header className="page-header">
         <div>
-          <h1>History</h1>
-          <p className="muted">
-            Money you sent, paid and received, newest first.
-          </p>
+          <h1>{t("history.title")}</h1>
+          <p className="muted">{t("history.subtitle")}</p>
         </div>
         <div className="actions">
           <Link to="/stats" className="button button-ghost">
-            Statistics
+            {t("history.statistics")}
           </Link>
-          <DownloadButton label="Download CSV" fetchFile={api.downloadStatement} />
+          <DownloadButton label={t("history.csv")} fetchFile={api.downloadStatement} />
         </div>
       </header>
       <ErrorAlert error={transactions.error} />
       {transactions.isPending ? (
-        <Loading what="Loading history" />
+        <Loading what={t("history.loading")} />
       ) : transactions.data?.length === 0 && offset === 0 ? (
-        <Empty>Nothing here yet.</Empty>
+        <Empty>{t("history.empty")}</Empty>
       ) : (
         <>
           <table className="table">
             <thead>
               <tr>
-                <th>When</th>
-                <th>Reference</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th className="num">Amount</th>
+                <th>{t("history.when")}</th>
+                <th>{t("history.reference")}</th>
+                <th>{t("history.type")}</th>
+                <th>{t("history.status")}</th>
+                <th className="num">{t("history.amount")}</th>
               </tr>
             </thead>
             <tbody>
               {transactions.data?.map((item) => (
                 <tr key={item.id}>
-                  <td data-label="When">
+                  <td data-label={t("history.when")}>
                     <DateTime value={item.created_at} />
                   </td>
-                  <td data-label="Reference">
+                  <td data-label={t("history.reference")}>
                     <Link to={`/transactions/${item.id}`}>{item.reference}</Link>
                     {item.description && <div className="muted small">{item.description}</div>}
                   </td>
-                  <td data-label="Type">
-                    {describe(item)}
+                  <td data-label={t("history.type")}>
+                    {t(describe(item))}
                     {item.counterparty_name && (
                       <div className="muted small">
-                        {item.direction === "IN" ? "from" : "to"} {item.counterparty_name}
+                        {t(item.direction === "IN" ? "history.from" : "history.to", {
+                          name: item.counterparty_name,
+                        })}
                       </div>
                     )}
                   </td>
-                  <td data-label="Status">
+                  <td data-label={t("history.status")}>
                     <StatusBadge status={item.status} />
                   </td>
                   <td
                     className={item.direction === "IN" ? "num amount-in" : "num"}
-                    data-label="Amount"
+                    data-label={t("history.amount")}
                   >
                     {sign(item)}
                     <Money minor={item.amount_minor} currency={item.currency} />

@@ -4,11 +4,14 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/context";
 import { ErrorAlert, Notice } from "../components/ui";
 import { PasswordInput } from "../components/PasswordInput";
+import { LanguageSwitch } from "../components/LanguageSwitch";
+import { useI18n } from "../i18n";
 
 /** `admin` is the admin console's sign-in: same accounts and API, but
  * its own title and no self-registration (staff roles are granted by an
  * operator, ADR-0006). */
 export function LoginPage({ admin = false }: { admin?: boolean }) {
+  const { t } = useI18n();
   const { login } = useAuth();
   const location = useLocation();
   const state = location.state as { registered?: boolean; passwordReset?: boolean } | null;
@@ -32,16 +35,17 @@ export function LoginPage({ admin = false }: { admin?: boolean }) {
 
   return (
     <div className="auth-page">
+      {!admin && <LanguageSwitch className="auth-lang" />}
       <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>{admin ? "FinCore Admin" : "Sign in to FinCore"}</h1>
+        <h1>{admin ? "FinCore Admin" : t("login.title")}</h1>
         {admin && <p className="muted">Staff sign-in. Customer accounts can't use this console.</p>}
-        {state?.registered && <Notice>Account created. Sign in to continue.</Notice>}
+        {state?.registered && <Notice>{t("login.registered")}</Notice>}
         {state?.passwordReset && (
-          <Notice>Password changed. Sign in with your new password.</Notice>
+          <Notice>{t("login.passwordReset")}</Notice>
         )}
         <ErrorAlert error={error} />
         <label>
-          Phone number or email
+          {t("common.phoneOrEmail")}
           <input
             name="identifier"
             type="text"
@@ -54,20 +58,20 @@ export function LoginPage({ admin = false }: { admin?: boolean }) {
           />
         </label>
         <label>
-          Password
+          {t("common.password")}
           <PasswordInput name="password" autoComplete="current-password" required />
         </label>
         {!admin && (
           <p className="forgot-link">
-            <Link to="/forgot-password">Forgot password?</Link>
+            <Link to="/forgot-password">{t("login.forgot")}</Link>
           </p>
         )}
         <button type="submit" className="button" disabled={submitting}>
-          {submitting ? "Signing in…" : "Sign in"}
+          {submitting ? t("login.submitting") : t("common.signIn")}
         </button>
         {!admin && (
           <p className="muted">
-            New here? <Link to="/register">Create an account</Link>
+            {t("login.newHere")} <Link to="/register">{t("login.createAccount")}</Link>
           </p>
         )}
       </form>

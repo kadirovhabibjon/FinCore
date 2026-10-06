@@ -28,12 +28,14 @@ import { TransferPage } from "./pages/TransferPage";
 import { WalletPage } from "./pages/WalletPage";
 import { WalletsPage } from "./pages/WalletsPage";
 import { createQueryClient } from "./queryClient";
+import { useI18n } from "./i18n";
 
 function NotFound() {
+  const { t } = useI18n();
   return (
     <section className="page">
-      <h1>Page not found</h1>
-      <Link to="/">Back to your wallets</Link>
+      <h1>{t("shell.notFound.title")}</h1>
+      <Link to="/">{t("shell.notFound.back")}</Link>
     </section>
   );
 }

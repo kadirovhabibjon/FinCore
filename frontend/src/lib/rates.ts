@@ -29,15 +29,28 @@ export function formatRate(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: digits }).format(value);
 }
 
-const names =
-  typeof Intl.DisplayNames === "function"
-    ? new Intl.DisplayNames(["en"], { type: "currency" })
-    : null;
+const names = new Map<string, Intl.DisplayNames | null>();
 
-/** "UZS" -> "Uzbekistani Som"; the code itself when the name is unknown. */
-export function currencyName(code: string): string {
+function namesFor(locale: string): Intl.DisplayNames | null {
+  if (!names.has(locale)) {
+    let display: Intl.DisplayNames | null = null;
+    try {
+      if (typeof Intl.DisplayNames === "function") {
+        display = new Intl.DisplayNames([locale, "en"], { type: "currency" });
+      }
+    } catch {
+      // An unknown locale: the codes alone still work.
+    }
+    names.set(locale, display);
+  }
+  return names.get(locale) ?? null;
+}
+
+/** "UZS" -> "Uzbekistani Som" (in the given language); the code itself
+ * when the name is unknown. */
+export function currencyName(code: string, locale = "en"): string {
   try {
-    return names?.of(code) ?? code;
+    return namesFor(locale)?.of(code) ?? code;
   } catch {
     return code;
   }

@@ -856,7 +856,8 @@ refresh cookie.
 
 * **User dashboard**: register and sign in, reset a forgotten password
   with a code sent by email; edit name, email and phone on the
-  account page; wallets with available /
+  account page; the whole customer site in Uzbek, Russian or English
+  (see below); wallets with available /
   held / ledger balance, card number and each wallet's ledger entries;
   send a transfer by typing the recipient's card number and checking
   the name that comes back; pay a merchant; a statistics page with money in and out per month
@@ -901,6 +902,19 @@ refresh cookie.
   `src/api/schema/*.ts` from `contracts/openapi`; CI regenerates and
   fails on any diff, so a backend API change breaks the frontend build,
   not the running app.
+
+**Languages.** The customer site is in Uzbek, Russian and English
+(`frontend/src/i18n/`): a UZ / RU / EN switch in the top bar and on the
+sign-in pages, remembered per device, defaulting to the browser's
+language when it is one of the three. `en.ts` is the source of truth;
+`uz.ts` and `ru.ts` must define every key (a missing one does not
+compile) and a test checks they use the same placeholders. Text the
+server writes in English is translated where the app knows what it
+means: statuses, the API's error titles, failure reasons, and
+notifications, which carry the facts they were built from (`params`)
+so the bell can rebuild the sentence. Not translated: the admin
+console, emails, PDF receipts, the CSV statement, announcements and
+news (shown as written), and error details beyond the title.
 
 ### Distributed tracing (all services)
 
@@ -1332,7 +1346,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 124 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 134 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 

@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 
 import * as api from "../api/endpoints";
 import { DateTime } from "./ui";
+import { useI18n } from "../i18n";
+import { localize } from "../lib/notifications";
 
 const POLL_INTERVAL_MS = 15_000;
 
@@ -30,6 +32,8 @@ type Tab = "activity" | "news";
  * marks it read. */
 export function NotificationBell() {
   const queryClient = useQueryClient();
+  const i18n = useI18n();
+  const { t } = i18n;
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const notifications = useQuery({
@@ -114,7 +118,7 @@ export function NotificationBell() {
       <button
         type="button"
         className="button button-ghost bell-button"
-        aria-label={total > 0 ? `Notifications, ${total} unread` : "Notifications"}
+        aria-label={total > 0 ? t("bell.labelUnread", { count: total }) : t("bell.label")}
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={toggle}
@@ -141,7 +145,7 @@ export function NotificationBell() {
         )}
       </button>
       {open && (
-        <div className="bell-panel" role="dialog" aria-label="Notifications">
+        <div className="bell-panel" role="dialog" aria-label={t("bell.label")}>
           <div className="bell-tabs" role="tablist">
             <button
               type="button"
@@ -149,7 +153,7 @@ export function NotificationBell() {
               aria-selected={tab === "activity"}
               onClick={() => show("activity")}
             >
-              Activity
+              {t("bell.activity")}
               {unread > 0 && <span className="bell-count">{unread}</span>}
             </button>
             <button
@@ -158,7 +162,7 @@ export function NotificationBell() {
               aria-selected={tab === "news"}
               onClick={() => show("news")}
             >
-              News
+              {t("bell.news")}
               {unreadNews > 0 && <span className="bell-count">{unreadNews}</span>}
             </button>
             <Link
@@ -166,20 +170,19 @@ export function NotificationBell() {
               className="bell-all"
               onClick={() => setOpen(false)}
             >
-              {tab === "news" ? "All news" : "History"}
+              {tab === "news" ? t("bell.allNews") : t("common.history")}
             </Link>
           </div>
           {tab === "activity" ? (
             notifications.isError && items.length === 0 ? (
-              <p className="muted bell-empty">Couldn&apos;t load notifications.</p>
+              <p className="muted bell-empty">{t("bell.loadFailed")}</p>
             ) : items.length === 0 ? (
-              <p className="muted bell-empty">
-                Nothing yet. Money you send and receive will show up here.
-              </p>
+              <p className="muted bell-empty">{t("bell.empty")}</p>
             ) : (
               <ul className="bell-list">
                 {items.map((item) => {
                   const kind = KIND[item.type] ?? { mark: "•", className: "" };
+                  const shown = localize(item, i18n);
                   return (
                     <li key={item.id} className={item.read ? undefined : "unread"}>
                       <span className={`notification-mark ${kind.className}`} aria-hidden="true">
@@ -190,13 +193,13 @@ export function NotificationBell() {
                           {item.type.startsWith("money_request.") ? (
                             // Where it can be answered.
                             <Link to="/requests" onClick={() => setOpen(false)}>
-                              {item.title}
+                              {shown.title}
                             </Link>
                           ) : (
-                            item.title
+                            shown.title
                           )}
                         </strong>
-                        <span>{item.body}</span>
+                        <span>{shown.body}</span>
                         <span className="muted small">
                           <DateTime value={item.created_at} />
                         </span>
@@ -207,9 +210,9 @@ export function NotificationBell() {
               </ul>
             )
           ) : news.isError && newsItems.length === 0 ? (
-            <p className="muted bell-empty">Couldn&apos;t load the news.</p>
+            <p className="muted bell-empty">{t("bell.newsFailed")}</p>
           ) : newsItems.length === 0 ? (
-            <p className="muted bell-empty">No banking news yet. Check back later.</p>
+            <p className="muted bell-empty">{t("bell.noNews")}</p>
           ) : (
             <ul className="bell-list">
               {newsItems.map((item) => (

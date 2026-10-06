@@ -1,10 +1,12 @@
 import { useState, type InputHTMLAttributes } from "react";
+import { useI18n } from "../i18n";
 
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
 
 /** A password field with an eye button that shows or hides what's typed,
  * so a long password can be checked on a phone keyboard before submitting. */
 export function PasswordInput(props: Props) {
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   return (
     <span className="password-field">
@@ -12,7 +14,7 @@ export function PasswordInput(props: Props) {
       <button
         type="button"
         className="password-toggle"
-        aria-label={visible ? "Hide password" : "Show password"}
+        aria-label={visible ? t("common.hidePassword") : t("common.showPassword")}
         aria-pressed={visible}
         onClick={() => setVisible((shown) => !shown)}
       >

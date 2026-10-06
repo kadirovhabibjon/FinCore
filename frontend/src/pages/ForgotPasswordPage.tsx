@@ -4,6 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 import * as api from "../api/endpoints";
 import { ErrorAlert, Notice } from "../components/ui";
 import { PasswordInput } from "../components/PasswordInput";
+import { LanguageSwitch } from "../components/LanguageSwitch";
+import { useI18n } from "../i18n";
 
 /** Forgot password, in two steps on one page: say whose account it is
  * (a code is emailed to that account's address), then enter the code
@@ -11,6 +13,7 @@ import { PasswordInput } from "../components/PasswordInput";
  * password; reading the account's mailbox is. */
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
+  const { t, tr } = useI18n();
   const [identifier, setIdentifier] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -63,17 +66,15 @@ export function ForgotPasswordPage() {
   if (!codeSent) {
     return (
       <div className="auth-page">
+        <LanguageSwitch className="auth-lang" />
         {/* Keyed: without it React reuses the first step's input for the code
             field, leaving the phone number typed there in it. */}
         <form key="request" className="card auth-card" onSubmit={onRequest}>
-          <h1>Reset your password</h1>
-          <p className="muted">
-            Enter your phone number or email. We&apos;ll send a 6-digit code to the email address
-            of your account.
-          </p>
+          <h1>{t("forgot.title")}</h1>
+          <p className="muted">{t("forgot.intro")}</p>
           <ErrorAlert error={error} />
           <label>
-            Phone number or email
+            {t("common.phoneOrEmail")}
             <input
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
@@ -87,10 +88,10 @@ export function ForgotPasswordPage() {
             />
           </label>
           <button type="submit" className="button" disabled={submitting}>
-            {submitting ? "Sending…" : "Send code"}
+            {submitting ? t("forgot.sending") : t("forgot.send")}
           </button>
           <p className="muted">
-            Remembered it? <Link to="/login">Back to sign in</Link>
+            {t("forgot.remembered")} <Link to="/login">{t("forgot.back")}</Link>
           </p>
         </form>
       </div>
@@ -99,15 +100,13 @@ export function ForgotPasswordPage() {
 
   return (
     <div className="auth-page">
+      <LanguageSwitch className="auth-lang" />
       <form key="confirm" className="card auth-card" onSubmit={onConfirm}>
-        <h1>Set a new password</h1>
-        <Notice>
-          If <strong>{identifier.trim()}</strong> has a FinCore account, a code is on its way to
-          that account&apos;s email. It works for 10 minutes.
-        </Notice>
+        <h1>{t("forgot.newTitle")}</h1>
+        <Notice>{tr("forgot.sent", { account: <strong>{identifier.trim()}</strong> })}</Notice>
         <ErrorAlert error={error} />
         <label>
-          Code from the email
+          {t("forgot.code")}
           <input
             name="code"
             inputMode="numeric"
@@ -115,16 +114,16 @@ export function ForgotPasswordPage() {
             pattern="[0-9]{6}"
             maxLength={6}
             placeholder="123456"
-            title="The 6 digits from the email"
+            title={t("forgot.codeHint")}
             required
           />
         </label>
         <label>
-          New password
+          {t("forgot.newPassword")}
           <PasswordInput name="new_password" autoComplete="new-password" required minLength={8} />
         </label>
         <label>
-          Confirm new password
+          {t("forgot.confirm")}
           <PasswordInput
             name="confirm_password"
             autoComplete="new-password"
@@ -132,24 +131,24 @@ export function ForgotPasswordPage() {
             minLength={8}
             aria-invalid={mismatch}
           />
-          {mismatch && <span className="field-error">The passwords don&apos;t match.</span>}
+          {mismatch && <span className="field-error">{t("forgot.mismatch")}</span>}
         </label>
         <button type="submit" className="button" disabled={submitting}>
-          {submitting ? "Saving…" : "Save new password"}
+          {submitting ? t("forgot.saving") : t("forgot.save")}
         </button>
         <p className="muted">
-          No email?{" "}
+          {t("forgot.noEmail")}{" "}
           <button
             type="button"
             className="link-button"
             disabled={submitting}
             onClick={() => void sendCode()}
           >
-            Send a new code
+            {t("forgot.resend")}
           </button>{" "}
-          or{" "}
+          {t("forgot.or")}{" "}
           <button type="button" className="link-button" onClick={() => setCodeSent(false)}>
-            use a different account
+            {t("forgot.other")}
           </button>
           .
         </p>

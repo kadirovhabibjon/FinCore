@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { useI18n, type MessageKey } from "../i18n";
 
 type Problem = "unsupported" | "denied" | "failed";
 
-const MESSAGES: Record<Problem, string> = {
-  unsupported: "This browser can\u2019t use the camera here. Type the card number instead.",
-  denied: "Camera access was refused. Allow it for this site, or type the card number instead.",
-  failed: "The camera couldn\u2019t be started. Type the card number instead.",
+const MESSAGES: Record<Problem, MessageKey> = {
+  unsupported: "qr.unsupported",
+  denied: "qr.denied",
+  failed: "qr.failed",
 };
 
 /** Reads a QR code with the device camera and hands its text to
@@ -19,6 +20,7 @@ export function QrScanner({
   onClose: () => void;
 }) {
   const video = useRef<HTMLVideoElement>(null);
+  const { t } = useI18n();
   const [problem, setProblem] = useState<Problem | null>(null);
   // The latest callback without restarting the camera when it changes.
   const read = useRef(onRead);
@@ -83,19 +85,19 @@ export function QrScanner({
   }, []);
 
   return (
-    <div className="qr-scanner" role="dialog" aria-label="Scan a QR code">
+    <div className="qr-scanner" role="dialog" aria-label={t("qr.scanTitle")}>
       {problem ? (
         <p className="field-error" role="alert">
-          {MESSAGES[problem]}
+          {t(MESSAGES[problem])}
         </p>
       ) : (
         <>
-          <video ref={video} playsInline muted aria-label="Camera" />
-          <p className="muted small">Point the camera at a FinCore QR code.</p>
+          <video ref={video} playsInline muted aria-label={t("qr.camera")} />
+          <p className="muted small">{t("qr.point")}</p>
         </>
       )}
       <button type="button" className="button button-small button-ghost" onClick={onClose}>
-        Close camera
+        {t("qr.close")}
       </button>
     </div>
   );

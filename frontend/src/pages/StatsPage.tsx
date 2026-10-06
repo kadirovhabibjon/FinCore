@@ -6,6 +6,7 @@ import * as api from "../api/endpoints";
 import { Empty, ErrorAlert, Loading, Money } from "../components/ui";
 import { columnPath, compact, monthLabel, niceTicks } from "../lib/chart";
 import { formatMinor } from "../lib/money";
+import { useI18n } from "../i18n";
 
 const PERIODS = [6, 12];
 const HEIGHT = 260;
@@ -34,6 +35,7 @@ function useWidth(fallback: number) {
  * at a time: UZS and USD amounts differ by four orders of magnitude and
  * would not share a scale honestly. */
 export function StatsPage() {
+  const { t, locale } = useI18n();
   const [months, setMonths] = useState(PERIODS[0] ?? 6);
   const [currency, setCurrency] = useState("");
   const stats = useQuery({
@@ -50,31 +52,28 @@ export function StatsPage() {
     <section className="page">
       <header className="page-header">
         <div>
-          <h1>Statistics</h1>
-          <p className="muted">
-            Money in and out per month: transfers and payments, net of refunds. Exchanges between
-            your own wallets and top-ups are not counted.
-          </p>
+          <h1>{t("stats.title")}</h1>
+          <p className="muted">{t("stats.subtitle")}</p>
         </div>
         <Link to="/transactions" className="button button-ghost">
-          History
+          {t("common.history")}
         </Link>
       </header>
-      <div className="inline-form viz-filters" role="group" aria-label="Filters">
+      <div className="inline-form viz-filters" role="group" aria-label={t("stats.filters")}>
         <select
-          aria-label="Period"
+          aria-label={t("stats.period")}
           value={months}
           onChange={(event) => setMonths(Number(event.target.value))}
         >
           {PERIODS.map((count) => (
             <option key={count} value={count}>
-              Last {count} months
+              {t("stats.lastMonths", { count })}
             </option>
           ))}
         </select>
         {available.length > 1 && (
           <select
-            aria-label="Currency"
+            aria-label={t("stats.currency")}
             value={shown?.currency}
             onChange={(event) => setCurrency(event.target.value)}
           >
@@ -86,38 +85,38 @@ export function StatsPage() {
       </div>
       <ErrorAlert error={stats.error} />
       {stats.isPending ? (
-        <Loading what="Loading statistics" />
+        <Loading what={t("stats.loading")} />
       ) : !shown ? (
-        <Empty>
-          Nothing moved in this period. Send or receive money and it will be counted here.
-        </Empty>
+        <Empty>{t("stats.empty")}</Empty>
       ) : (
         <div className={stats.isPlaceholderData ? "viz-root viz-stale" : "viz-root"}>
           <Totals stats={shown} />
           <div className="card">
             <MonthlyChart stats={shown} />
             <details className="viz-table">
-              <summary>Show as a table</summary>
+              <summary>{t("stats.asTable")}</summary>
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Month</th>
-                    <th className="num">Money in</th>
-                    <th className="num">Money out</th>
-                    <th className="num">Net</th>
+                    <th>{t("stats.month")}</th>
+                    <th className="num">{t("stats.in")}</th>
+                    <th className="num">{t("stats.out")}</th>
+                    <th className="num">{t("stats.net")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {shown.months.map((month) => (
                     <tr key={month.month}>
-                      <td data-label="Month">{monthLabel(month.month, true)}</td>
-                      <td className="num" data-label="Money in">
+                      <td data-label={t("stats.month")}>
+                        {monthLabel(month.month, true, locale)}
+                      </td>
+                      <td className="num" data-label={t("stats.in")}>
                         <Money minor={month.in_minor} currency={shown.currency} />
                       </td>
-                      <td className="num" data-label="Money out">
+                      <td className="num" data-label={t("stats.out")}>
                         <Money minor={month.out_minor} currency={shown.currency} />
                       </td>
-                      <td className="num" data-label="Net">
+                      <td className="num" data-label={t("stats.net")}>
                         <Money minor={month.in_minor - month.out_minor} currency={shown.currency} />
                       </td>
                     </tr>
@@ -133,19 +132,20 @@ export function StatsPage() {
 }
 
 function Totals({ stats }: { stats: api.CurrencyStats }) {
+  const { t } = useI18n();
   const net = stats.total_in_minor - stats.total_out_minor;
   return (
     <div className="stats viz-tiles">
       <div className="card stat">
-        <span className="muted small">Money in</span>
+        <span className="muted small">{t("stats.in")}</span>
         <Money minor={stats.total_in_minor} currency={stats.currency} />
       </div>
       <div className="card stat">
-        <span className="muted small">Money out</span>
+        <span className="muted small">{t("stats.out")}</span>
         <Money minor={stats.total_out_minor} currency={stats.currency} />
       </div>
       <div className="card stat">
-        <span className="muted small">Net</span>
+        <span className="muted small">{t("stats.net")}</span>
         <span className="money">
           {net > 0 ? "+" : ""}
           {formatMinor(net, stats.currency)}
@@ -156,6 +156,7 @@ function Totals({ stats }: { stats: api.CurrencyStats }) {
 }
 
 function MonthlyChart({ stats }: { stats: api.CurrencyStats }) {
+  const { t, locale } = useI18n();
   const [container, width] = useWidth(640);
   // Which month the pointer or keyboard is on.
   const [active, setActive] = useState<number | null>(null);
@@ -180,13 +181,13 @@ function MonthlyChart({ stats }: { stats: api.CurrencyStats }) {
   return (
     <figure className="viz-chart">
       <figcaption className="viz-head">
-        <strong>Per month, {stats.currency}</strong>
+        <strong>{t("stats.perMonth", { currency: stats.currency })}</strong>
         <ul className="viz-legend">
           <li>
-            <span className="viz-swatch viz-in" aria-hidden="true" /> Money in
+            <span className="viz-swatch viz-in" aria-hidden="true" /> {t("stats.in")}
           </li>
           <li>
-            <span className="viz-swatch viz-out" aria-hidden="true" /> Money out
+            <span className="viz-swatch viz-out" aria-hidden="true" /> {t("stats.out")}
           </li>
         </ul>
       </figcaption>
@@ -197,7 +198,7 @@ function MonthlyChart({ stats }: { stats: api.CurrencyStats }) {
           // A group, not one image: each month inside is focusable and
           // announces its own two values.
           role="group"
-          aria-label={`Money in and money out per month in ${stats.currency}. The same numbers are in the table below.`}
+          aria-label={t("stats.chartLabel", { currency: stats.currency })}
         >
           {ticks.map((tick) => (
             <g key={tick}>
@@ -221,7 +222,11 @@ function MonthlyChart({ stats }: { stats: api.CurrencyStats }) {
                 className={active === index ? "viz-group viz-active" : "viz-group"}
                 tabIndex={0}
                 role="img"
-                aria-label={`${monthLabel(month.month, true)}: in ${formatMinor(month.in_minor, stats.currency)}, out ${formatMinor(month.out_minor, stats.currency)}`}
+                aria-label={t("stats.monthLabel", {
+                  month: monthLabel(month.month, true, locale),
+                  in: formatMinor(month.in_minor, stats.currency),
+                  out: formatMinor(month.out_minor, stats.currency),
+                })}
                 onPointerEnter={() => setActive(index)}
                 onPointerLeave={() => setActive(null)}
                 onFocus={() => setActive(index)}
@@ -255,7 +260,7 @@ function MonthlyChart({ stats }: { stats: api.CurrencyStats }) {
                 />
                 {index % labelEvery === 0 && (
                   <text className="viz-tick" x={centre} y={baseline + 18} textAnchor="middle">
-                    {monthLabel(month.month)}
+                    {monthLabel(month.month, false, locale)}
                   </text>
                 )}
               </g>
@@ -278,16 +283,16 @@ function MonthlyChart({ stats }: { stats: api.CurrencyStats }) {
             style={{ left: MARGIN.left + band * active + band / 2 }}
             role="status"
           >
-            <span className="muted small">{monthLabel(focused.month, true)}</span>
+            <span className="muted small">{monthLabel(focused.month, true, locale)}</span>
             <span className="viz-tooltip-row">
               <span className="viz-key viz-in" aria-hidden="true" />
               <strong>{formatMinor(focused.in_minor, stats.currency)}</strong>
-              <span className="muted small">in</span>
+              <span className="muted small">{t("stats.inShort")}</span>
             </span>
             <span className="viz-tooltip-row">
               <span className="viz-key viz-out" aria-hidden="true" />
               <strong>{formatMinor(focused.out_minor, stats.currency)}</strong>
-              <span className="muted small">out</span>
+              <span className="muted small">{t("stats.outShort")}</span>
             </span>
           </div>
         )}

@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 
 import * as api from "../api/endpoints";
 import { DateTime, Empty, ErrorAlert, Loading } from "../components/ui";
+import { useI18n } from "../i18n";
 
 const PAGE_SIZE = 50;
 
@@ -11,6 +12,7 @@ const PAGE_SIZE = 50;
  * having seen them, so the bell's news badge clears. */
 export function NewsPage() {
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const news = useQuery({ queryKey: ["news", "all"], queryFn: () => api.listNews(PAGE_SIZE) });
   const { mutate: markRead } = useMutation({
     mutationFn: api.markNewsRead,
@@ -25,18 +27,15 @@ export function NewsPage() {
     <section className="page narrow-wide">
       <header className="page-header">
         <div>
-          <h1>Banking &amp; finance news</h1>
-          <p className="muted">
-            Banking, finance and economy headlines from public news feeds, newest first. FinCore
-            doesn&apos;t write or check them.
-          </p>
+          <h1>{t("news.title")}</h1>
+          <p className="muted">{t("news.subtitle")}</p>
         </div>
       </header>
       <ErrorAlert error={news.error} />
       {news.isPending ? (
-        <Loading what="Loading news" />
+        <Loading what={t("news.loading")} />
       ) : news.data?.items.length === 0 ? (
-        <Empty>No banking news yet. Check back later.</Empty>
+        <Empty>{t("bell.noNews")}</Empty>
       ) : (
         <ul className="list">
           {news.data?.items.map((item) => (
@@ -60,19 +59,20 @@ export function NewsPage() {
  * publisher's: it opens on their site, in a new tab. */
 export function NewsItemPage() {
   const { newsId = "" } = useParams();
+  const { t } = useI18n();
   const item = useQuery({
     queryKey: ["news", "item", newsId],
     queryFn: () => api.getNewsItem(newsId),
   });
 
-  if (item.isPending) return <Loading what="Loading article" />;
+  if (item.isPending) return <Loading what={t("news.loadingArticle")} />;
   if (item.error) return <ErrorAlert error={item.error} />;
   const article = item.data;
 
   return (
     <article className="page narrow-wide">
       <p className="small">
-        <Link to="/news">← All news</Link>
+        <Link to="/news">{t("news.back")}</Link>
       </p>
       <h1>{article.title}</h1>
       <p className="muted">
@@ -82,15 +82,14 @@ export function NewsItemPage() {
         {article.summary ? (
           <p>{article.summary}</p>
         ) : (
-          <p className="muted">The publisher gives no summary for this article.</p>
+          <p className="muted">{t("news.noSummary")}</p>
         )}
         <a className="button" href={article.url} target="_blank" rel="noopener noreferrer">
-          Read the full article on {article.source} ↗
+          {t("news.readFull", { source: article.source })}
         </a>
       </div>
       <p className="muted small">
-        From {article.source}&apos;s public news feed. FinCore shows the publisher&apos;s
-        headline and summary as they are; the article itself is on their site.
+        {t("news.footer", { source: article.source })}
       </p>
     </article>
   );

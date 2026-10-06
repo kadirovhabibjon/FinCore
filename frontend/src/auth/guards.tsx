@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { hasAnyRole, useAuth, type Role } from "./context";
+import { useI18n } from "../i18n";
 
 function FullPageMessage({ text }: { text: string }) {
   return (
@@ -12,16 +13,14 @@ function FullPageMessage({ text }: { text: string }) {
 
 /** The session couldn't be checked: say so, never guess signed in or out. */
 function Unreachable({ retry }: { retry: () => void }) {
+  const { t } = useI18n();
   return (
     <div className="auth-page">
       <div className="card auth-card" role="alert">
-        <h1>Can&apos;t reach FinCore</h1>
-        <p className="muted">
-          Your connection or the server isn&apos;t responding right now. Nothing has changed in
-          your account.
-        </p>
+        <h1>{t("shell.unreachable.title")}</h1>
+        <p className="muted">{t("shell.unreachable.body")}</p>
         <button type="button" className="button" onClick={retry}>
-          Try again
+          {t("shell.tryAgain")}
         </button>
       </div>
     </div>
@@ -33,7 +32,8 @@ function Unreachable({ retry }: { retry: () => void }) {
 export function RequireAuth({ loginPath = "/login" }: { loginPath?: string }) {
   const auth = useAuth();
   const location = useLocation();
-  if (auth.status === "loading") return <FullPageMessage text="Loading…" />;
+  const { t } = useI18n();
+  if (auth.status === "loading") return <FullPageMessage text={t("shell.loading")} />;
   if (auth.status === "unavailable") return <Unreachable retry={auth.retry} />;
   if (auth.status === "anonymous") {
     return (
@@ -72,7 +72,8 @@ export function RequireRole({ roles }: { roles: Role[] }) {
 export function RedirectIfAuthenticated({ home = "/" }: { home?: string }) {
   const auth = useAuth();
   const location = useLocation();
-  if (auth.status === "loading") return <FullPageMessage text="Loading…" />;
+  const { t } = useI18n();
+  if (auth.status === "loading") return <FullPageMessage text={t("shell.loading")} />;
   if (auth.status === "unavailable") return <Unreachable retry={auth.retry} />;
   if (auth.status === "authenticated") {
     const from = (location.state as { from?: string } | null)?.from;

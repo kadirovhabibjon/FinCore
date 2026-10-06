@@ -3,23 +3,26 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { ApiError } from "../api/client";
 import * as api from "../api/endpoints";
 import { MAX_CHARS, conversationToSend } from "../lib/chat";
+import { useI18n, type I18n } from "../i18n";
 
-const GREETING =
-  "Hi! I can answer questions about your FinCore wallets, transfers, payments and account. " +
-  "Assalomu alaykum! Savolingizni o'zbek, rus yoki ingliz tilida yozishingiz mumkin.";
-
-function errorText(error: unknown): string {
+/** The API's own explanation in English; in another language, the
+ * plain reason for the two things that actually happen (too many
+ * messages, no model to answer). */
+function errorText(error: unknown, { t, lang }: I18n): string {
   if (error instanceof ApiError) {
-    if (error.status === 429) return error.detail ?? "Too many messages. Please wait a little.";
-    if (error.status === 503) return error.detail ?? "The assistant is unavailable right now.";
+    const own = lang === "en" ? error.detail : undefined;
+    if (error.status === 429) return own ?? t("chat.tooMany");
+    if (error.status === 503) return own ?? t("chat.unavailable");
     return error.detail ?? error.title;
   }
-  return "Couldn't reach the assistant. Check your connection and try again.";
+  return t("chat.unreachable");
 }
 
 /** Customer support chat (ADR-0007), on every page of the customer site.
  * Replies are rendered as plain text, never as HTML. */
 export function ChatWidget() {
+  const i18n = useI18n();
+  const { t } = i18n;
   const [open, setOpen] = useState(false);
   const [history, setHistory] = useState<api.ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -48,7 +51,7 @@ export function ChatWidget() {
       // alternating and the customer can resend it.
       setHistory(history);
       setDraft(question);
-      setError(errorText(caught));
+      setError(errorText(caught, i18n));
     } finally {
       setPending(false);
     }
@@ -64,32 +67,32 @@ export function ChatWidget() {
   if (!open) {
     return (
       <button type="button" className="chat-launcher" onClick={() => setOpen(true)}>
-        Ask FinCore
+        {t("chat.launch")}
       </button>
     );
   }
 
   return (
-    <section className="chat-panel" aria-label="FinCore assistant">
+    <section className="chat-panel" aria-label={t("chat.title")}>
       <header className="chat-header">
-        <strong>FinCore assistant</strong>
+        <strong>{t("chat.title")}</strong>
         <button
           type="button"
           className="button button-small button-ghost"
-          aria-label="Close chat"
+          aria-label={t("chat.close")}
           onClick={() => setOpen(false)}
         >
           ✕
         </button>
       </header>
       <div className="chat-log" role="log" aria-live="polite">
-        <p className="chat-bubble chat-assistant">{GREETING}</p>
+        <p className="chat-bubble chat-assistant">{t("chat.greeting")}</p>
         {history.map((message, index) => (
           <p key={index} className={`chat-bubble chat-${message.role}`}>
             {message.content}
           </p>
         ))}
-        {pending && <p className="chat-bubble chat-assistant chat-typing">Looking into it…</p>}
+        {pending && <p className="chat-bubble chat-assistant chat-typing">{t("chat.thinking")}</p>}
         <div ref={endRef} />
       </div>
       {error && (
@@ -99,8 +102,8 @@ export function ChatWidget() {
       )}
       <form className="chat-form" onSubmit={send}>
         <textarea
-          aria-label="Message"
-          placeholder="Ask about your balance, a transfer…"
+          aria-label={t("chat.message")}
+          placeholder={t("chat.placeholder")}
           rows={2}
           maxLength={MAX_CHARS}
           value={draft}
@@ -108,10 +111,10 @@ export function ChatWidget() {
           onKeyDown={onKeyDown}
         />
         <button type="submit" className="button" disabled={pending || !draft.trim()}>
-          Send
+          {t("chat.send")}
         </button>
       </form>
-      <p className="chat-note muted">AI answers from your account data. It can't move money.</p>
+      <p className="chat-note muted">{t("chat.note")}</p>
     </section>
   );
 }

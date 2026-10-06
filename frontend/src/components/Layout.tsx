@@ -4,6 +4,8 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/context";
 import { ChatWidget } from "./ChatWidget";
 import { NotificationBell } from "./NotificationBell";
+import { useI18n, type MessageKey } from "../i18n";
+import { LanguageSwitch } from "./LanguageSwitch";
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -25,10 +27,10 @@ function Icon({ children }: { children: ReactNode }) {
   );
 }
 
-const USER_LINKS = [
+const USER_LINKS: { to: string; label: MessageKey; end?: boolean; icon: ReactNode }[] = [
   {
     to: "/",
-    label: "Wallets",
+    label: "nav.wallets",
     end: true,
     icon: (
       <Icon>
@@ -40,7 +42,7 @@ const USER_LINKS = [
   },
   {
     to: "/transfer",
-    label: "Send",
+    label: "nav.send",
     icon: (
       <Icon>
         <path d="M21 3 10.5 13.5" />
@@ -50,7 +52,7 @@ const USER_LINKS = [
   },
   {
     to: "/pay",
-    label: "Pay",
+    label: "nav.pay",
     icon: (
       <Icon>
         <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
@@ -60,7 +62,7 @@ const USER_LINKS = [
   },
   {
     to: "/transactions",
-    label: "History",
+    label: "nav.history",
     icon: (
       <Icon>
         <circle cx="12" cy="12" r="9" />
@@ -70,7 +72,7 @@ const USER_LINKS = [
   },
   {
     to: "/merchants",
-    label: "Merchants",
+    label: "nav.merchants",
     icon: (
       <Icon>
         <path d="M4 9.5 5.2 4h13.6L20 9.5" />
@@ -90,7 +92,8 @@ const USER_LINKS = [
  * bar fixed to the bottom of the screen, within thumb reach. */
 export function Layout() {
   const { user, logout } = useAuth();
-  const name = user?.first_name ?? "Account";
+  const { t } = useI18n();
+  const name = user?.first_name ?? t("nav.account");
 
   return (
     <div className="shell">
@@ -98,17 +101,18 @@ export function Layout() {
         <NavLink to="/" className="brand">
           FinCore
         </NavLink>
-        <nav className="nav" aria-label="Main">
+        <nav className="nav" aria-label={t("nav.main")}>
           {USER_LINKS.map((link) => (
             <NavLink key={link.to} to={link.to} end={link.end} className="nav-link">
               {link.icon}
-              <span>{link.label}</span>
+              <span>{t(link.label)}</span>
             </NavLink>
           ))}
         </nav>
         <div className="topbar-user">
           <NotificationBell />
-          <NavLink to="/settings" className="nav-link account-link" title="Account">
+          <LanguageSwitch />
+          <NavLink to="/settings" className="nav-link account-link" title={t("nav.account")}>
             <span className="avatar" aria-hidden="true">
               {name.charAt(0).toUpperCase()}
             </span>
@@ -135,7 +139,7 @@ export function Layout() {
               <path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" />
               <path d="M15 8l4 4-4 4M19 12H9" />
             </svg>
-            <span className="signout-text">Sign out</span>
+            <span className="signout-text">{t("common.signOut")}</span>
           </button>
         </div>
       </header>

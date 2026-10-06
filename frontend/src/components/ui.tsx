@@ -2,15 +2,23 @@ import { useState, type ReactNode } from "react";
 
 import { ApiError } from "../api/client";
 import { formatMinor } from "../lib/money";
+import { useI18n } from "../i18n";
 
+/** What the API said went wrong. Its titles and details are English;
+ * in another language the title is shown translated when it is one we
+ * know (and the English detail dropped), otherwise as the API sent it. */
 export function ErrorAlert({ error }: { error: unknown }) {
+  const { t, lang, maybe } = useI18n();
   if (!error) return null;
-  const message =
-    error instanceof ApiError
-      ? error.detail && error.detail !== error.title
+  let message = t("common.error.generic");
+  if (error instanceof ApiError) {
+    const known = lang === "en" ? undefined : maybe(`error.${error.title}`);
+    message =
+      known ??
+      (error.detail && error.detail !== error.title
         ? `${error.title} — ${error.detail}`
-        : error.title
-      : "Something went wrong. Check your connection and try again.";
+        : error.title);
+  }
   return (
     <div className="alert alert-error" role="alert">
       {message}
@@ -50,13 +58,19 @@ const STATUS_TONES: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  return <span className={`badge badge-${STATUS_TONES[status] ?? "neutral"}`}>{status}</span>;
+  const { maybe } = useI18n();
+  return (
+    <span className={`badge badge-${STATUS_TONES[status] ?? "neutral"}`}>
+      {maybe(`status.${status}`) ?? status}
+    </span>
+  );
 }
 
 export function DateTime({ value }: { value: string | null | undefined }) {
+  const { locale } = useI18n();
   if (!value) return <span className="muted">—</span>;
   const date = new Date(value);
-  return <time dateTime={value}>{date.toLocaleString()}</time>;
+  return <time dateTime={value}>{date.toLocaleString(locale)}</time>;
 }
 
 export function ShortId({ id }: { id: string }) {
@@ -67,7 +81,8 @@ export function ShortId({ id }: { id: string }) {
   );
 }
 
-export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+export function CopyButton({ text, label }: { text: string; label?: string }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -85,15 +100,16 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
         }
       }}
     >
-      {copied ? "Copied" : label}
+      {copied ? t("common.copied") : (label ?? t("common.copy"))}
     </button>
   );
 }
 
-export function Loading({ what = "Loading" }: { what?: string }) {
+export function Loading({ what }: { what?: string }) {
+  const { t } = useI18n();
   return (
     <p className="muted" role="status">
-      {what}…
+      {what ?? t("common.loading")}…
     </p>
   );
 }
@@ -113,19 +129,20 @@ export function Pager({
   count: number;
   onChange: (offset: number) => void;
 }) {
+  const { t } = useI18n();
   if (offset === 0 && count < limit) return null;
   return (
-    <nav className="pager" aria-label="Pagination">
+    <nav className="pager" aria-label={t("common.pagination")}>
       <button
         type="button"
         className="button button-ghost"
         disabled={offset === 0}
         onClick={() => onChange(Math.max(0, offset - limit))}
       >
-        Newer
+        {t("common.newer")}
       </button>
       <span className="muted">
-        {count === 0 ? "No more" : `${offset + 1}–${offset + count}`}
+        {count === 0 ? t("common.noMore") : `${offset + 1}–${offset + count}`}
       </span>
       <button
         type="button"
@@ -133,7 +150,7 @@ export function Pager({
         disabled={count < limit}
         onClick={() => onChange(offset + limit)}
       >
-        Older
+        {t("common.older")}
       </button>
     </nav>
   );

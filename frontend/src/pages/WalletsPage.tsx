@@ -8,9 +8,11 @@ import { ExchangeRates } from "../components/ExchangeRates";
 import { Empty, ErrorAlert, Loading, Money, ShortId, StatusBadge } from "../components/ui";
 import { formatCardNumber } from "../lib/card";
 import { SUPPORTED_CURRENCIES } from "../lib/money";
+import { useI18n } from "../i18n";
 
 export function WalletsPage() {
   const { user } = useAuth();
+  const { t, tr } = useI18n();
   const queryClient = useQueryClient();
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: api.listWallets });
   const [currency, setCurrency] = useState(SUPPORTED_CURRENCIES[0] ?? "UZS");
@@ -32,8 +34,8 @@ export function WalletsPage() {
     <section className="page">
       <header className="page-header">
         <div>
-          <h1>Hello, {user?.first_name}</h1>
-          <p className="muted">Your wallets and balances.</p>
+          <h1>{t("wallets.hello", { name: user?.first_name ?? "" })}</h1>
+          <p className="muted">{t("wallets.subtitle")}</p>
         </div>
         <form
           className="inline-form"
@@ -43,7 +45,7 @@ export function WalletsPage() {
           }}
         >
           <select
-            aria-label="Wallet currency"
+            aria-label={t("wallets.currency")}
             value={currency}
             onChange={(event) => setCurrency(event.target.value)}
           >
@@ -52,7 +54,7 @@ export function WalletsPage() {
             ))}
           </select>
           <button type="submit" className="button" disabled={create.isPending}>
-            New wallet
+            {t("wallets.new")}
           </button>
         </form>
       </header>
@@ -61,45 +63,48 @@ export function WalletsPage() {
         {waiting > 0 ? (
           <Link to="/requests" className="requests-waiting">
             {waiting === 1
-              ? "1 person is asking you for money"
-              : `${waiting} people are asking you for money`}{" "}
+              ? t("wallets.oneAsking")
+              : t("wallets.manyAsking", { count: waiting })}{" "}
             →
           </Link>
         ) : (
-          <Link to="/requests">Request money from someone →</Link>
+          <Link to="/requests">{t("wallets.request")}</Link>
         )}
         {(wallets.data?.length ?? 0) > 1 && (
           <Link to="/exchange" className="requests-bar-link">
-            Exchange between your wallets →
+            {t("wallets.exchange")}
           </Link>
         )}
       </p>
       {wallets.isPending ? (
-        <Loading what="Loading wallets" />
+        <Loading what={t("wallets.loading")} />
       ) : wallets.data?.length === 0 ? (
-        <Empty>You have no wallets yet. Create one to receive and send money.</Empty>
+        <Empty>{t("wallets.empty")}</Empty>
       ) : (
         <div className="grid">
           {wallets.data?.map((wallet) => (
             <Link key={wallet.id} to={`/wallets/${wallet.id}`} className="card wallet-card">
               <div className="wallet-card-head">
                 <span className="muted">
-                  {wallet.currency} wallet <ShortId id={wallet.id} />
+                  {t("wallet.name", { currency: wallet.currency })} <ShortId id={wallet.id} />
                 </span>
                 <StatusBadge status={wallet.status} />
               </div>
-              <div className="card-number" aria-label="Card number">
+              <div className="card-number" aria-label={t("wallet.cardNumber")}>
                 {formatCardNumber(wallet.card_number)}
               </div>
               <div className="wallet-balance">
                 <Money minor={wallet.balance_minor - wallet.held_minor} currency={wallet.currency} />
               </div>
               <div className="muted small">
-                available
+                {t("wallets.available")}
                 {wallet.held_minor > 0 && (
                   <>
                     {" "}
-                    · <Money minor={wallet.held_minor} currency={wallet.currency} /> on hold
+                    ·{" "}
+                    {tr("wallets.onHold", {
+                      amount: <Money minor={wallet.held_minor} currency={wallet.currency} />,
+                    })}
                   </>
                 )}
               </div>

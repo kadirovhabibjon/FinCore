@@ -5,9 +5,11 @@ import * as api from "../api/endpoints";
 import { DownloadButton } from "../components/DownloadButton";
 import { OperationOutcome } from "../components/OperationOutcome";
 import { DateTime, ErrorAlert, Loading, Money, StatusBadge } from "../components/ui";
+import { useI18n } from "../i18n";
 
 export function TransactionPage() {
   const { transactionId = "" } = useParams();
+  const { t } = useI18n();
   const summary = useQuery({
     queryKey: ["transactions", "detail", transactionId],
     queryFn: () => api.getTransaction(transactionId),
@@ -29,16 +31,17 @@ export function TransactionPage() {
     enabled: type === "PAYMENT",
   });
 
-  if (summary.isPending) return <Loading what="Loading transaction" />;
+  if (summary.isPending) return <Loading what={t("tx.loading")} />;
   if (summary.error) return <ErrorAlert error={summary.error} />;
   const detail = transfer.data ?? payment.data;
-  const kind =
+  const kind = t(
     summary.data.type === "TRANSFER"
-      ? "Transfer"
+      ? "kind.transfer"
       : summary.data.type === "EXCHANGE"
-        ? "Exchange"
-        : "Payment";
-  const title = incoming ? "Money received" : kind;
+        ? "kind.exchange"
+        : "kind.payment",
+  );
+  const title = incoming ? t("kind.received") : kind;
   const item = summary.data;
 
   return (
@@ -54,46 +57,46 @@ export function TransactionPage() {
       <ErrorAlert error={transfer.error ?? payment.error} />
       <div className="actions receipt-actions">
         <DownloadButton
-          label="Download receipt (PDF)"
+          label={t("tx.receipt")}
           fetchFile={() => api.downloadReceipt(item.id)}
         />
       </div>
       <dl className="card details">
         {item.counterparty_name && (
           <>
-            <dt>{incoming ? "From" : "To"}</dt>
+            <dt>{incoming ? t("tx.from") : t("tx.to")}</dt>
             <dd>{item.counterparty_name}</dd>
           </>
         )}
         {item.received_amount_minor != null && item.received_currency && (
           <>
-            <dt>Exchanged for</dt>
+            <dt>{t("tx.exchangedFor")}</dt>
             <dd>
               <Money minor={item.received_amount_minor} currency={item.received_currency} />
             </dd>
           </>
         )}
-        <dt>Created</dt>
+        <dt>{t("tx.created")}</dt>
         <dd>
           <DateTime value={item.created_at} />
         </dd>
-        <dt>Completed</dt>
+        <dt>{t("tx.completed")}</dt>
         <dd>
           <DateTime value={item.completed_at} />
         </dd>
         {item.description && (
           <>
-            <dt>Note</dt>
+            <dt>{t("tx.note")}</dt>
             <dd>{item.description}</dd>
           </>
         )}
         {transfer.data && (
           <>
-            <dt>From wallet</dt>
+            <dt>{t("tx.fromWallet")}</dt>
             <dd>
               <code>{transfer.data.source_wallet_id}</code>
             </dd>
-            <dt>To wallet</dt>
+            <dt>{t("tx.toWallet")}</dt>
             <dd>
               <code>{transfer.data.destination_wallet_id}</code>
             </dd>
@@ -101,15 +104,15 @@ export function TransactionPage() {
         )}
         {payment.data && (
           <>
-            <dt>From wallet</dt>
+            <dt>{t("tx.fromWallet")}</dt>
             <dd>
               <code>{payment.data.source_wallet_id}</code>
             </dd>
-            <dt>Merchant</dt>
+            <dt>{t("tx.merchant")}</dt>
             <dd>
               <code>{payment.data.merchant_id}</code>
             </dd>
-            <dt>Refunded</dt>
+            <dt>{t("tx.refunded")}</dt>
             <dd>
               <Money minor={payment.data.refunded_amount_minor} currency={payment.data.currency} />
             </dd>
@@ -117,13 +120,13 @@ export function TransactionPage() {
         )}
         {detail?.fraud_decision && (
           <>
-            <dt>Fraud check</dt>
+            <dt>{t("tx.fraud")}</dt>
             <dd>
               <StatusBadge status={detail.fraud_decision} />
             </dd>
           </>
         )}
-        <dt>Id</dt>
+        <dt>{t("tx.id")}</dt>
         <dd>
           <code>{item.id}</code>
         </dd>

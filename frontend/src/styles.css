@@ -512,6 +512,7 @@ input[aria-invalid="true"] {
 /* --- auth ------------------------------------------------------------- */
 
 .auth-page {
+  position: relative;
   min-height: 100vh;
   display: grid;
   place-items: center;
@@ -2243,4 +2244,20 @@ path.viz-out {
 /* One row of filters above everything they scope. */
 .viz-filters {
   margin-bottom: 1rem;
+}
+
+/* --- language switch ---------------------------------------------------- */
+
+.lang-select {
+  padding: 0.35rem 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* On the sign-in pages there is no top bar to hold it. */
+.auth-lang {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: auto;
 }

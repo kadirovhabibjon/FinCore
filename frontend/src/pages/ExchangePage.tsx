@@ -7,6 +7,8 @@ import { ApiError } from "../api/client";
 import { DateTime, ErrorAlert, Loading, Money, Notice } from "../components/ui";
 import { formatMinor, validateAmount, walletLabel } from "../lib/money";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
+import { useI18n } from "../i18n";
+import { reasonText } from "../lib/reasons";
 
 const QUOTE_DELAY_MS = 350;
 
@@ -28,6 +30,8 @@ function rateLine(quote: api.ExchangeQuote): string {
  * is only made for exactly that amount. */
 export function ExchangePage() {
   const queryClient = useQueryClient();
+  const i18n = useI18n();
+  const { t, tr } = i18n;
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: api.listWallets });
   const [sourceId, setSourceId] = useState("");
   const [destinationId, setDestinationId] = useState("");
@@ -98,15 +102,16 @@ export function ExchangePage() {
     if (offer) exchange.mutate();
   }
 
-  if (wallets.isPending) return <Loading what="Loading wallets" />;
+  if (wallets.isPending) return <Loading what={t("wallets.loading")} />;
   if (!source || others.length === 0) {
     return (
       <section className="page narrow">
-        <h1>Exchange</h1>
+        <h1>{t("exchange.title")}</h1>
         <ErrorAlert error={wallets.error} />
         <p>
-          An exchange is between two of your own wallets in different currencies. You need a UZS
-          wallet and a USD wallet. <Link to="/">Create the missing one</Link>.
+          {tr("exchange.needTwo", {
+            link: <Link to="/">{t("exchange.createMissing")}</Link>,
+          })}
         </p>
       </section>
     );
@@ -118,31 +123,36 @@ export function ExchangePage() {
     const finished = done.status === "COMPLETED";
     return (
       <section className="page narrow">
-        <h1>Exchange</h1>
+        <h1>{t("exchange.title")}</h1>
         {finished && (
           <Notice>
-            Exchanged <Money minor={done.source_amount_minor} currency={done.source_currency} /> for{" "}
-            <strong>
-              <Money minor={done.destination_amount_minor} currency={done.destination_currency} />
-            </strong>
-            . Reference {done.reference}.
+            {tr("exchange.done", {
+              sold: <Money minor={done.source_amount_minor} currency={done.source_currency} />,
+              bought: (
+                <strong>
+                  <Money
+                    minor={done.destination_amount_minor}
+                    currency={done.destination_currency}
+                  />
+                </strong>
+              ),
+              reference: done.reference,
+            })}
           </Notice>
         )}
         {failed && (
           <div className="alert alert-error" role="alert">
-            The exchange didn&apos;t go through
-            {done.failure_reason ? `: ${done.failure_reason}` : ""}. Your money is in your wallet.
+            {t("exchange.failed", {
+              reason: done.failure_reason ? `: ${reasonText(done.failure_reason, i18n)}` : "",
+            })}
           </div>
         )}
         {!finished && !failed && (
-          <Notice>
-            Your exchange {done.reference} is being completed. It will appear in History and your
-            balances will update shortly; you don&apos;t need to do it again.
-          </Notice>
+          <Notice>{t("exchange.inProgress", { reference: done.reference })}</Notice>
         )}
         <div className="actions">
           <Link to="/transactions" className="button button-ghost">
-            History
+            {t("common.history")}
           </Link>
           <button
             type="button"
@@ -152,7 +162,7 @@ export function ExchangePage() {
               exchange.reset();
             }}
           >
-            Exchange again
+            {t("exchange.again")}
           </button>
         </div>
       </section>
@@ -162,18 +172,17 @@ export function ExchangePage() {
   const rateChanged = exchange.error instanceof ApiError && exchange.error.status === 409;
   return (
     <section className="page narrow">
-      <h1>Exchange</h1>
-      <p className="muted">Between your own wallets, at the current rate. No fee.</p>
+      <h1>{t("exchange.title")}</h1>
+      <p className="muted">{t("exchange.subtitle")}</p>
       <form className="card form" onSubmit={onSubmit}>
         <ErrorAlert error={wallets.error ?? (rateChanged ? null : exchange.error)} />
         {rateChanged && (
           <div className="alert alert-warn" role="alert">
-            The rate changed while you were looking. Nothing was exchanged: check the new amount
-            below and confirm again.
+            {t("exchange.rateChanged")}
           </div>
         )}
         <label>
-          From
+          {t("exchange.from")}
           <select value={source.id} onChange={(e) => edited(setSourceId)(e.target.value)}>
             {wallets.data?.map((wallet) => (
               <option key={wallet.id} value={wallet.id}>
@@ -183,7 +192,7 @@ export function ExchangePage() {
           </select>
         </label>
         <label>
-          To
+          {t("exchange.to")}
           <select
             value={destination?.id}
             onChange={(e) => edited(setDestinationId)(e.target.value)}
@@ -196,7 +205,7 @@ export function ExchangePage() {
           </select>
         </label>
         <label>
-          Amount ({source.currency})
+          {t("send.amount", { currency: source.currency })}
           <input
             value={amount}
             onChange={(e) => edited(setAmount)(e.target.value)}
@@ -209,29 +218,32 @@ export function ExchangePage() {
         </label>
         <div className="exchange-quote" aria-live="polite">
           {!askable ? (
-            <span className="muted">Enter an amount to see what you&apos;ll get.</span>
+            <span className="muted">{t("exchange.enter")}</span>
           ) : quote.error ? (
             <ErrorAlert error={quote.error} />
           ) : offer ? (
             <>
-              <span className="muted">You get</span>
+              <span className="muted">{t("exchange.youGet")}</span>
               <strong className="exchange-amount">
                 <Money minor={offer.destination_amount_minor} currency={offer.destination_currency} />
               </strong>
               <span className="muted small">
-                {rateLine(offer)} · rate from <DateTime value={offer.rate_updated_at} />
+                {rateLine(offer)} · {t("exchange.rateFrom")}{" "}
+                <DateTime value={offer.rate_updated_at} />
               </span>
             </>
           ) : (
-            <span className="muted">Getting the rate…</span>
+            <span className="muted">{t("exchange.gettingRate")}</span>
           )}
         </div>
         <button type="submit" className="button" disabled={!offer || exchange.isPending}>
           {exchange.isPending
-            ? "Exchanging…"
+            ? t("exchange.exchanging")
             : offer
-              ? `Exchange for ${formatMinor(offer.destination_amount_minor, offer.destination_currency)}`
-              : "Exchange"}
+              ? t("exchange.submitFor", {
+                  amount: formatMinor(offer.destination_amount_minor, offer.destination_currency),
+                })
+              : t("exchange.submit")}
         </button>
       </form>
     </section>

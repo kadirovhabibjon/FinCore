@@ -16,9 +16,11 @@ import {
 import { validateAmount, walletLabel } from "../lib/money";
 import { cardFromScan } from "../lib/qr";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
+import { useI18n } from "../i18n";
 
 export function TransferPage() {
   const [params] = useSearchParams();
+  const { t, tr } = useI18n();
   const queryClient = useQueryClient();
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: api.listWallets });
   const [sourceId, setSourceId] = useState(params.get("from") ?? "");
@@ -63,17 +65,17 @@ export function TransferPage() {
     lookup.error instanceof ApiError && lookup.error.status === 404;
   let recipientProblem: string | null = null;
   if (cardComplete && !cardValid) {
-    recipientProblem = "Check the card number: a digit is wrong.";
+    recipientProblem = t("send.badDigit");
   } else if (cardValid && notFound) {
     recipientProblem =
-      "No FinCore wallet can receive money at this card number.";
+      t("send.noSuchCard");
   } else if (cardValid && lookup.error) {
     recipientProblem =
-      "Couldn't look up this card right now. Try again shortly.";
+      t("send.lookupFailed");
   } else if (recipient && source && recipient.wallet_id === source.id) {
-    recipientProblem = "This is the card of the wallet you are sending from.";
+    recipientProblem = t("send.ownWallet");
   } else if (recipient && source && recipient.currency !== source.currency) {
-    recipientProblem = `This card is a ${recipient.currency} wallet. Choose your ${recipient.currency} wallet above to send to it.`;
+    recipientProblem = t("send.otherCurrency", { currency: recipient.currency });
   }
   const canSend = !!recipient && !recipientProblem;
 
@@ -114,13 +116,13 @@ export function TransferPage() {
     if (!problem) transfer.mutate();
   }
 
-  if (wallets.isPending) return <Loading what="Loading wallets" />;
+  if (wallets.isPending) return <Loading what={t("wallets.loading")} />;
   if (!wallets.data?.length) {
     return (
       <section className="page">
-        <h1>Send money</h1>
+        <h1>{t("send.title")}</h1>
         <p>
-          You need a wallet first. <Link to="/">Create one</Link>.
+          {tr("send.needWallet", { link: <Link to="/">{t("send.createOne")}</Link> })}
         </p>
       </section>
     );
@@ -129,9 +131,9 @@ export function TransferPage() {
   if (transfer.isSuccess) {
     return (
       <section className="page narrow">
-        <h1>Send money</h1>
+        <h1>{t("send.title")}</h1>
         <OperationOutcome
-          kind="Transfer"
+          kind={t("kind.transfer")}
           status={transfer.data.status}
           failureReason={transfer.data.failure_reason}
           reference={transfer.data.reference}
@@ -144,7 +146,10 @@ export function TransferPage() {
         />
         {recipient && (
           <p className="muted">
-            To {recipient.display_name} · card {formatCardNumber(cardNumber)}
+            {t("send.toLine", {
+              name: recipient.display_name,
+              card: formatCardNumber(cardNumber),
+            })}
           </p>
         )}
         <div className="actions">
@@ -152,7 +157,7 @@ export function TransferPage() {
             to={`/transactions/${transfer.data.id}`}
             className="button button-ghost"
           >
-            View details
+            {t("send.details")}
           </Link>
           <button
             type="button"
@@ -166,7 +171,7 @@ export function TransferPage() {
               transfer.reset();
             }}
           >
-            Send another
+            {t("send.another")}
           </button>
         </div>
       </section>
@@ -175,11 +180,11 @@ export function TransferPage() {
 
   return (
     <section className="page narrow">
-      <h1>Send money</h1>
+      <h1>{t("send.title")}</h1>
       <form className="card form" onSubmit={onSubmit}>
         <ErrorAlert error={wallets.error ?? transfer.error} />
         <label>
-          From
+          {t("send.from")}
           <select
             value={source?.id}
             onChange={(e) => edited(setSourceId)(e.target.value)}
@@ -194,7 +199,7 @@ export function TransferPage() {
         {recentHere.length > 0 && (
           <div className="field">
             <span className="field-label" id="recent-label">
-              Recent
+              {t("send.recent")}
             </span>
             <div
               className="recipient-chips"
@@ -215,7 +220,7 @@ export function TransferPage() {
                     {(item.display_name ?? "•").slice(0, 1).toUpperCase()}
                   </span>
                   <span>
-                    <strong>{item.display_name ?? "Card"}</strong>
+                    <strong>{item.display_name ?? t("send.card")}</strong>
                     <span className="muted small">
                       {" "}
                       ···· {item.card_number.slice(-4)}
@@ -244,10 +249,10 @@ export function TransferPage() {
             />
           )}
           {scanning && scanProblem && (
-            <span className="field-error">That QR code is not a FinCore card.</span>
+            <span className="field-error">{t("send.notFincoreQr")}</span>
           )}
           <label>
-            To card number
+            {t("send.toCard")}
             <input
               value={formatCardNumber(cardNumber)}
               onChange={(e) =>
@@ -267,7 +272,7 @@ export function TransferPage() {
               className="button button-small button-ghost scan-button"
               onClick={() => setScanning(true)}
             >
-              Scan QR code
+              {t("send.scan")}
             </button>
           )}
           <span id="recipient-status" aria-live="polite">
@@ -280,25 +285,24 @@ export function TransferPage() {
                 </span>
                 <span>
                   <strong>{recipient.display_name}</strong>
-                  {recipient.own && " (you)"}
+                  {recipient.own && t("send.you")}
                   <span className="muted small">
                     {" "}
-                    · {recipient.currency} wallet
+                    · {t("wallet.name", { currency: recipient.currency })}
                   </span>
                 </span>
               </span>
             ) : cardValid ? (
-              <span className="muted small">Looking up the recipient…</span>
+              <span className="muted small">{t("send.lookingUp")}</span>
             ) : (
               <span className="muted small">
-                The recipient&apos;s 16-digit FinCore card number, shown on
-                their wallet.
+                {t("send.cardHint")}
               </span>
             )}
           </span>
         </div>
         <label>
-          Amount ({source?.currency})
+          {t("send.amount", { currency: source?.currency ?? "" })}
           <input
             value={amount}
             onChange={(e) => edited(setAmount)(e.target.value)}
@@ -310,7 +314,7 @@ export function TransferPage() {
           {amountError && <span className="field-error">{amountError}</span>}
         </label>
         <label>
-          Note (optional)
+          {t("send.note")}
           <input
             value={description}
             onChange={(e) => edited(setDescription)(e.target.value)}
@@ -322,7 +326,7 @@ export function TransferPage() {
           className="button"
           disabled={transfer.isPending || !canSend}
         >
-          {transfer.isPending ? "Sending…" : "Send"}
+          {transfer.isPending ? t("send.sending") : t("send.submit")}
         </button>
       </form>
     </section>

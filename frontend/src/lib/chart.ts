@@ -28,10 +28,10 @@ export function compact(value: number): string {
 }
 
 /** "2026-10" -> "Oct" (and "Jan 2026" when a year starts, or `withYear`). */
-export function monthLabel(key: string, withYear = false): string {
+export function monthLabel(key: string, withYear = false, locale = "en-US"): string {
   const [year, month] = key.split("-").map(Number);
   const date = new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, 1));
-  const name = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(date);
+  const name = new Intl.DateTimeFormat(locale, { month: "short", timeZone: "UTC" }).format(date);
   return withYear || month === 1 ? `${name} ${year}` : name;
 }
 

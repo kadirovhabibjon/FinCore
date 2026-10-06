@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import { saveDownload, type Download } from "../api/client";
 import { ErrorAlert } from "./ui";
+import { useI18n } from "../i18n";
 
 /** Fetches a file with the customer's session and saves it. A button,
  * not a link: the file needs the bearer token, which a link can't send. */
@@ -14,6 +15,7 @@ export function DownloadButton({
   fetchFile: () => Promise<Download>;
   className?: string;
 }) {
+  const { t } = useI18n();
   const download = useMutation({ mutationFn: fetchFile, onSuccess: saveDownload });
   return (
     <>
@@ -23,7 +25,7 @@ export function DownloadButton({
         disabled={download.isPending}
         onClick={() => download.mutate()}
       >
-        {download.isPending ? "Preparing…" : label}
+        {download.isPending ? t("download.preparing") : label}
       </button>
       <ErrorAlert error={download.error} />
     </>

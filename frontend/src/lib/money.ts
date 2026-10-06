@@ -3,6 +3,7 @@
 // money — formatting splits the integer with BigInt, and input is
 // validated as a string and sent to the API as that same string.
 
+import { i18n } from "../i18n";
 import { formatCardNumber } from "./card";
 
 // Mirrors fincore-common's SUPPORTED_CURRENCIES.
@@ -39,11 +40,16 @@ export function walletLabel(wallet: {
   held_minor: number;
 }): string {
   const available = formatMinor(wallet.balance_minor - wallet.held_minor, wallet.currency);
-  return `${wallet.currency} · ${formatCardNumber(wallet.card_number)} · ${available} available`;
+  return i18n().t("wallet.label", {
+    currency: wallet.currency,
+    card: formatCardNumber(wallet.card_number),
+    amount: available,
+  });
 }
 
 /**
- * Returns an error message, or null when `value` is a positive decimal
+ * Returns an error message (in the language the site is showing), or
+ * null when `value` is a positive decimal
  * with no more precision than the currency has — the same rule the
  * backend enforces, checked here only to fail fast in the form.
  */
@@ -53,9 +59,9 @@ export function validateAmount(value: string, currency: string): string | null {
   const trimmed = value.trim();
   if (!pattern.test(trimmed)) {
     return exponent > 0
-      ? `Enter an amount like 100 or 100.50 (at most ${exponent} decimals).`
-      : "Enter a whole number.";
+      ? i18n().t("amount.format", { decimals: exponent })
+      : i18n().t("amount.whole");
   }
-  if (/^[0.]+$/.test(trimmed)) return "Amount must be greater than zero.";
+  if (/^[0.]+$/.test(trimmed)) return i18n().t("amount.positive");
   return null;
 }

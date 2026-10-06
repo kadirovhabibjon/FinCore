@@ -16,10 +16,12 @@ import {
 import { CARD_NUMBER_LENGTH, cardDigits, formatCardNumber, isValidCardNumber } from "../lib/card";
 import { validateAmount, walletLabel } from "../lib/money";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
+import { useI18n, type MessageKey } from "../i18n";
 
 /** Asking someone for money, and answering those who ask. A request
  * moves nothing by itself: paying one is an ordinary transfer. */
 export function RequestsPage() {
+  const { t, tr } = useI18n();
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: api.listWallets });
   const requests = useQuery({
     queryKey: ["money-requests"],
@@ -35,20 +37,17 @@ export function RequestsPage() {
     <section className="page">
       <header className="page-header">
         <div>
-          <h1>Requests</h1>
-          <p className="muted">
-            Ask someone for money, or answer those who asked you. Nothing moves until a request is
-            paid.
-          </p>
+          <h1>{t("requests.title")}</h1>
+          <p className="muted">{t("requests.subtitle")}</p>
         </div>
       </header>
       <ErrorAlert error={requests.error ?? wallets.error} />
 
-      <h2>Asked of you</h2>
+      <h2>{t("requests.incoming")}</h2>
       {requests.isPending || wallets.isPending ? (
-        <Loading what="Loading requests" />
+        <Loading what={t("requests.loading")} />
       ) : incoming.length === 0 ? (
-        <Empty>Nobody is asking you for money.</Empty>
+        <Empty>{t("requests.noIncoming")}</Empty>
       ) : (
         <ul className="list">
           {incoming.map((item) => (
@@ -57,22 +56,22 @@ export function RequestsPage() {
         </ul>
       )}
 
-      <h2>Ask for money</h2>
+      <h2>{t("requests.ask")}</h2>
       {wallets.data && wallets.data.length > 0 ? (
         <RequestForm wallets={wallets.data} />
       ) : (
         !wallets.isPending && (
           <p>
-            You need a wallet to receive money into. <Link to="/">Create one</Link>.
+            {tr("requests.needWallet", { link: <Link to="/">{t("send.createOne")}</Link> })}
           </p>
         )
       )}
 
-      <h2>Your requests</h2>
+      <h2>{t("requests.outgoing")}</h2>
       {requests.isPending ? (
-        <Loading what="Loading requests" />
+        <Loading what={t("requests.loading")} />
       ) : outgoing.length === 0 ? (
-        <Empty>You haven&apos;t asked anyone yet.</Empty>
+        <Empty>{t("requests.noOutgoing")}</Empty>
       ) : (
         <ul className="list">
           {outgoing.map((item) => (
@@ -84,13 +83,24 @@ export function RequestsPage() {
   );
 }
 
-function RequestSummary({ request, verb }: { request: api.MoneyRequest; verb: string }) {
+function RequestSummary({
+  request,
+  template,
+}: {
+  request: api.MoneyRequest;
+  template: MessageKey;
+}) {
+  const { t, tr } = useI18n();
   return (
     <div>
-      <strong>
-        <Money minor={request.amount_minor} currency={request.currency} />
-      </strong>{" "}
-      {verb} {request.counterparty_name ?? "someone"}
+      {tr(template, {
+        amount: (
+          <strong>
+            <Money minor={request.amount_minor} currency={request.currency} />
+          </strong>
+        ),
+        name: request.counterparty_name ?? t("requests.someone"),
+      })}
       {request.note && <div className="request-note">“{request.note}”</div>}
       <div className="muted small">
         {request.reference} · <DateTime value={request.created_at} />
@@ -107,6 +117,7 @@ function IncomingRequest({
   wallets: api.Wallet[];
 }) {
   const queryClient = useQueryClient();
+  const { t, tr } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const [idempotencyKey, renewKey] = useIdempotencyKey();
   // The wallet it would be paid from: the caller's wallet in that currency.
@@ -139,7 +150,7 @@ function IncomingRequest({
   return (
     <li className="card">
       <div className="list-row">
-        <RequestSummary request={request} verb="asked by" />
+        <RequestSummary request={request} template="requests.askedBy" />
         <div className="actions">
           {!open && <StatusBadge status={request.status} />}
           {open && !confirming && (
@@ -150,7 +161,7 @@ function IncomingRequest({
                 disabled={!source}
                 onClick={() => setConfirming(true)}
               >
-                Pay
+                {t("requests.pay")}
               </button>
               <button
                 type="button"
@@ -158,33 +169,33 @@ function IncomingRequest({
                 disabled={decline.isPending}
                 onClick={() => decline.mutate()}
               >
-                Decline
+                {t("requests.decline")}
               </button>
             </>
           )}
         </div>
       </div>
       {open && !source && (
-        <p className="field-error">
-          You have no {request.currency} wallet to pay this from.
-        </p>
+        <p className="field-error">{t("requests.noWallet", { currency: request.currency })}</p>
       )}
       {request.last_failure && open && (
-        <p className="field-error">The last attempt to pay failed: {request.last_failure}.</p>
+        <p className="field-error">
+          {t("requests.lastFailure", { reason: request.last_failure })}
+        </p>
       )}
       {request.status === "PROCESSING" && (
-        <p className="muted small">
-          Your payment is being processed or is waiting for a manual review.
-        </p>
+        <p className="muted small">{t("requests.processing")}</p>
       )}
       <ErrorAlert error={pay.error ?? decline.error} />
       {open && confirming && source && (
         <div className="request-confirm">
           <p>
-            Send <Money minor={request.amount_minor} currency={request.currency} /> to{" "}
-            <strong>{request.counterparty_name ?? "the requester"}</strong> from your{" "}
-            {request.currency} wallet ({<Money minor={available} currency={request.currency} />}{" "}
-            available)?
+            {tr("requests.confirm", {
+              amount: <Money minor={request.amount_minor} currency={request.currency} />,
+              name: <strong>{request.counterparty_name ?? t("requests.requester")}</strong>,
+              currency: request.currency,
+              available: <Money minor={available} currency={request.currency} />,
+            })}
           </p>
           <div className="actions">
             <button
@@ -193,7 +204,7 @@ function IncomingRequest({
               disabled={pay.isPending}
               onClick={() => setConfirming(false)}
             >
-              Not now
+              {t("requests.notNow")}
             </button>
             <button
               type="button"
@@ -201,7 +212,7 @@ function IncomingRequest({
               disabled={pay.isPending}
               onClick={() => pay.mutate()}
             >
-              {pay.isPending ? "Sending…" : "Yes, send"}
+              {pay.isPending ? t("send.sending") : t("requests.yesSend")}
             </button>
           </div>
         </div>
@@ -212,6 +223,7 @@ function IncomingRequest({
 
 function OutgoingRequest({ request }: { request: api.MoneyRequest }) {
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const cancel = useMutation({
     mutationFn: () => api.cancelMoneyRequest(request.id),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["money-requests"] }),
@@ -219,7 +231,7 @@ function OutgoingRequest({ request }: { request: api.MoneyRequest }) {
   return (
     <li className="card">
       <div className="list-row">
-        <RequestSummary request={request} verb="asked from" />
+        <RequestSummary request={request} template="requests.askedFrom" />
         <div className="actions">
           <StatusBadge status={request.status} />
           {request.status === "PENDING" && (
@@ -229,7 +241,7 @@ function OutgoingRequest({ request }: { request: api.MoneyRequest }) {
               disabled={cancel.isPending}
               onClick={() => cancel.mutate()}
             >
-              Cancel
+              {t("requests.cancel")}
             </button>
           )}
         </div>
@@ -241,6 +253,7 @@ function OutgoingRequest({ request }: { request: api.MoneyRequest }) {
 
 function RequestForm({ wallets }: { wallets: api.Wallet[] }) {
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const [walletId, setWalletId] = useState(wallets[0]?.id ?? "");
   const [cardNumber, setCardNumber] = useState("");
   const [amount, setAmount] = useState("");
@@ -260,15 +273,15 @@ function RequestForm({ wallets }: { wallets: api.Wallet[] }) {
   const person = cardValid ? lookup.data : undefined;
   let personProblem: string | null = null;
   if (cardNumber.length === CARD_NUMBER_LENGTH && !cardValid) {
-    personProblem = "Check the card number: a digit is wrong.";
+    personProblem = t("requests.badDigit");
   } else if (cardValid && lookup.error instanceof ApiError && lookup.error.status === 404) {
-    personProblem = "No FinCore customer has this card number.";
+    personProblem = t("requests.noCustomer");
   } else if (cardValid && lookup.error) {
-    personProblem = "Couldn\u2019t look up this card right now. Try again shortly.";
+    personProblem = t("send.lookupFailed");
   } else if (person?.own) {
-    personProblem = "That is your own card.";
+    personProblem = t("requests.ownCard");
   } else if (person && wallet && person.currency !== wallet.currency) {
-    personProblem = `That card is a ${person.currency} wallet. Choose your ${person.currency} wallet above to ask for ${person.currency}.`;
+    personProblem = t("requests.otherCurrency", { currency: person.currency });
   }
   const canAsk = !!person && !personProblem;
 
@@ -307,13 +320,12 @@ function RequestForm({ wallets }: { wallets: api.Wallet[] }) {
     <form className="card form" onSubmit={onSubmit}>
       {ask.isSuccess && (
         <Notice>
-          Request sent to {ask.data.counterparty_name ?? "them"}. They&apos;ll see it in their
-          notifications.
+          {t("requests.sent", { name: ask.data.counterparty_name ?? t("requests.them") })}
         </Notice>
       )}
       <ErrorAlert error={ask.error} />
       <label>
-        Receive into
+        {t("requests.receiveInto")}
         <select value={wallet?.id} onChange={(e) => edited(setWalletId)(e.target.value)}>
           {wallets.map((item) => (
             <option key={item.id} value={item.id}>
@@ -324,7 +336,7 @@ function RequestForm({ wallets }: { wallets: api.Wallet[] }) {
       </label>
       <div className="field">
         <label>
-          Ask the owner of card
+          {t("requests.askCard")}
           <input
             value={formatCardNumber(cardNumber)}
             onChange={(e) => edited(setCardNumber)(cardDigits(e.target.value))}
@@ -346,15 +358,15 @@ function RequestForm({ wallets }: { wallets: api.Wallet[] }) {
               <strong>{person.display_name}</strong>
             </span>
           ) : cardValid ? (
-            <span className="muted small">Looking up the card…</span>
+            <span className="muted small">{t("requests.lookingUp")}</span>
           ) : (
-            <span className="muted small">Their 16-digit FinCore card number.</span>
+            <span className="muted small">{t("requests.cardHint")}</span>
           )}
         </span>
       </div>
       <div className="row">
         <label>
-          Amount ({wallet?.currency})
+          {t("send.amount", { currency: wallet?.currency ?? "" })}
           <input
             value={amount}
             onChange={(e) => edited(setAmount)(e.target.value)}
@@ -366,13 +378,13 @@ function RequestForm({ wallets }: { wallets: api.Wallet[] }) {
           {amountError && <span className="field-error">{amountError}</span>}
         </label>
         <label>
-          What for (optional)
+          {t("requests.whatFor")}
           <input value={note} onChange={(e) => edited(setNote)(e.target.value)} maxLength={255} />
         </label>
       </div>
       <div className="actions">
         <button type="submit" className="button" disabled={ask.isPending || !canAsk}>
-          {ask.isPending ? "Sending…" : "Send request"}
+          {ask.isPending ? t("send.sending") : t("requests.send")}
         </button>
       </div>
     </form>

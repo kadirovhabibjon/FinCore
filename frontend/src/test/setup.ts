@@ -3,6 +3,7 @@ import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
 
 import { authTiming } from "../auth/tokenStore";
+import { resetLang } from "../i18n";
 
 afterEach(() => {
   cleanup();
@@ -16,4 +17,6 @@ beforeEach(() => {
   authTiming.idleTimeoutMs = 15 * 60 * 1000;
   authTiming.idleCheckIntervalMs = 15_000;
   localStorage.clear();
+  // Every test starts in the language a fresh visitor gets: English.
+  resetLang();
 });

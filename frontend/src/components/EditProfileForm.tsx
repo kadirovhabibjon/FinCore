@@ -5,6 +5,7 @@ import * as api from "../api/endpoints";
 import { useAuth } from "../auth/context";
 import { ErrorAlert, Notice } from "./ui";
 import { PasswordInput } from "./PasswordInput";
+import { useI18n } from "../i18n";
 
 /** Phone numbers compare by their digits: "+998 90 123 45 67" typed with
  * spaces is still the number on the account. */
@@ -18,6 +19,7 @@ function samePhone(a: string, b: string): boolean {
  * field only appears once one of them differs. */
 export function EditProfileForm({ user }: { user: api.CurrentUser }) {
   const { refreshUser } = useAuth();
+  const { t } = useI18n();
   const [firstName, setFirstName] = useState(user.first_name);
   const [lastName, setLastName] = useState(user.last_name);
   const [email, setEmail] = useState(user.email);
@@ -63,11 +65,11 @@ export function EditProfileForm({ user }: { user: api.CurrentUser }) {
 
   return (
     <form className="card form" onSubmit={onSubmit}>
-      {save.isSuccess && <Notice>Your details have been saved.</Notice>}
+      {save.isSuccess && <Notice>{t("profile.saved")}</Notice>}
       <ErrorAlert error={save.error} />
       <div className="row">
         <label>
-          First name
+          {t("common.firstName")}
           <input
             value={firstName}
             onChange={(e) => edited(setFirstName)(e.target.value)}
@@ -77,7 +79,7 @@ export function EditProfileForm({ user }: { user: api.CurrentUser }) {
           />
         </label>
         <label>
-          Last name
+          {t("common.lastName")}
           <input
             value={lastName}
             onChange={(e) => edited(setLastName)(e.target.value)}
@@ -89,7 +91,7 @@ export function EditProfileForm({ user }: { user: api.CurrentUser }) {
       </div>
       <div className="row">
         <label>
-          Email
+          {t("common.email")}
           <input
             value={email}
             onChange={(e) => edited(setEmail)(e.target.value)}
@@ -99,7 +101,7 @@ export function EditProfileForm({ user }: { user: api.CurrentUser }) {
           />
         </label>
         <label>
-          Phone number
+          {t("profile.phone")}
           <input
             value={phone}
             onChange={(e) => edited(setPhone)(e.target.value)}
@@ -113,7 +115,7 @@ export function EditProfileForm({ user }: { user: api.CurrentUser }) {
       {contactChanged && (
         <div className="field">
           <label>
-            Current password
+            {t("password.current")}
             <PasswordInput
               value={password}
               onChange={(e) => edited(setPassword)(e.target.value)}
@@ -122,14 +124,13 @@ export function EditProfileForm({ user }: { user: api.CurrentUser }) {
             />
           </label>
           <span className="muted small">
-            Needed to change your email or phone number: you sign in with them, and password reset
-            codes go to the email.
+            {t("profile.passwordHint")}
           </span>
         </div>
       )}
       <div className="actions">
         <button type="submit" className="button" disabled={!changed || save.isPending}>
-          {save.isPending ? "Saving…" : "Save changes"}
+          {save.isPending ? t("profile.saving") : t("profile.save")}
         </button>
       </div>
     </form>

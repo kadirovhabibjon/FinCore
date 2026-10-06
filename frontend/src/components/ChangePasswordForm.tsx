@@ -4,8 +4,10 @@ import { useState, type FormEvent } from "react";
 import * as api from "../api/endpoints";
 import { ErrorAlert, Notice } from "./ui";
 import { PasswordInput } from "./PasswordInput";
+import { useI18n } from "../i18n";
 
 export function ChangePasswordForm() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [mismatch, setMismatch] = useState(false);
   const change = useMutation({
@@ -33,11 +35,11 @@ export function ChangePasswordForm() {
   return (
     <form className="card form" onSubmit={onSubmit}>
       {change.isSuccess && (
-        <Notice>Password changed. Every other device has been signed out.</Notice>
+        <Notice>{t("password.changed")}</Notice>
       )}
       <ErrorAlert error={change.error} />
       <label>
-        Current password
+        {t("password.current")}
         <PasswordInput
           name="current_password"
           autoComplete="current-password"
@@ -46,7 +48,7 @@ export function ChangePasswordForm() {
       </label>
       <div className="row">
         <label>
-          New password
+          {t("password.new")}
           <PasswordInput
             name="new_password"
             autoComplete="new-password"
@@ -56,19 +58,19 @@ export function ChangePasswordForm() {
           />
         </label>
         <label>
-          Repeat new password
+          {t("password.repeat")}
           <PasswordInput
             name="confirm_password"
             autoComplete="new-password"
             required
             aria-invalid={mismatch}
           />
-          {mismatch && <span className="field-error">The two new passwords differ.</span>}
+          {mismatch && <span className="field-error">{t("password.mismatch")}</span>}
         </label>
       </div>
       <div className="actions">
         <button type="submit" className="button" disabled={change.isPending}>
-          {change.isPending ? "Changing…" : "Change password"}
+          {change.isPending ? t("password.changing") : t("password.change")}
         </button>
       </div>
     </form>
