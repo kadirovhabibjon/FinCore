@@ -26,6 +26,17 @@ class Settings(BaseServiceSettings):
     identity_service_base_url: str = "http://localhost:8091"
     identity_service_timeout_seconds: float = 3.0
 
+    # Currency exchange: rates per US dollar from a public provider (the
+    # same one the web app's reference widget uses), kept in memory for
+    # `exchange_rates_ttl_seconds`. If a refresh fails, the last rates
+    # are still used until they are `exchange_rates_max_age_seconds`
+    # old; after that exchanges answer 503 rather than trade on stale
+    # prices.
+    exchange_rates_url: str = "https://open.er-api.com/v6/latest/USD"
+    exchange_rates_ttl_seconds: float = 3600.0
+    exchange_rates_max_age_seconds: float = 36 * 3600.0
+    exchange_rates_timeout_seconds: float = 8.0
+
     fraud_service_base_url: str
     fraud_service_timeout_seconds: float = 0.3
 

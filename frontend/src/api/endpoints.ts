@@ -27,6 +27,8 @@ export type Transfer = Payment["TransferResponse"];
 export type Recipient = Payment["RecipientResponse"];
 export type RecentRecipient = Payment["RecentRecipientResponse"];
 export type MoneyRequest = Payment["MoneyRequestResponse"];
+export type ExchangeQuote = Payment["QuoteResponse"];
+export type Exchange = Payment["ExchangeResponse"];
 export type PaymentRecord = Payment["PaymentResponse"];
 export type Refund = Payment["RefundResponse"];
 export type Transaction = Payment["TransactionResponse"];
@@ -158,6 +160,24 @@ export const declineMoneyRequest = (requestId: string) =>
   apiRequest<MoneyRequest>(`/api/v1/money-requests/${requestId}/decline`, { method: "POST" });
 export const cancelMoneyRequest = (requestId: string) =>
   apiRequest<MoneyRequest>(`/api/v1/money-requests/${requestId}/cancel`, { method: "POST" });
+
+// Exchanging between the customer's own wallets. A quote moves nothing;
+// the exchange is refused (409) if it would give a different amount
+// than the one the customer saw.
+export const getExchangeQuote = (
+  sourceWalletId: string,
+  destinationWalletId: string,
+  amount: string,
+) =>
+  apiRequest<ExchangeQuote>("/api/v1/exchanges/quote", {
+    query: {
+      source_wallet_id: sourceWalletId,
+      destination_wallet_id: destinationWalletId,
+      amount,
+    },
+  });
+export const createExchange = (body: Payment["CreateExchangeRequest"], idempotencyKey: string) =>
+  apiRequest<Exchange>("/api/v1/exchanges", { method: "POST", body, idempotencyKey });
 
 export const createPayment = (body: Payment["CreatePaymentRequest"], idempotencyKey: string) =>
   apiRequest<PaymentRecord>("/api/v1/payments", { method: "POST", body, idempotencyKey });

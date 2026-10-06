@@ -22,7 +22,8 @@ function storedPair(): { from: string; to: string } {
 }
 
 /** Reference rates and a converter. Information only: FinCore wallets
- * hold UZS or USD and never exchange one for the other. */
+ * hold UZS or USD; exchanging between those two is the Exchange page,
+ * which gets its own, binding quote from the server. */
 export function ExchangeRates() {
   const rates = useQuery({
     queryKey: ["rates"],
@@ -144,7 +145,7 @@ export function ExchangeRates() {
               , updated <DateTime value={rates.data.updatedAt.toISOString()} />
             </>
           )}
-          . FinCore wallets hold UZS or USD and don&apos;t exchange currencies. Source:{" "}
+          . To exchange between your own UZS and USD wallets, use Exchange. Source:{" "}
           <a href="https://www.exchangerate-api.com" target="_blank" rel="noreferrer">
             ExchangeRate-API
           </a>

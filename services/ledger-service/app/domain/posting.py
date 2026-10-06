@@ -32,6 +32,9 @@ class PostingType(enum.StrEnum):
     DEPOSIT = "DEPOSIT"
     WITHDRAWAL = "WITHDRAWAL"
     REFUND = "REFUND"
+    # One leg of a currency exchange: a customer's wallet against
+    # FinCore's EXCHANGE account in the same currency.
+    EXCHANGE = "EXCHANGE"
 
 
 class EntryDirection(enum.StrEnum):

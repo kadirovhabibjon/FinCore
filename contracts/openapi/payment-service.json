@@ -90,6 +90,28 @@
             "title": "Initiator User Id",
             "type": "string"
           },
+          "received_amount_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received Amount Minor"
+          },
+          "received_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received Currency"
+          },
           "reference": {
             "title": "Reference",
             "type": "string"
@@ -158,6 +180,39 @@
           "updated_at"
         ],
         "title": "AdminTransactionResponse",
+        "type": "object"
+      },
+      "CreateExchangeRequest": {
+        "properties": {
+          "amount": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Amount",
+            "type": "string"
+          },
+          "destination_wallet_id": {
+            "format": "uuid",
+            "title": "Destination Wallet Id",
+            "type": "string"
+          },
+          "expected_destination_amount_minor": {
+            "exclusiveMinimum": 0.0,
+            "title": "Expected Destination Amount Minor",
+            "type": "integer"
+          },
+          "source_wallet_id": {
+            "format": "uuid",
+            "title": "Source Wallet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_wallet_id",
+          "destination_wallet_id",
+          "amount",
+          "expected_destination_amount_minor"
+        ],
+        "title": "CreateExchangeRequest",
         "type": "object"
       },
       "CreateMerchantRequest": {
@@ -333,6 +388,109 @@
         ],
         "title": "CreateTransferRequest",
         "type": "object"
+      },
+      "ExchangeResponse": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "destination_amount_minor": {
+            "title": "Destination Amount Minor",
+            "type": "integer"
+          },
+          "destination_currency": {
+            "title": "Destination Currency",
+            "type": "string"
+          },
+          "destination_wallet_id": {
+            "format": "uuid",
+            "title": "Destination Wallet Id",
+            "type": "string"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "source_amount_minor": {
+            "title": "Source Amount Minor",
+            "type": "integer"
+          },
+          "source_currency": {
+            "title": "Source Currency",
+            "type": "string"
+          },
+          "source_wallet_id": {
+            "format": "uuid",
+            "title": "Source Wallet Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ExchangeStatus"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "source_wallet_id",
+          "destination_wallet_id",
+          "source_amount_minor",
+          "source_currency",
+          "destination_amount_minor",
+          "destination_currency",
+          "rate",
+          "status",
+          "failure_reason",
+          "created_at",
+          "completed_at"
+        ],
+        "title": "ExchangeResponse",
+        "type": "object"
+      },
+      "ExchangeStatus": {
+        "description": "Where the two-step saga is (app/services/exchanges.py). The\nsource currency is taken first and the destination currency given\nsecond, so at no point does a customer hold both.",
+        "enum": [
+          "PENDING",
+          "DEBITED",
+          "COMPLETED",
+          "REVERSING",
+          "FAILED"
+        ],
+        "title": "ExchangeStatus",
+        "type": "string"
       },
       "FraudDecision": {
         "enum": [
@@ -660,6 +818,45 @@
         "title": "PaymentStatus",
         "type": "string"
       },
+      "QuoteResponse": {
+        "properties": {
+          "destination_amount_minor": {
+            "title": "Destination Amount Minor",
+            "type": "integer"
+          },
+          "destination_currency": {
+            "title": "Destination Currency",
+            "type": "string"
+          },
+          "rate": {
+            "title": "Rate",
+            "type": "string"
+          },
+          "rate_updated_at": {
+            "format": "date-time",
+            "title": "Rate Updated At",
+            "type": "string"
+          },
+          "source_amount_minor": {
+            "title": "Source Amount Minor",
+            "type": "integer"
+          },
+          "source_currency": {
+            "title": "Source Currency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_amount_minor",
+          "source_currency",
+          "destination_amount_minor",
+          "destination_currency",
+          "rate",
+          "rate_updated_at"
+        ],
+        "title": "QuoteResponse",
+        "type": "object"
+      },
       "RecentRecipientResponse": {
         "description": "Someone the caller has sent money to before.",
         "properties": {
@@ -839,7 +1036,8 @@
       "TransactionDirection": {
         "enum": [
           "OUT",
-          "IN"
+          "IN",
+          "SELF"
         ],
         "title": "TransactionDirection",
         "type": "string"
@@ -902,6 +1100,28 @@
             "title": "Id",
             "type": "string"
           },
+          "received_amount_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received Amount Minor"
+          },
+          "received_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received Currency"
+          },
           "reference": {
             "title": "Reference",
             "type": "string"
@@ -934,7 +1154,8 @@
         "description": "The kind of business operation a transaction summarizes (spec\nSection 20's API map).",
         "enum": [
           "TRANSFER",
-          "PAYMENT"
+          "PAYMENT",
+          "EXCHANGE"
         ],
         "title": "TransactionType",
         "type": "string"
@@ -1337,6 +1558,184 @@
         "summary": "List All Transactions",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/v1/exchanges": {
+      "post": {
+        "description": "Exchanges money between two of the caller's own wallets at the\ncurrent rate, with no fee. The source amount is taken first and the\ndestination amount credited second; if the second step is refused\nthe first is returned, so the customer never ends up without both.\nNeeds an Idempotency-Key like any money movement.",
+        "operationId": "create_exchange_api_v1_exchanges_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExchangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Exchange",
+        "tags": [
+          "exchanges"
+        ]
+      }
+    },
+    "/api/v1/exchanges/quote": {
+      "get": {
+        "description": "What `amount` of the source wallet's currency would buy in the\ndestination wallet's currency right now. Moves nothing and promises\nnothing: the exchange itself checks the amount again.",
+        "operationId": "get_quote_api_v1_exchanges_quote_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source_wallet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Wallet Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "destination_wallet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Destination Wallet Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "amount",
+            "required": true,
+            "schema": {
+              "maxLength": 32,
+              "minLength": 1,
+              "title": "Amount",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Quote",
+        "tags": [
+          "exchanges"
+        ]
+      }
+    },
+    "/api/v1/exchanges/{exchange_id}": {
+      "get": {
+        "operationId": "get_exchange_api_v1_exchanges__exchange_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exchange_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exchange Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Exchange",
+        "tags": [
+          "exchanges"
         ]
       }
     },
@@ -1986,7 +2385,7 @@
     },
     "/api/v1/transactions": {
       "get": {
-        "description": "The caller's own business-operation history (spec Section 20),\nnewest first across *both* Transfer and Payment: everything they\nstarted (`direction: OUT`) and every transfer that reached them\n(`direction: IN`). A merchant's received payments are on the\nmerchant's own endpoints, not here.\n\nMerged and sorted in Python rather than a single SQL query, since\nTransfer and Payment are two separate tables (each operation type\ngets its own table, spec Section 7.1) \u2014 a reasonable v1 approach at\nthis scale; a UNION query would be the next step if this list ever\nneeds to paginate over a serious volume of rows.",
+        "description": "The caller's own business-operation history (spec Section 20),\nnewest first across Transfer, Payment and Exchange: everything they\nstarted (`direction: OUT`) and every transfer that reached them\n(`direction: IN`). A merchant's received payments are on the\nmerchant's own endpoints, not here.\n\nMerged and sorted in Python rather than a single SQL query, since\nTransfer and Payment are two separate tables (each operation type\ngets its own table, spec Section 7.1) \u2014 a reasonable v1 approach at\nthis scale; a UNION query would be the next step if this list ever\nneeds to paginate over a serious volume of rows.",
         "operationId": "list_transactions_api_v1_transactions_get",
         "parameters": [
           {

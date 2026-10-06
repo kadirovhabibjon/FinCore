@@ -171,3 +171,39 @@ class TooManyOpenRequestsError(DomainError):
 
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     title = "Too Many Open Requests"
+
+
+class SameCurrencyExchangeError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Same Currency"
+
+
+class AmountTooSmallError(DomainError):
+    """The amount converts to less than one minor unit of the
+    destination currency: there is nothing to give for it."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Amount Too Small"
+
+
+class RateChangedError(DomainError):
+    """The rate moved between the quote the customer saw and the
+    exchange being made. Nothing was exchanged; a new quote is needed."""
+
+    status_code = status.HTTP_409_CONFLICT
+    title = "Rate Changed"
+
+
+class ExchangeUnavailableError(DomainError):
+    """No usable exchange rates, or ledger-service could not be asked
+    for the accounts an exchange posts to. Nothing was exchanged."""
+
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    title = "Exchange Unavailable"
+
+
+class ExchangeNotFoundError(DomainError):
+    """Also covers "exists but isn't yours"."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Exchange Not Found"

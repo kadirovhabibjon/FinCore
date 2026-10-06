@@ -40,6 +40,9 @@ class EventType(enum.StrEnum):
     # a request is an ordinary transfer (transfer.completed).
     MONEY_REQUEST_CREATED = "money_request.created"
     MONEY_REQUEST_DECLINED = "money_request.declined"
+    # A customer exchanged one of their currencies for another.
+    EXCHANGE_COMPLETED = "exchange.completed"
+    EXCHANGE_FAILED = "exchange.failed"
     PAYMENT_COMPLETED = "payment.completed"
     PAYMENT_FAILED = "payment.failed"
     PAYMENT_REFUNDED = "payment.refunded"

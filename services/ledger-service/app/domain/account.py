@@ -16,6 +16,7 @@ class AccountKind(enum.StrEnum):
     EXTERNAL_FUNDING                          -> DEBIT-normal  (clearing)
     EXTERNAL_PAYOUT                           -> CREDIT-normal (clearing)
     SUSPENSE                                  -> no normal side; must net to zero
+    EXCHANGE                                  -> CREDIT-normal; may be negative
     """
 
     USER_WALLET = "USER_WALLET"
@@ -24,6 +25,10 @@ class AccountKind(enum.StrEnum):
     MERCHANT_SETTLEMENT = "MERCHANT_SETTLEMENT"
     FEES = "FEES"
     SUSPENSE = "SUSPENSE"
+    # FinCore's own position in a currency, one per currency: what
+    # customers have sold to it net of what they have bought (see
+    # app/services/postings.py's NORMAL_SIDE).
+    EXCHANGE = "EXCHANGE"
 
 
 class AccountStatus(enum.StrEnum):

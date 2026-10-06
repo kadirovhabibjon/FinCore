@@ -216,6 +216,47 @@ def _money_request_messages(envelope: EventEnvelope) -> list[Message]:
     raise UnhandledEventTypeError(envelope.event_type)
 
 
+def _exchange_messages(envelope: EventEnvelope) -> list[Message]:
+    """The customer is told how their own exchange ended."""
+    data = envelope.data
+    sold = (
+        f"{minor_to_decimal(data['source_amount_minor'], data['source_currency']):,}"
+        f" {data['source_currency']}"
+    )
+    bought = (
+        f"{minor_to_decimal(data['destination_amount_minor'], data['destination_currency']):,}"
+        f" {data['destination_currency']}"
+    )
+    facts: dict[str, Any] = {"amount": sold, "received": bought, "reference": data["reference"]}
+    user_id = UUID(data["initiator_user_id"])
+
+    if envelope.event_type == EventType.EXCHANGE_COMPLETED:
+        return [
+            Message(
+                user_id,
+                envelope.event_type.value,
+                "Exchange completed",
+                f"You exchanged {sold} for {bought} — reference {data['reference']}",
+                facts,
+            )
+        ]
+
+    if envelope.event_type == EventType.EXCHANGE_FAILED:
+        reason = data.get("failure_reason") or "an internal error"
+        return [
+            Message(
+                user_id,
+                envelope.event_type.value,
+                "Exchange failed",
+                f"Your exchange of {sold} for {bought} did not go through: {reason}."
+                " Your money is in your wallet.",
+                {**facts, "reason": reason},
+            )
+        ]
+
+    raise UnhandledEventTypeError(envelope.event_type)
+
+
 _TRANSFER_EVENTS = frozenset({EventType.TRANSFER_COMPLETED, EventType.TRANSFER_FAILED})
 _PAYMENT_EVENTS = frozenset(
     {EventType.PAYMENT_COMPLETED, EventType.PAYMENT_FAILED, EventType.PAYMENT_REFUNDED}
@@ -225,6 +266,9 @@ _PAYMENT_EVENTS = frozenset(
 _MONEY_REQUEST_EVENTS = frozenset(
     {EventType.MONEY_REQUEST_CREATED, EventType.MONEY_REQUEST_DECLINED}
 )
+
+
+_EXCHANGE_EVENTS = frozenset({EventType.EXCHANGE_COMPLETED, EventType.EXCHANGE_FAILED})
 
 
 def compose_messages(envelope: EventEnvelope) -> list[Message]:
@@ -238,4 +282,6 @@ def compose_messages(envelope: EventEnvelope) -> list[Message]:
         return _payment_messages(envelope)
     if envelope.event_type in _MONEY_REQUEST_EVENTS:
         return _money_request_messages(envelope)
+    if envelope.event_type in _EXCHANGE_EVENTS:
+        return _exchange_messages(envelope)
     raise UnhandledEventTypeError(envelope.event_type)

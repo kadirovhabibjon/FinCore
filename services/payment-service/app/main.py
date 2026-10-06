@@ -16,6 +16,7 @@ from fincore_common import (
 
 from app.api.internal.merchants import router as internal_merchants_router
 from app.api.v1.admin import router as admin_router
+from app.api.v1.exchanges import router as exchanges_router
 from app.api.v1.merchants import router as merchants_router
 from app.api.v1.money_requests import router as money_requests_router
 from app.api.v1.payments import router as payments_router
@@ -29,6 +30,7 @@ from app.services.expiration import expire_stale_payments
 from app.services.idempotency import IdempotentReplayResponse
 from app.services.outbox import drain_outbox
 from app.services.recovery import (
+    resolve_stuck_exchanges,
     resolve_stuck_payments,
     resolve_stuck_refunds,
     resolve_stuck_transfers,
@@ -74,6 +76,14 @@ async def _recovery_worker_loop() -> None:
             STUCK_PROCESSING.labels(operation_type="refund").set(len(resolved_refunds))
             if resolved_refunds:
                 logger.info("recovery worker resolved %d stuck refund(s)", len(resolved_refunds))
+
+            async with db_session.async_session_factory() as session:
+                continued = await resolve_stuck_exchanges(
+                    session, stuck_after_seconds=settings.recovery_worker_stuck_after_seconds
+                )
+            STUCK_PROCESSING.labels(operation_type="exchange").set(len(continued))
+            if continued:
+                logger.info("recovery worker continued %d stuck exchange(s)", len(continued))
         except Exception:
             logger.exception("recovery worker iteration failed")
 
@@ -154,6 +164,7 @@ app.include_router(payments_router)
 app.include_router(merchants_router)
 app.include_router(transactions_router)
 app.include_router(money_requests_router)
+app.include_router(exchanges_router)
 app.include_router(admin_router)
 app.include_router(internal_merchants_router)
 

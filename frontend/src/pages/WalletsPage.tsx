@@ -68,6 +68,11 @@ export function WalletsPage() {
         ) : (
           <Link to="/requests">Request money from someone →</Link>
         )}
+        {(wallets.data?.length ?? 0) > 1 && (
+          <Link to="/exchange" className="requests-bar-link">
+            Exchange between your wallets →
+          </Link>
+        )}
       </p>
       {wallets.isPending ? (
         <Loading what="Loading wallets" />

@@ -8,6 +8,7 @@ from app.api.v1.schemas import TransactionResponse
 from app.core.exceptions import TransactionNotFoundError
 from app.db.session import get_db
 from app.domain.transfer import TransferStatus
+from app.repositories.exchange_repository import ExchangeRepository
 from app.repositories.payment_repository import PaymentRepository
 from app.repositories.transfer_repository import TransferRepository
 
@@ -22,7 +23,7 @@ async def list_transactions(
     session: AsyncSession = Depends(get_db),
 ) -> list[TransactionResponse]:
     """The caller's own business-operation history (spec Section 20),
-    newest first across *both* Transfer and Payment: everything they
+    newest first across Transfer, Payment and Exchange: everything they
     started (`direction: OUT`) and every transfer that reached them
     (`direction: IN`). A merchant's received payments are on the
     merchant's own endpoints, not here.
@@ -41,7 +42,11 @@ async def list_transactions(
         user.user_id, limit=fetch_count, offset=0
     )
 
-    combined = [
+    exchanges = await ExchangeRepository(session).list_for_user(
+        user.user_id, limit=fetch_count, offset=0
+    )
+
+    combined = [TransactionResponse.from_exchange(exchange) for exchange in exchanges] + [
         TransactionResponse.from_transfer(transfer, viewer_user_id=user.user_id)
         for transfer in transfers
     ] + [
@@ -70,5 +75,9 @@ async def get_transaction(
     payment = await PaymentRepository(session).get(transaction_id)
     if payment is not None and payment.initiator_user_id == user.user_id:
         return TransactionResponse.from_payment(payment)
+
+    exchange = await ExchangeRepository(session).get(transaction_id)
+    if exchange is not None and exchange.initiator_user_id == user.user_id:
+        return TransactionResponse.from_exchange(exchange)
 
     raise TransactionNotFoundError(str(transaction_id))

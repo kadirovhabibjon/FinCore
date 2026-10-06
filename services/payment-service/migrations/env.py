@@ -12,6 +12,7 @@ from app.db.base import Base
 # Import every ORM model module here so Base.metadata is fully populated
 # before autogenerate compares it against the database.
 from app.domain import (  # noqa: F401
+    exchange,
     idempotency,
     merchant,
     money_request,

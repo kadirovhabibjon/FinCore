@@ -23,6 +23,9 @@ _TOPIC_BY_AGGREGATE_TYPE = {
     # A money request is a prelude to a transfer and is told to the same
     # audiences, so it shares the transfers topic.
     "MoneyRequest": lambda: settings.transfers_topic,
+    # An exchange is the customer moving their own money, told to the
+    # same audiences as a transfer.
+    "Exchange": lambda: settings.transfers_topic,
 }
 
 

@@ -150,3 +150,42 @@ def test_money_request_events_match_their_contract(
     )
 
     assert_valid_event(_on_the_wire(_event(request, event_type, MoneyRequestStatus(status))))
+
+
+@pytest.mark.parametrize(
+    ("event_type", "status", "reason"),
+    [
+        (EventType.EXCHANGE_COMPLETED, "COMPLETED", None),
+        (EventType.EXCHANGE_FAILED, "FAILED", "Insufficient Funds"),
+        (EventType.EXCHANGE_FAILED, "FAILED", None),
+    ],
+)
+def test_exchange_events_match_their_contract(
+    event_type: EventType, status: str, reason: str | None
+) -> None:
+    from decimal import Decimal
+
+    from app.domain.exchange import Exchange, ExchangeStatus
+    from app.services.exchanges import _event
+
+    exchange = Exchange(
+        id=uuid.uuid4(),
+        reference="EXC-CONTRACT01",
+        initiator_user_id=uuid.uuid4(),
+        source_wallet_id=uuid.uuid4(),
+        destination_wallet_id=uuid.uuid4(),
+        source_position_account_id=uuid.uuid4(),
+        destination_position_account_id=uuid.uuid4(),
+        source_amount_minor=1_200_000_00,
+        source_currency="UZS",
+        destination_amount_minor=100_00,
+        destination_currency="USD",
+        # A rate small enough to tempt Decimal into exponent notation.
+        rate=Decimal("1") / Decimal("11835.853217"),
+        failure_reason=reason,
+    )
+
+    wire = _on_the_wire(_event(exchange, event_type, ExchangeStatus(status)))
+
+    assert_valid_event(wire)
+    assert "E" not in wire["data"]["rate"].upper()

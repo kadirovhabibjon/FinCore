@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fincore.local/contracts/events/exchange.failed.v1.json",
+  "title": "exchange.failed (v1) \u2014 EventEnvelope.data",
+  "description": "A currency exchange did not happen: nothing was taken, or what was taken was returned. Producer: payment-service, topic `transfers`. Strict (additionalProperties: false) so any change to the payload is a reviewed contract change, never a silent one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "destination_amount_minor",
+    "destination_currency",
+    "exchange_id",
+    "failure_reason",
+    "initiator_user_id",
+    "rate",
+    "reference",
+    "source_amount_minor",
+    "source_currency",
+    "status"
+  ],
+  "properties": {
+    "exchange_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reference": {
+      "type": "string",
+      "minLength": 1
+    },
+    "initiator_user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "source_amount_minor": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "description": "What was sold, in minor units of source_currency."
+    },
+    "source_currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "destination_amount_minor": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "description": "What was bought, in minor units of destination_currency."
+    },
+    "destination_currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "rate": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)?$",
+      "description": "Units of destination_currency per one unit of source_currency, as a decimal string."
+    },
+    "failure_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "FAILED"
+      ]
+    }
+  },
+  "examples": [
+    {
+      "exchange_id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+      "reference": "EXC-4F1D2A7B9C3E",
+      "initiator_user_id": "5b1e0c2a-9f3d-4c1e-8a7b-2d4f6e8a0c1e",
+      "source_amount_minor": 120000000,
+      "source_currency": "UZS",
+      "destination_amount_minor": 10000,
+      "destination_currency": "USD",
+      "rate": "0.0000833333",
+      "failure_reason": "Insufficient Funds",
+      "status": "FAILED"
+    }
+  ]
+}

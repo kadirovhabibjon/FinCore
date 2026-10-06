@@ -15,6 +15,8 @@ const KIND: Record<string, { mark: string; className: string }> = {
   "payment.completed": { mark: "↑", className: "notification-out" },
   "payment.failed": { mark: "!", className: "notification-failed" },
   "payment.refunded": { mark: "↩", className: "notification-in" },
+  "exchange.completed": { mark: "⇄", className: "notification-out" },
+  "exchange.failed": { mark: "!", className: "notification-failed" },
   "money_request.created": { mark: "?", className: "notification-request" },
   "money_request.declined": { mark: "✕", className: "notification-failed" },
   announcement: { mark: "i", className: "notification-announcement" },

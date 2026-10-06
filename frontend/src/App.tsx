@@ -11,6 +11,7 @@ import { AdminReviewsPage } from "./pages/admin/AdminReviewsPage";
 import { AdminTransactionsPage } from "./pages/admin/AdminTransactionsPage";
 import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
 import { AdminWebhooksPage } from "./pages/admin/AdminWebhooksPage";
+import { ExchangePage } from "./pages/ExchangePage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MerchantPage } from "./pages/MerchantPage";
@@ -74,6 +75,7 @@ export function AppRoutes() {
           <Route path="transactions/:transactionId" element={<TransactionPage />} />
           <Route path="merchants" element={<MerchantsPage />} />
           <Route path="merchants/:merchantId" element={<MerchantPage />} />
+          <Route path="exchange" element={<ExchangePage />} />
           <Route path="requests" element={<RequestsPage />} />
           <Route path="news" element={<NewsPage />} />
           <Route path="news/:newsId" element={<NewsItemPage />} />

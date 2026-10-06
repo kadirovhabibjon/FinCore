@@ -70,6 +70,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/exchanges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Exchange
+         * @description Exchanges money between two of the caller's own wallets at the
+         *     current rate, with no fee. The source amount is taken first and the
+         *     destination amount credited second; if the second step is refused
+         *     the first is returned, so the customer never ends up without both.
+         *     Needs an Idempotency-Key like any money movement.
+         */
+        post: operations["create_exchange_api_v1_exchanges_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Quote
+         * @description What `amount` of the source wallet's currency would buy in the
+         *     destination wallet's currency right now. Moves nothing and promises
+         *     nothing: the exchange itself checks the amount again.
+         */
+        get: operations["get_quote_api_v1_exchanges_quote_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exchanges/{exchange_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Exchange */
+        get: operations["get_exchange_api_v1_exchanges__exchange_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/merchants": {
         parameters: {
             query?: never;
@@ -294,7 +357,7 @@ export interface paths {
         /**
          * List Transactions
          * @description The caller's own business-operation history (spec Section 20),
-         *     newest first across *both* Transfer and Payment: everything they
+         *     newest first across Transfer, Payment and Exchange: everything they
          *     started (`direction: OUT`) and every transfer that reached them
          *     (`direction: IN`). A merchant's received payments are on the
          *     merchant's own endpoints, not here.
@@ -524,6 +587,10 @@ export interface components {
              * Format: uuid
              */
             initiator_user_id: string;
+            /** Received Amount Minor */
+            received_amount_minor?: number | null;
+            /** Received Currency */
+            received_currency?: string | null;
             /** Reference */
             reference: string;
             /** Reviewed At */
@@ -543,6 +610,23 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** CreateExchangeRequest */
+        CreateExchangeRequest: {
+            /** Amount */
+            amount: string;
+            /**
+             * Destination Wallet Id
+             * Format: uuid
+             */
+            destination_wallet_id: string;
+            /** Expected Destination Amount Minor */
+            expected_destination_amount_minor: number;
+            /**
+             * Source Wallet Id
+             * Format: uuid
+             */
+            source_wallet_id: string;
         };
         /** CreateMerchantRequest */
         CreateMerchantRequest: {
@@ -608,6 +692,54 @@ export interface components {
              */
             source_wallet_id: string;
         };
+        /** ExchangeResponse */
+        ExchangeResponse: {
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Destination Amount Minor */
+            destination_amount_minor: number;
+            /** Destination Currency */
+            destination_currency: string;
+            /**
+             * Destination Wallet Id
+             * Format: uuid
+             */
+            destination_wallet_id: string;
+            /** Failure Reason */
+            failure_reason: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Rate */
+            rate: string;
+            /** Reference */
+            reference: string;
+            /** Source Amount Minor */
+            source_amount_minor: number;
+            /** Source Currency */
+            source_currency: string;
+            /**
+             * Source Wallet Id
+             * Format: uuid
+             */
+            source_wallet_id: string;
+            status: components["schemas"]["ExchangeStatus"];
+        };
+        /**
+         * ExchangeStatus
+         * @description Where the two-step saga is (app/services/exchanges.py). The
+         *     source currency is taken first and the destination currency given
+         *     second, so at no point does a customer hold both.
+         * @enum {string}
+         */
+        ExchangeStatus: "PENDING" | "DEBITED" | "COMPLETED" | "REVERSING" | "FAILED";
         /**
          * FraudDecision
          * @enum {string}
@@ -765,6 +897,24 @@ export interface components {
          * @enum {string}
          */
         PaymentStatus: "CREATED" | "PROCESSING" | "SUCCESS" | "FAILED" | "EXPIRED" | "PARTIALLY_REFUNDED" | "REFUNDED";
+        /** QuoteResponse */
+        QuoteResponse: {
+            /** Destination Amount Minor */
+            destination_amount_minor: number;
+            /** Destination Currency */
+            destination_currency: string;
+            /** Rate */
+            rate: string;
+            /**
+             * Rate Updated At
+             * Format: date-time
+             */
+            rate_updated_at: string;
+            /** Source Amount Minor */
+            source_amount_minor: number;
+            /** Source Currency */
+            source_currency: string;
+        };
         /**
          * RecentRecipientResponse
          * @description Someone the caller has sent money to before.
@@ -860,7 +1010,7 @@ export interface components {
          * TransactionDirection
          * @enum {string}
          */
-        TransactionDirection: "OUT" | "IN";
+        TransactionDirection: "OUT" | "IN" | "SELF";
         /**
          * TransactionResponse
          * @description A type-erased view over any business operation (Transfer or
@@ -891,6 +1041,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Received Amount Minor */
+            received_amount_minor?: number | null;
+            /** Received Currency */
+            received_currency?: string | null;
             /** Reference */
             reference: string;
             /** Status */
@@ -903,7 +1057,7 @@ export interface components {
          *     Section 20's API map).
          * @enum {string}
          */
-        TransactionType: "TRANSFER" | "PAYMENT";
+        TransactionType: "TRANSFER" | "PAYMENT" | "EXCHANGE";
         /** TransferResponse */
         TransferResponse: {
             /** Amount Minor */
@@ -1072,6 +1226,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminTransactionResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_exchange_api_v1_exchanges_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateExchangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_quote_api_v1_exchanges_quote_get: {
+        parameters: {
+            query: {
+                source_wallet_id: string;
+                destination_wallet_id: string;
+                amount: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_exchange_api_v1_exchanges__exchange_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exchange_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExchangeResponse"];
                 };
             };
             /** @description Validation Error */

@@ -368,6 +368,17 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
 * `GET /api/v1/admin/transactions` (SUPPORT, ADMIN) — every user's
   transfers and payments, filterable by type, status and user.
   Roles come from the access token's `roles` claim.
+* **Currency exchange** (`/api/v1/exchanges`,
+  [ADR-0009](docs/adr/0009-currency-exchange.md)) between a customer's
+  own wallets. The ledger only has single-currency postings, so an
+  exchange is two of them, each against FinCore's `EXCHANGE` account in
+  that currency, run as a saga: sell (take the source currency), then
+  buy (give the destination currency); if the buy is refused the sell
+  is reversed. Every step is idempotent and the recovery worker finishes
+  any exchange left between steps. Amounts are integer minor units,
+  rates are `Decimal`s, results round down. `GET …/quote` shows what an
+  amount buys; the exchange is made only for that amount, or refused
+  with `409 Rate Changed`. No fee.
 * **Money requests** (`/api/v1/money-requests`): a customer asks the
   owner of a card for an amount into one of their own wallets; the
   person asked is notified and can pay or decline, the requester can
@@ -834,7 +845,8 @@ refresh cookie.
   account page; wallets with available /
   held / ledger balance, card number and each wallet's ledger entries;
   send a transfer by typing the recipient's card number and checking
-  the name that comes back; pay a merchant; ask someone for money and pay or decline those who
+  the name that comes back; pay a merchant; exchange between their own UZS and USD wallets at a
+  quoted amount; ask someone for money and pay or decline those who
   ask (Requests page); a QR code on each wallet for receiving money (a link
   to the Send page with the card filled in, drawn in the browser) and a
   camera scanner on Send that reads one; a notifications bell
@@ -1237,12 +1249,12 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
 cd services/identity-service && .venv/bin/pytest -v     # 171 tests
-cd services/ledger-service && .venv/bin/pytest -v       # 65 tests
-cd services/payment-service && .venv/bin/pytest -v      # 158 tests
-cd services/notification-service && .venv/bin/pytest -v # 73 tests
+cd services/ledger-service && .venv/bin/pytest -v       # 66 tests
+cd services/payment-service && .venv/bin/pytest -v      # 182 tests
+cd services/notification-service && .venv/bin/pytest -v # 75 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
-cd services/audit-service && .venv/bin/pytest -v        # 53 tests
+cd services/audit-service && .venv/bin/pytest -v        # 55 tests
 cd services/assistant-service && .venv/bin/pytest -v    # 35 tests (model APIs faked: no key, no spend)
 ```
 
@@ -1303,7 +1315,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 109 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 114 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1352,7 +1364,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-60 tests that run against a live `docker compose` stack, through the
+63 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit
@@ -1495,6 +1507,8 @@ problem, the decision, and what was rejected and why:
   tools over the customer's own data, never allowed to move money.
 * [ADR-0008](docs/adr/0008-wallet-card-numbers.md) — wallet card numbers
   and looking up a transfer's recipient by one.
+* [ADR-0009](docs/adr/0009-currency-exchange.md) — currency exchange as
+  two single-currency postings and a saga.
 
 Plus [`docs/glossary.md`](docs/glossary.md) (shared vocabulary),
 [`docs/context-map.md`](docs/context-map.md) (service boundaries and

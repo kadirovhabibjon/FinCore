@@ -21,6 +21,8 @@
     },
     "event_type": {
       "enum": [
+        "exchange.completed",
+        "exchange.failed",
         "fraud.detected",
         "fraud.review_required",
         "money_request.created",

@@ -166,3 +166,81 @@ async def test_get_unknown_posting_returns_404() -> None:
 
     assert response.status_code == 404
     assert response.json()["title"] == "Posting Not Found"
+
+
+async def test_an_exchange_is_two_balanced_postings_against_the_exchange_accounts() -> None:
+    """Selling 1,200,000.00 UZS for 100.00 USD: the UZS leg moves the
+    customer's UZS to FinCore's UZS position, the USD leg moves USD from
+    FinCore's USD position to the customer. Each posting balances in its
+    own currency; FinCore's positions end up +UZS and -USD."""
+    uzs_wallet = await _create_wallet("UZS")
+    usd_wallet = await _create_wallet("USD")
+    funding = await _system_account_id(AccountKind.EXTERNAL_FUNDING)
+    uzs_position = await _system_account_id(AccountKind.EXCHANGE, "UZS")
+    usd_position = await _system_account_id(AccountKind.EXCHANGE, "USD")
+
+    def posting(
+        source_id: str, type_: str, currency: str, debit: uuid.UUID, credit: uuid.UUID, amount: int
+    ) -> dict:
+        return {
+            "source_service": "test",
+            "source_id": source_id,
+            "type": type_,
+            "currency": currency,
+            "entries": [
+                {"account_id": str(debit), "direction": "DEBIT", "amount_minor": amount},
+                {"account_id": str(credit), "direction": "CREDIT", "amount_minor": amount},
+            ],
+        }
+
+    exchange_id = uuid.uuid4().hex
+    async with await _client() as client:
+        funded = await client.post(
+            "/internal/v1/postings",
+            json=posting(
+                f"fund-{exchange_id}", "DEPOSIT", "UZS", funding, uzs_wallet.id, 2_000_000_00
+            ),
+            headers=_HEADERS,
+        )
+        sell = await client.post(
+            "/internal/v1/postings",
+            json=posting(
+                f"{exchange_id}:sell", "EXCHANGE", "UZS", uzs_wallet.id, uzs_position, 1_200_000_00
+            ),
+            headers=_HEADERS,
+        )
+        buy = await client.post(
+            "/internal/v1/postings",
+            json=posting(
+                f"{exchange_id}:buy", "EXCHANGE", "USD", usd_position, usd_wallet.id, 100_00
+            ),
+            headers=_HEADERS,
+        )
+        # The customer cannot sell what they do not have.
+        oversell = await client.post(
+            "/internal/v1/postings",
+            json=posting(
+                f"{exchange_id}:again", "EXCHANGE", "UZS", uzs_wallet.id, uzs_position, 900_000_00
+            ),
+            headers=_HEADERS,
+        )
+        found = await client.get(
+            "/internal/v1/accounts/system",
+            params={"kind": "EXCHANGE", "currency": "USD"},
+            headers=_HEADERS,
+        )
+
+    assert (funded.status_code, sell.status_code, buy.status_code) == (201, 201, 201)
+    assert oversell.status_code == 409 and oversell.json()["title"] == "Insufficient Funds"
+    assert found.status_code == 200 and found.json()["id"] == str(usd_position)
+
+    async with db_session.async_session_factory() as session:
+        balances = {
+            account: (await session.get(AccountBalance, account)).balance_minor
+            for account in (uzs_wallet.id, usd_wallet.id, uzs_position, usd_position)
+        }
+    assert balances[uzs_wallet.id] == 800_000_00
+    assert balances[usd_wallet.id] == 100_00
+    # Shared across the test database, so compared as "moved by", not "equals".
+    assert balances[uzs_position] >= 1_200_000_00
+    assert balances[usd_position] <= -100_00

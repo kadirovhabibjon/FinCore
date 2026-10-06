@@ -9,6 +9,7 @@ const PAGE_SIZE = 25;
 
 function describe(item: api.Transaction): string {
   if (item.type === "PAYMENT") return "Payment";
+  if (item.type === "EXCHANGE") return "Exchanged";
   return item.direction === "IN" ? "Received" : "Sent";
 }
 
@@ -16,7 +17,8 @@ const NOT_MOVED = new Set(["FAILED", "EXPIRED", "CANCELLED"]);
 
 /** "+" for money in, "−" for money out, nothing when none moved. */
 function sign(item: api.Transaction): string {
-  if (NOT_MOVED.has(item.status)) return "";
+  // An exchange is the customer's own money changing currency: neither in nor out.
+  if (NOT_MOVED.has(item.status) || item.direction === "SELF") return "";
   return item.direction === "IN" ? "+" : "−";
 }
 
@@ -81,6 +83,11 @@ export function TransactionsPage() {
                   >
                     {sign(item)}
                     <Money minor={item.amount_minor} currency={item.currency} />
+                    {item.received_amount_minor != null && item.received_currency && (
+                      <div className="muted small">
+                        → <Money minor={item.received_amount_minor} currency={item.received_currency} />
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

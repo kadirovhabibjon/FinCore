@@ -1469,3 +1469,132 @@ describe("money requests", () => {
     expect(screen.getByRole("button", { name: "Send request" })).toBeDisabled();
   });
 });
+
+describe("currency exchange", () => {
+  const USD_WALLET = { ...WALLET, id: "99999999-0000-4000-8000-000000000001", card_number: "9955987654321094", currency: "USD", balance_minor: 0, held_minor: 0 };
+  const quote = {
+    source_amount_minor: 120_000_000,
+    source_currency: "UZS",
+    destination_amount_minor: 10_000,
+    destination_currency: "USD",
+    rate: "0.000083333333333",
+    rate_updated_at: "2026-10-06T00:00:00Z",
+  };
+  const done = {
+    id: "12121212-1212-4121-8121-121212121212",
+    reference: "EXC-DONE",
+    source_wallet_id: WALLET.id,
+    destination_wallet_id: USD_WALLET.id,
+    source_amount_minor: 120_000_000,
+    source_currency: "UZS",
+    destination_amount_minor: 10_000,
+    destination_currency: "USD",
+    rate: quote.rate,
+    status: "COMPLETED",
+    failure_reason: null,
+    created_at: "2026-10-06T09:00:00Z",
+    completed_at: "2026-10-06T09:00:01Z",
+  };
+
+  it("shows what the amount buys, then exchanges for exactly that", async () => {
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET, USD_WALLET]),
+      "GET /api/v1/exchanges/quote": () => json(quote),
+      "POST /api/v1/exchanges": () => json(done, 201),
+    });
+    renderApp("/exchange");
+
+    const submit = await screen.findByRole("button", { name: "Exchange" });
+    expect(submit).toBeDisabled();
+    await userEvent.type(screen.getByLabelText(/Amount/), "1200000");
+
+    // The rate reads the way people say it, and the button says what will happen.
+    expect(await screen.findByText(/1 USD = 12,000 UZS/)).toBeInTheDocument();
+    const confirm = await screen.findByRole("button", { name: "Exchange for 100.00 USD" });
+    expect(requests.find((r) => r.path === "/api/v1/exchanges/quote")?.search).toBe(
+      `?source_wallet_id=${WALLET.id}&destination_wallet_id=${USD_WALLET.id}&amount=1200000`,
+    );
+    await userEvent.click(confirm);
+
+    expect(await screen.findByText(/Reference EXC-DONE/)).toBeInTheDocument();
+    const post = requests.find((r) => r.method === "POST" && r.path === "/api/v1/exchanges");
+    expect(post?.body).toEqual({
+      source_wallet_id: WALLET.id,
+      destination_wallet_id: USD_WALLET.id,
+      amount: "1200000",
+      expected_destination_amount_minor: 10_000,
+    });
+    expect(post?.headers["idempotency-key"]).toBeTruthy();
+  });
+
+  it("re-quotes instead of exchanging when the rate has moved", async () => {
+    let current = quote;
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET, USD_WALLET]),
+      "GET /api/v1/exchanges/quote": () => json(current),
+      "POST /api/v1/exchanges": () => {
+        current = { ...quote, destination_amount_minor: 9_950 };
+        return problem(409, "Rate Changed");
+      },
+    });
+    renderApp("/exchange");
+
+    await userEvent.type(await screen.findByLabelText(/Amount/), "1200000");
+    await userEvent.click(await screen.findByRole("button", { name: "Exchange for 100.00 USD" }));
+
+    expect(await screen.findByText(/The rate changed/)).toBeInTheDocument();
+    // The new amount is on the button; nothing is retried on its own.
+    expect(await screen.findByRole("button", { name: "Exchange for 99.50 USD" })).toBeInTheDocument();
+    expect(requests.filter((r) => r.method === "POST" && r.path === "/api/v1/exchanges")).toHaveLength(1);
+  });
+
+  it("says plainly when the exchange failed or is still being completed", async () => {
+    let outcome: Record<string, unknown> = { ...done, status: "FAILED", failure_reason: "Insufficient Funds" };
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([WALLET, USD_WALLET]),
+      "GET /api/v1/exchanges/quote": () => json(quote),
+      "POST /api/v1/exchanges": () => json(outcome, 201),
+    });
+    renderApp("/exchange");
+
+    await userEvent.type(await screen.findByLabelText(/Amount/), "1200000");
+    await userEvent.click(await screen.findByRole("button", { name: "Exchange for 100.00 USD" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The exchange didn't go through: Insufficient Funds. Your money is in your wallet.",
+    );
+
+    outcome = { ...done, status: "DEBITED" };
+    await userEvent.click(screen.getByRole("button", { name: "Exchange again" }));
+    await userEvent.type(await screen.findByLabelText(/Amount/), "1200000");
+    await userEvent.click(await screen.findByRole("button", { name: "Exchange for 100.00 USD" }));
+    expect(await screen.findByText(/is being completed/)).toHaveTextContent(/don.t need to do it again/);
+  });
+
+  it("needs two wallets in different currencies", async () => {
+    fakeApi({ ...signedInRoutes(), "GET /api/v1/wallets": () => json([WALLET]) });
+    renderApp("/exchange");
+
+    expect(await screen.findByText(/You need a UZS wallet and a USD wallet/)).toBeInTheDocument();
+  });
+
+  it("lists an exchange in history as neither in nor out", async () => {
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/transactions": () =>
+        json([
+          { id: done.id, type: "EXCHANGE", direction: "SELF", counterparty_name: null, reference: "EXC-DONE", status: "COMPLETED", amount_minor: 120_000_000, currency: "UZS", received_amount_minor: 10_000, received_currency: "USD", description: null, created_at: done.created_at, completed_at: done.completed_at },
+        ]),
+    });
+    renderApp("/transactions");
+
+    const row = (await screen.findByText("EXC-DONE")).closest("tr") as HTMLElement;
+    expect(within(row).getByText("Exchanged")).toBeInTheDocument();
+    expect(within(row).getByText("1,200,000.00 UZS")).toBeInTheDocument();
+    expect(within(row).getByText("100.00 USD")).toBeInTheDocument();
+    expect(row).not.toHaveTextContent("−");
+    expect(row).not.toHaveTextContent("+");
+  });
+});

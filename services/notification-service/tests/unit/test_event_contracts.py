@@ -73,3 +73,22 @@ def test_money_request_examples_tell_the_other_person(event_type: EventType, tol
 
     assert message.recipient_user_id == UUID(envelope.data[told])
     assert message.params["amount"].endswith(envelope.data["currency"])
+
+
+@pytest.mark.parametrize("event_type", [EventType.EXCHANGE_COMPLETED, EventType.EXCHANGE_FAILED])
+def test_exchange_examples_tell_the_customer_both_amounts(event_type: EventType) -> None:
+    envelope = EventEnvelope(
+        event_type=event_type, producer="payment-service", data=event_example(event_type.value)
+    )
+    assert_valid_event(envelope.model_dump(mode="json"))
+
+    [message] = compose_messages(envelope)
+
+    assert message.recipient_user_id == UUID(envelope.data["initiator_user_id"])
+    assert "1,200,000.00 UZS" in message.body and "100.00 USD" in message.body
+    assert message.params["amount"] == "1,200,000.00 UZS"
+    assert message.params["received"] == "100.00 USD"
+    if event_type == EventType.EXCHANGE_FAILED:
+        assert (
+            "Insufficient Funds" in message.body and "Your money is in your wallet" in message.body
+        )

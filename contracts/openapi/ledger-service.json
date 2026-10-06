@@ -2,14 +2,15 @@
   "components": {
     "schemas": {
       "AccountKind": {
-        "description": "Account kinds and their normal balance side (ADR-0002):\n\nUSER_WALLET / MERCHANT_SETTLEMENT / FEES  -> CREDIT-normal (liability/revenue)\nEXTERNAL_FUNDING                          -> DEBIT-normal  (clearing)\nEXTERNAL_PAYOUT                           -> CREDIT-normal (clearing)\nSUSPENSE                                  -> no normal side; must net to zero",
+        "description": "Account kinds and their normal balance side (ADR-0002):\n\nUSER_WALLET / MERCHANT_SETTLEMENT / FEES  -> CREDIT-normal (liability/revenue)\nEXTERNAL_FUNDING                          -> DEBIT-normal  (clearing)\nEXTERNAL_PAYOUT                           -> CREDIT-normal (clearing)\nSUSPENSE                                  -> no normal side; must net to zero\nEXCHANGE                                  -> CREDIT-normal; may be negative",
         "enum": [
           "USER_WALLET",
           "EXTERNAL_FUNDING",
           "EXTERNAL_PAYOUT",
           "MERCHANT_SETTLEMENT",
           "FEES",
-          "SUSPENSE"
+          "SUSPENSE",
+          "EXCHANGE"
         ],
         "title": "AccountKind",
         "type": "string"
@@ -340,7 +341,8 @@
           "PAYMENT",
           "DEPOSIT",
           "WITHDRAWAL",
-          "REFUND"
+          "REFUND",
+          "EXCHANGE"
         ],
         "title": "PostingType",
         "type": "string"

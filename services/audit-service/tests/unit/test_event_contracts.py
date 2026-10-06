@@ -29,6 +29,7 @@ def test_every_published_event_type_can_be_audited(event_type: EventType) -> Non
         envelope.data.get("transfer_id")
         or envelope.data.get("payment_id")
         or envelope.data.get("request_id")
+        or envelope.data.get("exchange_id")
         or envelope.data.get("operation_id")
         or envelope.data.get("user_id")
     )

@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.domain.exchange import Exchange, ExchangeStatus
 from app.domain.merchant import MerchantStatus
 from app.domain.payment import Payment, PaymentStatus
 from app.domain.refund import RefundStatus
@@ -127,6 +128,7 @@ class TransactionType(enum.StrEnum):
 
     TRANSFER = "TRANSFER"
     PAYMENT = "PAYMENT"
+    EXCHANGE = "EXCHANGE"
 
 
 class TransactionDirection(enum.StrEnum):
@@ -134,6 +136,8 @@ class TransactionDirection(enum.StrEnum):
     OUT = "OUT"
     # Money reaching the caller (a transfer someone sent them).
     IN = "IN"
+    # Money moved between the caller's own wallets (a currency exchange).
+    SELF = "SELF"
 
 
 class TransactionResponse(BaseModel):
@@ -156,6 +160,10 @@ class TransactionResponse(BaseModel):
     amount_minor: int
     currency: str
     description: str | None
+    # For an exchange: what `amount_minor` of `currency` was exchanged
+    # for. Null for transfers and payments.
+    received_amount_minor: int | None = None
+    received_currency: str | None = None
     created_at: datetime
     completed_at: datetime | None
 
@@ -174,6 +182,28 @@ class TransactionResponse(BaseModel):
             description=transfer.description,
             created_at=transfer.created_at,
             completed_at=transfer.completed_at,
+        )
+
+    @classmethod
+    def from_exchange(cls, exchange: Exchange) -> "TransactionResponse":
+        return cls(
+            id=exchange.id,
+            type=TransactionType.EXCHANGE,
+            direction=TransactionDirection.SELF,
+            counterparty_name=None,
+            reference=exchange.reference,
+            # The saga's intermediate steps are one thing to a customer:
+            # it is being carried out.
+            status=exchange.status.value
+            if exchange.status in (ExchangeStatus.COMPLETED, ExchangeStatus.FAILED)
+            else "PROCESSING",
+            amount_minor=exchange.source_amount_minor,
+            currency=exchange.source_currency,
+            received_amount_minor=exchange.destination_amount_minor,
+            received_currency=exchange.destination_currency,
+            description=None,
+            created_at=exchange.created_at,
+            completed_at=exchange.completed_at,
         )
 
     @classmethod

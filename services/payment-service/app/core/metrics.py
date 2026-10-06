@@ -8,6 +8,9 @@ from fincore_common import Counter, Gauge
 TRANSFERS_TOTAL = Counter(
     "fincore_transfers_total", "Total transfers reaching a terminal status.", ["status"]
 )
+EXCHANGES_TOTAL = Counter(
+    "fincore_exchanges_total", "Total currency exchanges reaching a terminal status.", ["status"]
+)
 PAYMENTS_TOTAL = Counter(
     "fincore_payments_total", "Total payments reaching a terminal status.", ["status"]
 )

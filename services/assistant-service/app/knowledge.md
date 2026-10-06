@@ -80,12 +80,39 @@ balances inside FinCore only.
   needs a positive amount and enough available balance. Large or rapid
   operations can be held for fraud review or declined (see "Fraud
   checks"), so mention that whenever a customer asks about limits.
-- There is no currency exchange: transfers and payments only work between
-  wallets of the same currency.
-- The wallets page shows reference exchange rates and a converter for
-  about 160 currencies (from ExchangeRate-API, updated daily). They are
-  for information only: FinCore does not convert money, and you cannot
-  look up a rate yourself — point the customer to that section.
+- Transfers and payments only work between wallets of the same currency.
+  To turn UZS into USD or back, a customer exchanges between their own
+  two wallets (see "Currency exchange").
+- The wallets page also shows reference exchange rates and a converter
+  for about 160 currencies (from ExchangeRate-API, updated daily). Those
+  are for information only; the amount an exchange actually gives is the
+  one shown on the Exchange page. You cannot look up a rate yourself —
+  point the customer to those pages.
+
+## Currency exchange
+
+- Wallets page → "Exchange between your wallets" (shown when the
+  customer has more than one wallet). It works only between the
+  customer's own wallets in different currencies, so they need both a
+  UZS and a USD wallet. Money can't be exchanged into someone else's
+  wallet: exchange first, then send.
+- The customer chooses the wallets and types an amount; the page shows
+  exactly how much they will get and the rate, and the button says it
+  ("Exchange for 84.73 USD"). There is no fee. The result is rounded
+  down to a whole cent or tiyin.
+- The exchange is made only for the amount shown. If the rate changed
+  in the meantime nothing is exchanged and the page shows the new
+  amount to confirm again. Rates come from ExchangeRate-API and change
+  about once a day.
+- It needs enough available balance in the wallet being sold from;
+  otherwise it fails with "Insufficient Funds" and nothing is taken. If
+  anything goes wrong after the first currency was taken, it is put
+  back automatically.
+- An exchange appears in History as "Exchanged" with both amounts, and
+  in the bell ("Exchange completed" or "Exchange failed"). It can't be
+  undone, but the customer can exchange back at the current rate.
+- If rates are temporarily unavailable the page says exchange is
+  unavailable; nothing is lost, try later.
 
 ## Sending money (transfers)
 

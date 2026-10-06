@@ -3,12 +3,15 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.exchange import Exchange
 from app.domain.payment import Payment
 from app.domain.refund import Refund
 from app.domain.transfer import Transfer
+from app.repositories.exchange_repository import ExchangeRepository
 from app.repositories.payment_repository import PaymentRepository
 from app.repositories.refund_repository import RefundRepository
 from app.repositories.transfer_repository import TransferRepository
+from app.services.exchanges import advance
 from app.services.payments import attempt_hold_and_capture
 from app.services.refunds import attempt_refund_posting
 from app.services.transfers import attempt_posting_and_resolve
@@ -70,4 +73,24 @@ async def resolve_stuck_refunds(
     for refund in stuck_refunds:
         logger.info("recovery worker retrying stuck refund %s", refund.id)
         resolved.append(await attempt_refund_posting(session, refund))
+    return resolved
+
+
+async def resolve_stuck_exchanges(
+    session: AsyncSession, *, stuck_after_seconds: float
+) -> list[Exchange]:
+    """Currency exchanges left between steps by an unknown ledger
+    outcome - most importantly ones whose source money was taken but
+    whose destination money has not arrived (DEBITED), or whose refund
+    is still owed (REVERSING). Each is continued exactly where it
+    stopped; every posting is idempotent, so repeating a step that did
+    in fact succeed changes nothing.
+    """
+    threshold = datetime.now(UTC) - timedelta(seconds=stuck_after_seconds)
+    stuck = await ExchangeRepository(session).list_stuck(older_than=threshold)
+
+    resolved: list[Exchange] = []
+    for exchange in stuck:
+        logger.info("recovery worker continuing exchange %s (%s)", exchange.id, exchange.status)
+        resolved.append(await advance(session, exchange))
     return resolved

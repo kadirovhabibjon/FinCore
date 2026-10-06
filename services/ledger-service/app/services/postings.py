@@ -33,6 +33,12 @@ NORMAL_SIDE: dict[AccountKind, EntryDirection] = {
     AccountKind.EXTERNAL_FUNDING: EntryDirection.DEBIT,
     AccountKind.EXTERNAL_PAYOUT: EntryDirection.CREDIT,
     AccountKind.SUSPENSE: EntryDirection.CREDIT,
+    # A customer selling a currency credits FinCore's position in it; one
+    # buying debits it. The balance is FinCore's net intake of that
+    # currency through exchanges and is negative whenever customers have
+    # bought more of it than they sold - a position, not a wallet, so
+    # nothing requires it to stay above zero.
+    AccountKind.EXCHANGE: EntryDirection.CREDIT,
 }
 
 

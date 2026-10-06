@@ -19,6 +19,7 @@ _LIFTED_FIELDS = frozenset(
         "transfer_id",
         "payment_id",
         "request_id",
+        "exchange_id",
         "user_id",
         "operation_id",
         "initiator_user_id",
@@ -37,7 +38,14 @@ _LIFTED_FIELDS = frozenset(
 # they were about (operation_id), so one operation's trail reads as a
 # whole, with the risk decision as the result. operation_id comes before
 # user_id: order matters only if an event ever carries both.
-_RESOURCE_ID_FIELDS = ("transfer_id", "payment_id", "request_id", "operation_id", "user_id")
+_RESOURCE_ID_FIELDS = (
+    "transfer_id",
+    "payment_id",
+    "request_id",
+    "exchange_id",
+    "operation_id",
+    "user_id",
+)
 _ACTOR_FIELDS = ("initiator_user_id", "actor_user_id")
 _RESULT_FIELDS = ("status", "decision")
 

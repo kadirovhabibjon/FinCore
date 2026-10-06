@@ -31,13 +31,20 @@ export function TransactionPage() {
   if (summary.isPending) return <Loading what="Loading transaction" />;
   if (summary.error) return <ErrorAlert error={summary.error} />;
   const detail = transfer.data ?? payment.data;
+  const kind =
+    summary.data.type === "TRANSFER"
+      ? "Transfer"
+      : summary.data.type === "EXCHANGE"
+        ? "Exchange"
+        : "Payment";
+  const title = incoming ? "Money received" : kind;
   const item = summary.data;
 
   return (
     <section className="page narrow">
-      <h1>{incoming ? "Money received" : item.type === "TRANSFER" ? "Transfer" : "Payment"}</h1>
+      <h1>{title}</h1>
       <OperationOutcome
-        kind={item.type === "TRANSFER" ? "Transfer" : "Payment"}
+        kind={kind}
         status={item.status}
         failureReason={detail?.failure_reason}
         reference={item.reference}
@@ -49,6 +56,14 @@ export function TransactionPage() {
           <>
             <dt>{incoming ? "From" : "To"}</dt>
             <dd>{item.counterparty_name}</dd>
+          </>
+        )}
+        {item.received_amount_minor != null && item.received_currency && (
+          <>
+            <dt>Exchanged for</dt>
+            <dd>
+              <Money minor={item.received_amount_minor} currency={item.received_currency} />
+            </dd>
           </>
         )}
         <dt>Created</dt>
