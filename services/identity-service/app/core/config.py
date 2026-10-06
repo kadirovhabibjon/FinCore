@@ -36,6 +36,23 @@ class Settings(BaseServiceSettings):
     refresh_cookie_path: str = "/api/v1/auth"
     refresh_cookie_secure: bool = True
 
+    # Password reset: a 6-digit code emailed to the account's address.
+    # SMTP_HOST empty means "not configured": the reset endpoints answer
+    # 503 instead of pretending a code was sent. For Gmail: host
+    # smtp.gmail.com, port 587, an app password (scripts/set-smtp.sh).
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    # The From address; defaults to the username when empty.
+    smtp_from: str = ""
+    smtp_timeout_seconds: float = 15.0
+    password_reset_code_ttl_seconds: int = 600
+    # Wrong guesses allowed against one code before it stops working.
+    password_reset_max_attempts: int = 5
+    # Codes one account may request per hour (each is an email sent).
+    password_reset_max_requests_per_hour: int = 5
+
     # Shared secret for /internal/* (spec Section 19): payment-service
     # sends it to look up a transfer recipient's name. Empty means no
     # caller is trusted: the internal API then rejects every request,

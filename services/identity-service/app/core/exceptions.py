@@ -74,3 +74,24 @@ class CannotChangeOwnStatusError(DomainError):
 
     status_code = status.HTTP_409_CONFLICT
     title = "Cannot Change Own Status"
+
+
+class InvalidResetCodeError(DomainError):
+    """The one answer to every failed password reset: no such account,
+    no code requested, code expired or already used, too many wrong
+    tries, or simply the wrong digits. Telling them apart would let a
+    caller learn who has an account and how a guess is going."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Invalid Or Expired Code"
+
+    def __init__(self) -> None:
+        super().__init__("The code is wrong or has expired. Request a new one and try again.")
+
+
+class PasswordResetUnavailableError(DomainError):
+    """This deployment has no way to send email. Said to everyone alike,
+    so it reveals nothing about any account."""
+
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    title = "Password Reset Unavailable"

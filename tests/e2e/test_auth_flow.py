@@ -1,3 +1,5 @@
+import uuid
+
 from e2e_client import FinCoreClient, User
 
 
@@ -70,3 +72,26 @@ def test_logout_invalidates_the_refresh_token(api: FinCoreClient, user: User) ->
 
     refresh = api.gateway.post("/api/v1/auth/refresh", json={"refresh_token": user.refresh_token})
     assert refresh.status_code == 401
+
+
+def test_password_reset_gives_nothing_away_about_accounts(api: FinCoreClient) -> None:
+    """Without the code from the email there is no way in, and no way to
+    learn whether an address has an account. (Whether this stack can
+    send email at all depends on its SMTP settings: 202 when it can, 503
+    when it can't - either way the same for everyone. Only addresses
+    that can't exist are used, so no real email is ever sent.)"""
+    nobody = {"email": f"nobody-{uuid.uuid4().hex[:8]}@example.com"}
+    stranger = {"phone": "+998 90 000 00 01"}
+
+    first = api.gateway.post("/api/v1/auth/password-reset/request", json=nobody)
+    second = api.gateway.post("/api/v1/auth/password-reset/request", json=stranger)
+
+    assert first.status_code in (202, 503)
+    assert second.status_code == first.status_code
+
+    guess = api.gateway.post(
+        "/api/v1/auth/password-reset/confirm",
+        json={**nobody, "code": "123456", "new_password": "a-brand-new-password"},
+    )
+    assert guess.status_code == 422
+    assert guess.json()["title"] == "Invalid Or Expired Code"

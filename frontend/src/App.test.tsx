@@ -984,3 +984,112 @@ describe("banking news", () => {
     expect(requests.some((r) => r.path === "/api/v1/news/read")).toBe(false);
   });
 });
+
+describe("forgot password", () => {
+  const signedOut = { "POST /api/v1/auth/refresh": () => problem(401, "Invalid Token") };
+
+  it("emails a code, then sets a new password with it", async () => {
+    const { requests } = fakeApi({
+      ...signedOut,
+      "POST /api/v1/auth/password-reset/request": () => json(null, 202),
+      "POST /api/v1/auth/password-reset/confirm": () => noContent(),
+    });
+    renderApp("/login");
+
+    await userEvent.click(await screen.findByRole("link", { name: "Forgot password?" }));
+    await userEvent.type(screen.getByLabelText("Phone number or email"), "+998 90 111 22 33");
+    await userEvent.click(screen.getByRole("button", { name: "Send code" }));
+
+    // Never says whether the account exists.
+    expect(await screen.findByText(/has a FinCore account, a code is on its way/)).toBeInTheDocument();
+    expect(requests.find((r) => r.path.endsWith("/request"))?.body).toEqual({
+      phone: "+998 90 111 22 33",
+    });
+
+    await userEvent.type(screen.getByLabelText("Code from the email"), "493817");
+    await userEvent.type(screen.getByLabelText("New password"), "brand-new-password");
+    await userEvent.type(screen.getByLabelText("Confirm new password"), "brand-new-password");
+    await userEvent.click(screen.getByRole("button", { name: "Save new password" }));
+
+    expect(
+      await screen.findByText("Password changed. Sign in with your new password."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sign in to FinCore" })).toBeInTheDocument();
+    const confirm = requests.find((r) => r.path.endsWith("/confirm"));
+    expect(confirm?.body).toEqual({
+      phone: "+998 90 111 22 33",
+      code: "493817",
+      new_password: "brand-new-password",
+    });
+    // Nobody is signed in yet, so nothing carries a token.
+    expect(confirm?.headers.authorization).toBeUndefined();
+  });
+
+  it("won't save two passwords that differ", async () => {
+    const { requests } = fakeApi({
+      ...signedOut,
+      "POST /api/v1/auth/password-reset/request": () => json(null, 202),
+    });
+    renderApp("/forgot-password");
+
+    await userEvent.type(await screen.findByLabelText("Phone number or email"), "ada@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Send code" }));
+    await userEvent.type(await screen.findByLabelText("Code from the email"), "493817");
+    await userEvent.type(screen.getByLabelText("New password"), "brand-new-password");
+    await userEvent.type(screen.getByLabelText("Confirm new password"), "brand-new-passw0rd");
+    await userEvent.click(screen.getByRole("button", { name: "Save new password" }));
+
+    expect(await screen.findByText("The passwords don't match.")).toBeInTheDocument();
+    expect(requests.find((r) => r.path.endsWith("/request"))?.body).toEqual({
+      email: "ada@example.com",
+    });
+    expect(requests.some((r) => r.path.endsWith("/confirm"))).toBe(false);
+  });
+
+  it("shows why a code was refused and can send another", async () => {
+    const { requests } = fakeApi({
+      ...signedOut,
+      "POST /api/v1/auth/password-reset/request": () => json(null, 202),
+      "POST /api/v1/auth/password-reset/confirm": () =>
+        problem(422, "Invalid Or Expired Code", "The code is wrong or has expired."),
+    });
+    renderApp("/forgot-password");
+
+    await userEvent.type(await screen.findByLabelText("Phone number or email"), "ada@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Send code" }));
+    await userEvent.type(await screen.findByLabelText("Code from the email"), "000000");
+    await userEvent.type(screen.getByLabelText("New password"), "brand-new-password");
+    await userEvent.type(screen.getByLabelText("Confirm new password"), "brand-new-password");
+    await userEvent.click(screen.getByRole("button", { name: "Save new password" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Invalid Or Expired Code");
+
+    await userEvent.click(screen.getByRole("button", { name: "Send a new code" }));
+    await waitFor(() =>
+      expect(requests.filter((r) => r.path.endsWith("/request"))).toHaveLength(2),
+    );
+  });
+
+  it("says so when the server can't send email", async () => {
+    fakeApi({
+      ...signedOut,
+      "POST /api/v1/auth/password-reset/request": () =>
+        problem(503, "Password Reset Unavailable"),
+    });
+    renderApp("/forgot-password");
+
+    await userEvent.type(await screen.findByLabelText("Phone number or email"), "ada@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Send code" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Password Reset Unavailable");
+    expect(screen.queryByLabelText("Code from the email")).not.toBeInTheDocument();
+  });
+
+  it("is not offered on the staff console's sign-in", async () => {
+    fakeApi(signedOut);
+    renderApp("/admin/login");
+
+    expect(await screen.findByRole("heading", { name: "FinCore Admin" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Forgot password?" })).not.toBeInTheDocument();
+  });
+});

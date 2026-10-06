@@ -1,24 +1,32 @@
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Body, Depends, Header, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas import (
     LoginRequest,
     LogoutRequest,
+    PasswordResetConfirmRequest,
+    PasswordResetRequest,
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
     UserResponse,
 )
 from app.core.config import settings
-from app.core.exceptions import InsufficientRoleError, InvalidTokenError
+from app.core.exceptions import (
+    InsufficientRoleError,
+    InvalidTokenError,
+    PasswordResetUnavailableError,
+)
 from app.core.tokens import create_access_token
 from app.db.session import get_db
 from app.domain.role import RoleName
 from app.domain.user import User
 from app.repositories.user_repository import UserRepository
+from app.services import mailer
 from app.services.authentication import authenticate_user
+from app.services.password_reset import confirm_reset, request_reset
 from app.services.registration import RegistrationData, register_user
 from app.services.sessions import (
     IssuedRefreshToken,
@@ -195,3 +203,40 @@ async def logout(
         await revoke_session_by_refresh_token(session, presented)
     if cookie is not None:
         _clear_refresh_cookie(response, cookie)
+
+
+@router.post("/password-reset/request", status_code=status.HTTP_202_ACCEPTED)
+async def request_password_reset(
+    payload: PasswordResetRequest,
+    background: BackgroundTasks,
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    """Emails a 6-digit reset code to the account's address, if there is
+    such an account. Always 202 with no body: the answer, and how long it
+    takes, is the same whether or not the account exists (the email goes
+    out after the response)."""
+    if not mailer.is_configured():
+        raise PasswordResetUnavailableError(
+            "Password reset by email isn't set up on this server."
+        )
+    issued = await request_reset(session, email=payload.email, phone=payload.phone)
+    if issued is not None:
+        background.add_task(
+            mailer.send_reset_code, to=issued.email, first_name=issued.first_name, code=issued.code
+        )
+
+
+@router.post("/password-reset/confirm", status_code=status.HTTP_204_NO_CONTENT)
+async def confirm_password_reset(
+    payload: PasswordResetConfirmRequest,
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    """Sets a new password using the emailed code, and signs the account
+    out everywhere. Any failure is the same 422."""
+    await confirm_reset(
+        session,
+        email=payload.email,
+        phone=payload.phone,
+        code=payload.code,
+        new_password=payload.new_password,
+    )

@@ -172,6 +172,36 @@ The server's idle window has to be longer than the access token's
 15 minutes: an active client only refreshes when its access token runs
 out.
 
+### Resetting a forgotten password
+
+*Added when "forgot password" was requested as: type the phone number,
+type a new password, save.*
+
+That flow would let anyone who knows a phone number take over the
+account, so a reset needs proof that the person is the account's owner.
+The proof is the account's mailbox: a 6-digit code is emailed to the
+address the account was registered with, and the new password is only
+accepted together with that code. Email rather than SMS because it costs
+nothing to send; rather than a recovery code shown at registration
+because existing customers have none and people lose them.
+
+A 6-digit code is only safe with limits around it, and a reset page is
+an obvious place to ask "does this person have an account?", so:
+
+* the code is stored as a hash, works once, for 10 minutes, and stops
+  working after 5 wrong tries; an account gets at most 5 codes an hour;
+* requesting and confirming answer the same way for an account that
+  exists, one that doesn't and one that is blocked, and the email is
+  sent after the response so the timing is the same too;
+* a successful reset revokes every session of the account and is
+  audited as `user.password_changed`, like a normal password change;
+* the code is never logged or put in an event, and a mail-server
+  failure is logged without the code or the address.
+
+Accepted costs: someone can use up a victim's five codes for an hour
+(the victim keeps their password, and can still sign in); and a customer
+who has lost access to that mailbox cannot reset on their own.
+
 ## Consequences
 
 * A reload costs one extra `/refresh` round trip before the first

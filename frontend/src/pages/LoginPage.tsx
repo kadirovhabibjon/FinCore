@@ -11,7 +11,7 @@ import { PasswordInput } from "../components/PasswordInput";
 export function LoginPage({ admin = false }: { admin?: boolean }) {
   const { login } = useAuth();
   const location = useLocation();
-  const state = location.state as { registered?: boolean } | null;
+  const state = location.state as { registered?: boolean; passwordReset?: boolean } | null;
   const [error, setError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -36,6 +36,9 @@ export function LoginPage({ admin = false }: { admin?: boolean }) {
         <h1>{admin ? "FinCore Admin" : "Sign in to FinCore"}</h1>
         {admin && <p className="muted">Staff sign-in. Customer accounts can't use this console.</p>}
         {state?.registered && <Notice>Account created. Sign in to continue.</Notice>}
+        {state?.passwordReset && (
+          <Notice>Password changed. Sign in with your new password.</Notice>
+        )}
         <ErrorAlert error={error} />
         <label>
           Phone number or email
@@ -54,6 +57,11 @@ export function LoginPage({ admin = false }: { admin?: boolean }) {
           Password
           <PasswordInput name="password" autoComplete="current-password" required />
         </label>
+        {!admin && (
+          <p className="forgot-link">
+            <Link to="/forgot-password">Forgot password?</Link>
+          </p>
+        )}
         <button type="submit" className="button" disabled={submitting}>
           {submitting ? "Signing in…" : "Sign in"}
         </button>

@@ -10,6 +10,7 @@ import { AdminReviewsPage } from "./pages/admin/AdminReviewsPage";
 import { AdminTransactionsPage } from "./pages/admin/AdminTransactionsPage";
 import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
 import { AdminWebhooksPage } from "./pages/admin/AdminWebhooksPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MerchantPage } from "./pages/MerchantPage";
 import { MerchantsPage } from "./pages/MerchantsPage";
@@ -58,6 +59,7 @@ export function AppRoutes() {
       <Route element={<RedirectIfAuthenticated />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       </Route>
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>

@@ -26,8 +26,20 @@ balances inside FinCore only.
 - Passwords can be changed in Account → Password: it needs the current
   password, and the new one must differ. Changing the password signs out
   every other device; the device used stays signed in.
-- There is no "forgot password" / reset-by-email feature. A customer who
-  forgot their password has to contact support.
+- Forgot password: on the sign-in page, "Forgot password?" → enter the
+  phone number or email → a 6-digit code is emailed to the email address
+  the account was registered with → enter the code and a new password
+  (typed twice) → "Save new password". The code works once, for 10
+  minutes, and stops working after 5 wrong tries; "Send a new code"
+  emails another (at most 5 an hour). Resetting signs the account out on
+  every device. For privacy the page never says whether an account
+  exists for what was typed, so "no email arrived" can mean a typo, a
+  different email on the account, or the spam folder. There is no reset
+  by SMS, and a customer who no longer has access to that email address
+  can't reset the password themselves.
+- A reset code must never be shared: nobody at FinCore, and not this
+  assistant, will ever ask for it. If a customer pastes one here, tell
+  them not to and to request a new one.
 - Account → Active sessions lists every signed-in device (device, IP
   address, when it signed in, last activity). Any other session can be
   signed out from there. A signed-out device loses access at its next

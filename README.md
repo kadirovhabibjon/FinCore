@@ -154,6 +154,18 @@ Authentication, users, and RBAC — spec Sections 5 and 19.
   older than 12 hours in total, is revoked at its next refresh. The web
   app is stricter: 15 minutes without interaction signs out, including
   when the page was closed and reopened later.
+* **Forgot password**: `POST /api/v1/auth/password-reset/request`
+  emails a 6-digit code to the account's address;
+  `POST /api/v1/auth/password-reset/confirm` sets a new password with
+  it and revokes every session. The mailbox is the proof of identity —
+  a phone number alone never is. Both endpoints answer identically
+  whether or not the account exists (the email is sent after the
+  response, so timing doesn't tell either), every failure is the same
+  `422`, and the code is stored only as a hash, lives 10 minutes, dies
+  after 5 wrong tries, and at most 5 are issued per account per hour.
+  Mail goes out over SMTP (`./scripts/set-smtp.sh` sets it up with a
+  free Gmail app password); with none configured both customers and
+  strangers get `503 Password Reset Unavailable`.
 * `POST /api/v1/auth/logout` — idempotent.
 * Browser mode ([ADR-0006](docs/adr/0006-browser-auth-storage.md)): with
   `X-Refresh-Token-Transport: cookie`, login/refresh return the refresh
@@ -776,7 +788,8 @@ Nginx container behind the gateway, so the UI and the API share one
 origin: no CORS, a strict `default-src 'self'` CSP, and a first-party
 refresh cookie.
 
-* **User dashboard**: register and sign in; wallets with available /
+* **User dashboard**: register and sign in, reset a forgotten password
+  with a code sent by email; wallets with available /
   held / ledger balance, card number and each wallet's ledger entries;
   send a transfer by typing the recipient's card number and checking
   the name that comes back; pay a merchant; a notifications bell
@@ -1178,7 +1191,7 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
-cd services/identity-service && .venv/bin/pytest -v     # 131 tests
+cd services/identity-service && .venv/bin/pytest -v     # 141 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 65 tests
 cd services/payment-service && .venv/bin/pytest -v      # 141 tests
 cd services/notification-service && .venv/bin/pytest -v # 50 tests
@@ -1245,7 +1258,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 87 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 92 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1294,7 +1307,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-53 tests that run against a live `docker compose` stack, through the
+54 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

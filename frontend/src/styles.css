@@ -1870,3 +1870,26 @@ textarea,
 .news-body p {
   margin: 0;
 }
+
+/* --- forgot password -------------------------------------------------- */
+
+.forgot-link {
+  margin: -0.5rem 0 0;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

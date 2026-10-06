@@ -71,6 +71,34 @@ export function register(data: RegisterRequest): Promise<Identity["UserResponse"
   });
 }
 
+/** The same "phone or email" rule as login: anything with an "@" is an email. */
+function accountIdentifier(identifier: string): { email: string } | { phone: string } {
+  const value = identifier.trim();
+  return value.includes("@") ? { email: value } : { phone: value };
+}
+
+/** Asks for a reset code to be emailed. Succeeds whether or not such an
+ * account exists: the server never says which. */
+export function requestPasswordReset(identifier: string): Promise<void> {
+  return apiRequest("/api/v1/auth/password-reset/request", {
+    method: "POST",
+    body: accountIdentifier(identifier),
+    authenticated: false,
+  });
+}
+
+export function confirmPasswordReset(
+  identifier: string,
+  code: string,
+  newPassword: string,
+): Promise<void> {
+  return apiRequest("/api/v1/auth/password-reset/confirm", {
+    method: "POST",
+    body: { ...accountIdentifier(identifier), code, new_password: newPassword },
+    authenticated: false,
+  });
+}
+
 export function logout(): Promise<void> {
   return apiRequest("/api/v1/auth/logout", {
     method: "POST",

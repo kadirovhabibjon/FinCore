@@ -92,6 +92,36 @@ class LoginRequest(BaseModel):
         return self
 
 
+class PasswordResetRequest(BaseModel):
+    """Whose password to reset: email or phone number, exactly one."""
+
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, min_length=1, max_length=32)
+
+    @field_validator("email")
+    @classmethod
+    def _normalize_email(cls, value: str | None) -> str | None:
+        return value.strip().lower() if value is not None else None
+
+    @field_validator("phone")
+    @classmethod
+    def _normalize_phone(cls, value: str | None) -> str | None:
+        return normalize_phone(value) if value is not None else None
+
+    @model_validator(mode="after")
+    def _exactly_one_identifier(self) -> "PasswordResetRequest":
+        if (self.email is None) == (self.phone is None):
+            raise ValueError("give either email or phone")
+        return self
+
+
+class PasswordResetConfirmRequest(PasswordResetRequest):
+    # The 6 digits from the email.
+    code: str = Field(pattern=r"^[0-9]{6}$")
+    # Same rules as RegisterRequest.password.
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     # null when the caller asked for cookie transport (ADR-0006): the
