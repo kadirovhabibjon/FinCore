@@ -51,3 +51,27 @@ async def send_reset_code(*, to: str, first_name: str, code: str) -> None:
         await asyncio.to_thread(_send, message)
     except Exception as exc:
         logger.error("password reset email could not be sent: %s", type(exc).__name__)
+
+
+async def send_contact_changed(*, to: str, first_name: str, what: str) -> None:
+    """Tells the account's previous email address that its email address
+    or phone number (`what`) was changed, so an owner who didn't do it
+    finds out. Like the reset email, sent in the background and never
+    raises."""
+    message = EmailMessage()
+    message["Subject"] = f"Your FinCore {what} was changed"
+    message["From"] = settings.smtp_from or settings.smtp_username
+    message["To"] = to
+    message.set_content(
+        f"Hello {first_name},\n\n"
+        f"The {what} on your FinCore account was just changed, after the "
+        "account's password was entered.\n\n"
+        "If you did this, there is nothing to do.\n\n"
+        "If you did not, someone else knows your password: sign in, change "
+        "your password in Account, and check the email address and phone "
+        "number shown there.\n"
+    )
+    try:
+        await asyncio.to_thread(_send, message)
+    except Exception as exc:
+        logger.error("contact change email could not be sent: %s", type(exc).__name__)

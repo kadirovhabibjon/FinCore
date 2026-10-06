@@ -173,6 +173,14 @@ Authentication, users, and RBAC — spec Sections 5 and 19.
   cookie instead of in the body, and refresh/logout read it from there.
   Without the header the cookie is ignored (CSRF defence in depth).
 * `GET /api/v1/users/me` — the caller's profile and roles.
+* `PATCH /api/v1/users/me` — the caller edits their own name, email
+  address or phone number; only fields that actually differ change. A
+  new email or phone needs `current_password` (they are how the account
+  is signed in to and recovered, so a borrowed unlocked device must not
+  be able to change them) and must not belong to another account. Such
+  a change cancels any password-reset code already sent, is emailed as a
+  notice to the account's previous address, and is audited as
+  `user.profile_updated` — naming the fields, never their values.
 * `POST /api/v1/users/me/password` — requires the current password;
   revokes every other session in the same transaction (the calling
   device stays signed in) and writes `user.password_changed` (spec
@@ -789,7 +797,8 @@ origin: no CORS, a strict `default-src 'self'` CSP, and a first-party
 refresh cookie.
 
 * **User dashboard**: register and sign in, reset a forgotten password
-  with a code sent by email; wallets with available /
+  with a code sent by email; edit name, email and phone on the
+  account page; wallets with available /
   held / ledger balance, card number and each wallet's ledger entries;
   send a transfer by typing the recipient's card number and checking
   the name that comes back; pay a merchant; a notifications bell
@@ -1191,13 +1200,13 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
-cd services/identity-service && .venv/bin/pytest -v     # 141 tests
+cd services/identity-service && .venv/bin/pytest -v     # 149 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 65 tests
-cd services/payment-service && .venv/bin/pytest -v      # 141 tests
+cd services/payment-service && .venv/bin/pytest -v      # 149 tests
 cd services/notification-service && .venv/bin/pytest -v # 50 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
-cd services/audit-service && .venv/bin/pytest -v        # 50 tests
+cd services/audit-service && .venv/bin/pytest -v        # 51 tests
 cd services/assistant-service && .venv/bin/pytest -v    # 35 tests (model APIs faked: no key, no spend)
 ```
 
@@ -1258,7 +1267,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 92 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 94 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1307,7 +1316,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-54 tests that run against a live `docker compose` stack, through the
+55 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

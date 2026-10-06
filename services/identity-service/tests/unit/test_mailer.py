@@ -53,6 +53,20 @@ async def test_a_mail_server_failure_is_logged_without_the_code_or_address(
     assert "493817" not in line and "aziza@example.com" not in line
 
 
+async def test_the_contact_change_notice_says_what_changed_and_what_to_do(
+    smtp: list[EmailMessage],
+) -> None:
+    await mailer.send_contact_changed(
+        to="old@example.com", first_name="Aziza", what="email address"
+    )
+
+    [message] = smtp
+    assert message["To"] == "old@example.com"
+    assert message["Subject"] == "Your FinCore email address was changed"
+    body = message.get_content()
+    assert "If you did not" in body and "change your password" in body
+
+
 def test_configured_means_a_host_is_set(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "smtp_host", "")
     assert not mailer.is_configured()

@@ -108,6 +108,9 @@ export function logout(): Promise<void> {
 }
 
 export const getMe = () => apiRequest<CurrentUser>("/api/v1/users/me");
+/** Changes the fields given; a new email or phone needs `current_password`. */
+export const updateProfile = (body: Identity["UpdateProfileRequest"]) =>
+  apiRequest<CurrentUser>("/api/v1/users/me", { method: "PATCH", body });
 export const listSessions = () => apiRequest<UserSession[]>("/api/v1/users/me/sessions");
 export const revokeSession = (sessionId: string) =>
   apiRequest<void>(`/api/v1/users/me/sessions/${sessionId}`, { method: "DELETE" });

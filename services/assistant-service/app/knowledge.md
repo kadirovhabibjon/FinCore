@@ -23,6 +23,16 @@ balances inside FinCore only.
 - "Invalid Credentials" on sign-in means the phone-or-email/password pair didn't
   match, or the account is not active. For security the message is the
   same in every case, and the assistant can't tell which one it was.
+- Account → "Your details": the customer can edit their first name, last
+  name, email address and phone number themselves and press "Save
+  changes". Changing the email or the phone number asks for the current
+  password (they are what the customer signs in with, and where a
+  password reset code is sent); changing only the name does not. An
+  email or phone that another account already uses is refused. After a
+  change the customer signs in with the new email or phone; the old one
+  stops working, and a notice is emailed to the previous email address.
+  A new email address is not verified by a code, so a typo in it would
+  send future reset codes to the wrong mailbox: suggest checking it.
 - Passwords can be changed in Account → Password: it needs the current
   password, and the new one must differ. Changing the password signs out
   every other device; the device used stays signed in.

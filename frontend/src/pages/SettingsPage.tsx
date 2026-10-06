@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "../api/endpoints";
 import { useAuth } from "../auth/context";
 import { ChangePasswordForm } from "../components/ChangePasswordForm";
+import { EditProfileForm } from "../components/EditProfileForm";
 import { DateTime, Empty, ErrorAlert, Loading, StatusBadge } from "../components/ui";
 
 export function SettingsPage() {
@@ -42,6 +43,9 @@ export function SettingsPage() {
 
       <h2>Password</h2>
       <ChangePasswordForm />
+
+      <h2>Your details</h2>
+      <EditProfileForm user={user} />
 
       <h2>Active sessions</h2>
       <p className="muted">

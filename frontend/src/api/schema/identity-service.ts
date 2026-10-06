@@ -196,7 +196,15 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update My Profile
+         * @description Edits the caller's own name, email address or phone number; only
+         *     the fields sent, and only those that differ, change. A new email or
+         *     phone needs `current_password` (they are how the account is signed
+         *     in to and recovered) and must be unused. The account's previous
+         *     email address is told about such a change.
+         */
+        patch: operations["update_my_profile_api_v1_users_me_patch"];
         trace?: never;
     };
     "/api/v1/users/me/password": {
@@ -505,6 +513,23 @@ export interface components {
              * @default bearer
              */
             token_type: string;
+        };
+        /**
+         * UpdateProfileRequest
+         * @description Only the fields to change. Email and phone are validated and
+         *     normalized exactly as at registration.
+         */
+        UpdateProfileRequest: {
+            /** Current Password */
+            current_password?: string | null;
+            /** Email */
+            email?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Last Name */
+            last_name?: string | null;
+            /** Phone */
+            phone?: string | null;
         };
         /** UserResponse */
         UserResponse: {
@@ -896,6 +921,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurrentUserResponse"];
+                };
+            };
+        };
+    };
+    update_my_profile_api_v1_users_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUserResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

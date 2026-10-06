@@ -1093,3 +1093,83 @@ describe("forgot password", () => {
     expect(screen.queryByRole("link", { name: "Forgot password?" })).not.toBeInTheDocument();
   });
 });
+
+describe("editing the profile", () => {
+  function routes(update: (body: Record<string, unknown>) => Response) {
+    let current = { ...USER };
+    return fakeApi({
+      "POST /api/v1/auth/refresh": () =>
+        json({ access_token: "access-1", refresh_token: null, expires_in: 900 }),
+      "GET /api/v1/users/me": () => json(current),
+      "GET /api/v1/users/me/sessions": () => json([]),
+      "PATCH /api/v1/users/me": (request) => {
+        const body = request.body as Record<string, unknown>;
+        const response = update(body);
+        if (response.ok) {
+          current = { ...current, ...body, phone: "+998907654321" } as typeof USER;
+          delete (current as Record<string, unknown>).current_password;
+          return json(current);
+        }
+        return response;
+      },
+    });
+  }
+
+  it("saves a new name without asking for the password", async () => {
+    const { requests } = routes(() => json({}));
+    renderApp("/settings");
+
+    const firstName = await screen.findByLabelText("First name");
+    expect(firstName).toHaveValue("Ada");
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+
+    await userEvent.clear(firstName);
+    await userEvent.type(firstName, "Augusta");
+    const form = firstName.closest("form") as HTMLElement;
+    expect(within(form).queryByLabelText("Current password")).not.toBeInTheDocument();
+    await userEvent.click(within(form).getByRole("button", { name: "Save changes" }));
+
+    expect(await within(form).findByText("Your details have been saved.")).toBeInTheDocument();
+    const patch = requests.find((r) => r.method === "PATCH");
+    expect(patch?.body).toMatchObject({ first_name: "Augusta", current_password: null });
+    // The rest of the app shows the new name too.
+    expect(await screen.findByText("Augusta Lovelace")).toBeInTheDocument();
+  });
+
+  it("asks for the current password once the email or phone differs", async () => {
+    const { requests } = routes((body) =>
+      body.current_password === "correct-horse"
+        ? json({})
+        : problem(422, "Incorrect Password"),
+    );
+    renderApp("/settings");
+
+    const phone = await screen.findByLabelText("Phone number");
+    const form = phone.closest("form") as HTMLElement;
+    // Typed with spaces, it is still the same number: nothing to save.
+    await userEvent.clear(phone);
+    await userEvent.type(phone, "+998 90 111 22 33");
+    expect(within(form).queryByLabelText("Current password")).not.toBeInTheDocument();
+
+    await userEvent.clear(phone);
+    await userEvent.type(phone, "+998 90 765 43 21");
+    const password = within(form).getByLabelText("Current password");
+    await userEvent.type(password, "wrong");
+    await userEvent.click(within(form).getByRole("button", { name: "Save changes" }));
+    expect(await within(form).findByRole("alert")).toHaveTextContent("Incorrect Password");
+
+    await userEvent.clear(password);
+    await userEvent.type(password, "correct-horse");
+    await userEvent.click(within(form).getByRole("button", { name: "Save changes" }));
+
+    expect(await within(form).findByText("Your details have been saved.")).toBeInTheDocument();
+    // The number comes back the way the server stores it, and the password field is gone.
+    expect(phone).toHaveValue("+998907654321");
+    expect(within(form).queryByLabelText("Current password")).not.toBeInTheDocument();
+    const patches = requests.filter((r) => r.method === "PATCH");
+    expect(patches[1]?.body).toMatchObject({
+      phone: "+998 90 765 43 21",
+      current_password: "correct-horse",
+    });
+  });
+});

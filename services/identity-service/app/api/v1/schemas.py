@@ -142,5 +142,37 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=128)
 
 
+class UpdateProfileRequest(BaseModel):
+    """Only the fields to change. Email and phone are validated and
+    normalized exactly as at registration."""
+
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, min_length=1, max_length=100)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, min_length=5, max_length=32)
+    # Required when the email or the phone actually changes.
+    current_password: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def _trim(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("must not be blank")
+        return trimmed
+
+    @field_validator("email")
+    @classmethod
+    def _normalize_email(cls, value: str | None) -> str | None:
+        return value.strip().lower() if value is not None else None
+
+    @field_validator("phone")
+    @classmethod
+    def _normalize_phone(cls, value: str | None) -> str | None:
+        return normalize_phone(value) if value is not None else None
+
+
 class LogoutRequest(BaseModel):
     refresh_token: str = Field(min_length=1)

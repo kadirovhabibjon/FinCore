@@ -27,6 +27,8 @@ class EventType(enum.StrEnum):
     USER_ROLE_REVOKED = "user.role_revoked"
     # spec Section 18's PASSWORD_CHANGED.
     USER_PASSWORD_CHANGED = "user.password_changed"
+    # The user edited their own name, email or phone.
+    USER_PROFILE_UPDATED = "user.profile_updated"
 
     # fraud-service, on the `fraud` topic.
     FRAUD_DETECTED = "fraud.detected"

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fincore.local/contracts/events/user.profile_updated.v1.json",
+  "title": "user.profile_updated (v1) \u2014 EventEnvelope.data",
+  "description": "The user changed their own name, email address or phone number. Producer: identity-service, topic `users`. Says which fields changed, never their old or new values (spec Section 14.2: no profile data on the wire). Strict (additionalProperties: false) so any change to the payload is a reviewed contract change, never a silent one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actor_user_id",
+    "changed_fields",
+    "status",
+    "user_id"
+  ],
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "actor_user_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Always the user themselves."
+    },
+    "status": {
+      "enum": [
+        "ACTIVE"
+      ]
+    },
+    "changed_fields": {
+      "type": "string",
+      "pattern": "^(first_name|last_name|email|phone)(,(first_name|last_name|email|phone))*$",
+      "description": "Comma-separated names of the fields that changed, in a fixed order."
+    }
+  },
+  "examples": [
+    {
+      "user_id": "5b1e0c2a-9f3d-4c1e-8a7b-2d4f6e8a0c1e",
+      "actor_user_id": "5b1e0c2a-9f3d-4c1e-8a7b-2d4f6e8a0c1e",
+      "status": "ACTIVE",
+      "changed_fields": "email,phone"
+    }
+  ]
+}

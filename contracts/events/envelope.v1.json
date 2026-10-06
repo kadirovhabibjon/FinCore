@@ -31,6 +31,7 @@
         "user.blocked",
         "user.login",
         "user.password_changed",
+        "user.profile_updated",
         "user.reactivated",
         "user.registered",
         "user.role_granted",

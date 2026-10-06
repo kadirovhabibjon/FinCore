@@ -95,3 +95,13 @@ class PasswordResetUnavailableError(DomainError):
 
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     title = "Password Reset Unavailable"
+
+
+class CurrentPasswordRequiredError(DomainError):
+    """Changing the email address or phone number needs the current
+    password, even though the caller is signed in: they are how the
+    account is signed in to and recovered, so whoever changes them can
+    take the account."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Current Password Required"

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import AuthContext, get_auth_context
@@ -8,11 +8,14 @@ from app.api.v1.schemas import (
     ChangePasswordRequest,
     CurrentUserResponse,
     SessionResponse,
+    UpdateProfileRequest,
     UserResponse,
 )
 from app.core.exceptions import SessionNotFoundError
 from app.db.session import get_db
+from app.services import mailer
 from app.services.password import change_password
+from app.services.profile import update_profile
 from app.services.sessions import list_active_sessions, revoke_user_session
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
@@ -22,6 +25,43 @@ router = APIRouter(prefix="/api/v1/users", tags=["users"])
 async def read_current_user(
     context: AuthContext = Depends(get_auth_context),
 ) -> CurrentUserResponse:
+    profile = UserResponse.model_validate(context.user).model_dump()
+    return CurrentUserResponse(**profile, roles=sorted(context.roles))
+
+
+@router.patch("/me", response_model=CurrentUserResponse)
+async def update_my_profile(
+    payload: UpdateProfileRequest,
+    background: BackgroundTasks,
+    context: AuthContext = Depends(get_auth_context),
+    session: AsyncSession = Depends(get_db),
+) -> CurrentUserResponse:
+    """Edits the caller's own name, email address or phone number; only
+    the fields sent, and only those that differ, change. A new email or
+    phone needs `current_password` (they are how the account is signed
+    in to and recovered) and must be unused. The account's previous
+    email address is told about such a change."""
+    change = await update_profile(
+        session,
+        context.user,
+        first_name=payload.first_name,
+        last_name=payload.last_name,
+        email=payload.email,
+        phone=payload.phone,
+        current_password=payload.current_password,
+    )
+    what = " and ".join(
+        label
+        for field, label in (("email", "email address"), ("phone", "phone number"))
+        if field in change.changed
+    )
+    if what and mailer.is_configured():
+        background.add_task(
+            mailer.send_contact_changed,
+            to=change.previous_email,
+            first_name=context.user.first_name,
+            what=what,
+        )
     profile = UserResponse.model_validate(context.user).model_dump()
     return CurrentUserResponse(**profile, roles=sorted(context.roles))
 

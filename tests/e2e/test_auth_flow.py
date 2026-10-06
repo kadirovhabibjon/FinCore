@@ -95,3 +95,39 @@ def test_password_reset_gives_nothing_away_about_accounts(api: FinCoreClient) ->
     )
     assert guess.status_code == 422
     assert guess.json()["title"] == "Invalid Or Expired Code"
+
+
+def test_a_customer_edits_their_own_details(api: FinCoreClient, user: User) -> None:
+    """Name freely; email and phone only with the current password. The
+    new phone number then signs in, and the old email no longer does."""
+    suffix = uuid.uuid4().int % 10**7
+    new_phone = f"+99893{suffix:07d}"
+    new_email = f"edited-{uuid.uuid4().hex[:8]}@example.com"
+
+    renamed = api.gateway.patch(
+        "/api/v1/users/me", json={"first_name": "Edited"}, headers=user.auth
+    )
+    refused = api.gateway.patch(
+        "/api/v1/users/me", json={"email": new_email, "phone": new_phone}, headers=user.auth
+    )
+    saved = api.gateway.patch(
+        "/api/v1/users/me",
+        json={"email": new_email, "phone": new_phone, "current_password": user.password},
+        headers=user.auth,
+    )
+
+    assert renamed.status_code == 200 and renamed.json()["first_name"] == "Edited"
+    assert refused.status_code == 422
+    assert refused.json()["title"] == "Current Password Required"
+    assert saved.status_code == 200
+    assert (saved.json()["email"], saved.json()["phone"]) == (new_email, new_phone)
+
+    by_new_phone = api.gateway.post(
+        "/api/v1/auth/login", json={"phone": new_phone, "password": user.password}
+    )
+    by_old_email = api.gateway.post(
+        "/api/v1/auth/login", json={"email": user.email, "password": user.password}
+    )
+    assert by_new_phone.status_code == 200
+    assert by_old_email.status_code == 401
+    assert api.gateway.patch("/api/v1/users/me", json={"first_name": "X"}).status_code == 401

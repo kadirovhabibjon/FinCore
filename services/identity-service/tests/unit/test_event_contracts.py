@@ -93,3 +93,15 @@ def test_user_password_changed_matches_its_contract() -> None:
     )
     assert_valid_event(_on_the_wire(row))
     assert "password" not in str(row.payload).replace("password_changed", "")
+
+
+def test_profile_updated_names_fields_but_never_their_values() -> None:
+    user = _user()
+    row = user_outbox_event(
+        user, EventType.USER_PROFILE_UPDATED, actor_user_id=user.id, changed_fields="email,phone"
+    )
+
+    wire = _on_the_wire(row)
+
+    assert_valid_event(wire)
+    assert user.email not in str(wire) and user.phone not in str(wire)

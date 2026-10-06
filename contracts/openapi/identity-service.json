@@ -456,6 +456,77 @@
         "title": "TokenResponse",
         "type": "object"
       },
+      "UpdateProfileRequest": {
+        "description": "Only the fields to change. Email and phone are validated and\nnormalized exactly as at registration.",
+        "properties": {
+          "current_password": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Password"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 5,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          }
+        },
+        "title": "UpdateProfileRequest",
+        "type": "object"
+      },
       "UserResponse": {
         "properties": {
           "created_at": {
@@ -1107,6 +1178,51 @@
           }
         ],
         "summary": "Read Current User",
+        "tags": [
+          "users"
+        ]
+      },
+      "patch": {
+        "description": "Edits the caller's own name, email address or phone number; only\nthe fields sent, and only those that differ, change. A new email or\nphone needs `current_password` (they are how the account is signed\nin to and recovered) and must be unused. The account's previous\nemail address is told about such a change.",
+        "operationId": "update_my_profile_api_v1_users_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update My Profile",
         "tags": [
           "users"
         ]
