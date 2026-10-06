@@ -299,3 +299,31 @@ def test_a_receipt_and_a_statement_can_be_downloaded_by_those_it_concerns(
     header, row = statement.content.decode("utf-8-sig").strip().split("\r\n")
     assert header.startswith("date_utc,type,direction,reference,status,amount,currency")
     assert f"TRANSFER,IN,{transfer['reference']},COMPLETED,12.50,UZS" in row
+
+
+def test_statistics_count_what_moved_for_each_side(
+    api: FinCoreClient, user: User, other_user: User
+) -> None:
+    source = api.funded_wallet(user, 50_000)
+    destination = api.create_wallet(other_user)
+    merchant = api.create_merchant(other_user)
+    api.transfer(user, source=source, destination=destination, amount="100.00")
+    api.transfer(user, source=source, destination=destination, amount="99999.00")  # fails
+    payment = api.pay(user, wallet_id=source, merchant_id=merchant, amount="40.00").json()
+    api.refund(other_user, payment_id=payment["id"], amount="15.00")
+
+    def stats(who: User) -> dict:
+        response = api.gateway.get("/api/v1/transactions/stats", headers=who.auth)
+        assert response.status_code == 200
+        return response.json()
+
+    mine, theirs = stats(user), stats(other_user)
+
+    assert len(mine["months"]) == 6
+    [uzs] = mine["currencies"]
+    # Out: the 100.00 transfer and the payment net of its refund (40 - 15).
+    assert (uzs["total_in_minor"], uzs["total_out_minor"]) == (0, 10_000 + 2_500)
+    assert uzs["months"][-1]["out_minor"] == 12_500  # all of it this month
+    [their_uzs] = theirs["currencies"]
+    assert (their_uzs["total_in_minor"], their_uzs["total_out_minor"]) == (10_000, 0)
+    assert api.gateway.get("/api/v1/transactions/stats").status_code == 401

@@ -21,6 +21,7 @@ import { PayPage } from "./pages/PayPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { StatsPage } from "./pages/StatsPage";
 import { TransactionPage } from "./pages/TransactionPage";
 import { TransactionsPage } from "./pages/TransactionsPage";
 import { TransferPage } from "./pages/TransferPage";
@@ -76,6 +77,7 @@ export function AppRoutes() {
           <Route path="merchants" element={<MerchantsPage />} />
           <Route path="merchants/:merchantId" element={<MerchantPage />} />
           <Route path="exchange" element={<ExchangePage />} />
+          <Route path="stats" element={<StatsPage />} />
           <Route path="requests" element={<RequestsPage />} />
           <Route path="news" element={<NewsPage />} />
           <Route path="news/:newsId" element={<NewsItemPage />} />

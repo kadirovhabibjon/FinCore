@@ -27,6 +27,8 @@ export type Transfer = Payment["TransferResponse"];
 export type Recipient = Payment["RecipientResponse"];
 export type RecentRecipient = Payment["RecentRecipientResponse"];
 export type MoneyRequest = Payment["MoneyRequestResponse"];
+export type Stats = Payment["StatsResponse"];
+export type CurrencyStats = Payment["CurrencyStats"];
 export type ExchangeQuote = Payment["QuoteResponse"];
 export type Exchange = Payment["ExchangeResponse"];
 export type PaymentRecord = Payment["PaymentResponse"];
@@ -212,6 +214,10 @@ export const listNews = (limit = 20) =>
   apiRequest<NewsList>("/api/v1/news", { query: { limit } });
 export const getNewsItem = (newsId: string) => apiRequest<NewsItem>(`/api/v1/news/${newsId}`);
 export const markNewsRead = () => apiRequest<void>("/api/v1/news/read", { method: "POST" });
+
+/** Money in and out per calendar month, per currency. */
+export const getStats = (months: number) =>
+  apiRequest<Stats>("/api/v1/transactions/stats", { query: { months } });
 
 /** One operation as a PDF receipt. */
 export const downloadReceipt = (transactionId: string) =>

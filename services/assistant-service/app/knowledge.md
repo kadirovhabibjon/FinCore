@@ -237,6 +237,13 @@ visible only to the sender: the recipient sees it once the money has
 actually arrived. A merchant's received payments are on the merchant's
 page, not in History.
 
+- Statistics: History → "Statistics" shows money in and money out per
+  month for the last 6 or 12 months, one currency at a time, as a chart
+  with totals and a table. Money out is transfers sent and payments made
+  (minus refunds); money in is transfers received. Exchanges between the
+  customer's own wallets and top-ups are not counted there. You cannot
+  compute these totals yourself from the tools; point the customer to
+  that page.
 - Receipts: opening an operation from History shows "Download receipt
   (PDF)", a one-page receipt with the amount, both people, the date and
   the reference. A failed or unfinished operation's receipt says so.

@@ -389,6 +389,37 @@
         "title": "CreateTransferRequest",
         "type": "object"
       },
+      "CurrencyStats": {
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/MonthStats"
+            },
+            "title": "Months",
+            "type": "array"
+          },
+          "total_in_minor": {
+            "title": "Total In Minor",
+            "type": "integer"
+          },
+          "total_out_minor": {
+            "title": "Total Out Minor",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency",
+          "total_in_minor",
+          "total_out_minor",
+          "months"
+        ],
+        "title": "CurrencyStats",
+        "type": "object"
+      },
       "ExchangeResponse": {
         "properties": {
           "completed_at": {
@@ -678,6 +709,29 @@
           "updated_at"
         ],
         "title": "MoneyRequestResponse",
+        "type": "object"
+      },
+      "MonthStats": {
+        "properties": {
+          "in_minor": {
+            "title": "In Minor",
+            "type": "integer"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "out_minor": {
+            "title": "Out Minor",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "month",
+          "in_minor",
+          "out_minor"
+        ],
+        "title": "MonthStats",
         "type": "object"
       },
       "PayMoneyRequest": {
@@ -1031,6 +1085,30 @@
           "decision"
         ],
         "title": "ReviewDecisionRequest",
+        "type": "object"
+      },
+      "StatsResponse": {
+        "properties": {
+          "currencies": {
+            "items": {
+              "$ref": "#/components/schemas/CurrencyStats"
+            },
+            "title": "Currencies",
+            "type": "array"
+          },
+          "months": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Months",
+            "type": "array"
+          }
+        },
+        "required": [
+          "months",
+          "currencies"
+        ],
+        "title": "StatsResponse",
         "type": "object"
       },
       "TransactionDirection": {
@@ -2467,6 +2545,57 @@
           }
         ],
         "summary": "Export Transactions",
+        "tags": [
+          "transactions"
+        ]
+      }
+    },
+    "/api/v1/transactions/stats": {
+      "get": {
+        "description": "Money in and money out per calendar month (UTC), per currency.\nOut: completed transfers the caller sent and captured payments, net\nof refunds. In: transfers that reached the caller. Exchanges are not\ncounted (the caller's own money changing currency), nor are\ntop-ups or a merchant's received payments.",
+        "operationId": "get_statistics_api_v1_transactions_stats_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Months",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Statistics",
         "tags": [
           "transactions"
         ]

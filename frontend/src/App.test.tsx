@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -1683,5 +1683,106 @@ describe("receipts and statements", () => {
     await userEvent.click(button);
     expect(await screen.findByRole("alert")).toHaveTextContent("Transaction Not Found");
     expect(saved).toHaveLength(1);
+  });
+});
+
+describe("statistics", () => {
+  const stats = {
+    months: ["2026-08", "2026-09", "2026-10"],
+    currencies: [
+      {
+        currency: "UZS",
+        total_in_minor: 150_000_00,
+        total_out_minor: 40_000_00,
+        months: [
+          { month: "2026-08", in_minor: 0, out_minor: 0 },
+          { month: "2026-09", in_minor: 50_000_00, out_minor: 10_000_00 },
+          { month: "2026-10", in_minor: 100_000_00, out_minor: 30_000_00 },
+        ],
+      },
+      {
+        currency: "USD",
+        total_in_minor: 7_00,
+        total_out_minor: 0,
+        months: [
+          { month: "2026-08", in_minor: 0, out_minor: 0 },
+          { month: "2026-09", in_minor: 0, out_minor: 0 },
+          { month: "2026-10", in_minor: 7_00, out_minor: 0 },
+        ],
+      },
+    ],
+  };
+
+  it("shows totals, a chart with a legend, and the same numbers as a table", async () => {
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/transactions/stats": () => json(stats),
+    });
+    renderApp("/stats");
+
+    // Headline numbers, exact.
+    await screen.findByRole("figure");
+    const tiles = within(document.querySelector(".viz-tiles") as HTMLElement);
+    expect(tiles.getByText("150,000.00 UZS")).toBeInTheDocument();
+    expect(tiles.getByText("40,000.00 UZS")).toBeInTheDocument();
+    expect(tiles.getByText("+110,000.00 UZS")).toBeInTheDocument();
+    expect(requests.find((r) => r.path.endsWith("/stats"))?.search).toBe("?months=6");
+
+    // Two series are never told apart by colour alone.
+    const chart = screen.getByRole("figure");
+    expect(within(chart).getAllByText(/Money (in|out)/)).toHaveLength(2);
+    // Every month has its place, including the empty one.
+    const months = within(chart).getAllByRole("img");
+    expect(months.map((m) => m.getAttribute("aria-label"))).toEqual([
+      "Aug 2026: in 0.00 UZS, out 0.00 UZS",
+      "Sep 2026: in 50,000.00 UZS, out 10,000.00 UZS",
+      "Oct 2026: in 100,000.00 UZS, out 30,000.00 UZS",
+    ]);
+
+    // The table says what the chart shows.
+    const row = screen.getByRole("cell", { name: "Oct 2026" }).closest("tr") as HTMLElement;
+    expect(within(row).getByText("100,000.00 UZS")).toBeInTheDocument();
+    expect(within(row).getByText("70,000.00 UZS")).toBeInTheDocument();
+  });
+
+  it("reads out a month on keyboard focus, values first", async () => {
+    fakeApi({ ...signedInRoutes(), "GET /api/v1/transactions/stats": () => json(stats) });
+    renderApp("/stats");
+
+    const [, september] = within(await screen.findByRole("figure")).getAllByRole("img");
+    fireEvent.focus(september as Element);
+
+    const readout = await screen.findByRole("status");
+    expect(readout).toHaveTextContent("Sep 2026");
+    expect(readout).toHaveTextContent("50,000.00 UZS");
+    expect(readout).toHaveTextContent("10,000.00 UZS");
+  });
+
+  it("switches currency and period without mixing scales", async () => {
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/transactions/stats": () => json(stats),
+    });
+    renderApp("/stats");
+
+    await userEvent.selectOptions(await screen.findByLabelText("Currency"), "USD");
+    expect(await screen.findByText("+7.00 USD")).toBeInTheDocument();
+    expect(screen.queryByText("+110,000.00 UZS")).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText("Period"), "12");
+    await waitFor(() =>
+      expect(requests.some((r) => r.path.endsWith("/stats") && r.search === "?months=12")).toBe(true),
+    );
+  });
+
+  it("says so when nothing moved", async () => {
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/transactions/stats": () => json({ months: stats.months, currencies: [] }),
+    });
+    renderApp("/stats");
+
+    expect(await screen.findByText(/Nothing moved in this period/)).toBeInTheDocument();
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
   });
 });

@@ -2069,3 +2069,178 @@ textarea:focus {
   justify-content: flex-start;
   margin-bottom: 1rem;
 }
+
+/* --- statistics chart --------------------------------------------------- */
+
+/* Series colours: slots 1 and 2 of the validated categorical palette
+   (identity, not good/bad), stepped separately for the dark surface. */
+.viz-root {
+  --series-in: #2a78d6;
+  --series-out: #eb6834;
+  --viz-grid: rgb(30 50 100 / 12%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .viz-root {
+    --series-in: #3987e5;
+    --series-out: #d95926;
+    --viz-grid: rgb(255 255 255 / 10%);
+  }
+}
+
+.viz-stale {
+  opacity: 0.55;
+}
+
+.viz-tiles {
+  margin-bottom: 1rem;
+}
+
+.viz-chart {
+  margin: 0;
+}
+
+.viz-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.viz-legend {
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.viz-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.viz-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 3px;
+}
+
+.viz-key {
+  width: 0.9rem;
+  height: 3px;
+  border-radius: 2px;
+}
+
+span.viz-in {
+  background: var(--series-in);
+}
+
+span.viz-out {
+  background: var(--series-out);
+}
+
+path.viz-in {
+  fill: var(--series-in);
+}
+
+path.viz-out {
+  fill: var(--series-out);
+}
+
+.viz-plot {
+  position: relative;
+  width: 100%;
+}
+
+.viz-plot svg {
+  display: block;
+  overflow: visible;
+}
+
+.viz-grid,
+.viz-axis {
+  stroke: var(--viz-grid);
+  stroke-width: 1;
+}
+
+/* Text wears text tokens, never a series colour. */
+.viz-tick {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-hit {
+  fill: transparent;
+}
+
+.viz-group {
+  outline: none;
+}
+
+.viz-group.viz-active .viz-hit,
+.viz-group:focus-visible .viz-hit {
+  fill: var(--surface-muted);
+}
+
+.viz-group:focus-visible .viz-hit {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.viz-tooltip {
+  position: absolute;
+  top: 0.25rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.65rem;
+  margin-left: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background-color: var(--bg);
+  background-image: linear-gradient(
+    var(--surface-strong, var(--surface)),
+    var(--surface-strong, var(--surface))
+  );
+  box-shadow: 0 8px 24px rgb(16 24 40 / 22%);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Past the middle of the chart the readout sits to the left of its
+   month, so it never runs off the right edge. */
+.viz-tooltip-left {
+  margin-left: -0.75rem;
+  transform: translateX(-100%);
+}
+
+.viz-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.viz-table {
+  margin-top: 0.75rem;
+}
+
+.viz-table summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+/* One row of filters above everything they scope. */
+.viz-filters {
+  margin-bottom: 1rem;
+}

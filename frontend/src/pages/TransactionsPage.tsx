@@ -39,7 +39,12 @@ export function TransactionsPage() {
             Money you sent, paid and received, newest first.
           </p>
         </div>
-        <DownloadButton label="Download CSV" fetchFile={api.downloadStatement} />
+        <div className="actions">
+          <Link to="/stats" className="button button-ghost">
+            Statistics
+          </Link>
+          <DownloadButton label="Download CSV" fetchFile={api.downloadStatement} />
+        </div>
       </header>
       <ErrorAlert error={transactions.error} />
       {transactions.isPending ? (

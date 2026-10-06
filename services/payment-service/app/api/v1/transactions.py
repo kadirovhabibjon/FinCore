@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import AuthenticatedUser, get_authenticated_user
@@ -12,7 +13,7 @@ from app.domain.transfer import TransferStatus
 from app.repositories.exchange_repository import ExchangeRepository
 from app.repositories.payment_repository import PaymentRepository
 from app.repositories.transfer_repository import TransferRepository
-from app.services import receipts
+from app.services import receipts, statistics
 
 router = APIRouter(prefix="/api/v1/transactions", tags=["transactions"])
 
@@ -56,6 +57,57 @@ async def list_transactions(
     ]
     combined.sort(key=lambda item: item.created_at, reverse=True)
     return combined[offset : offset + limit]
+
+
+class MonthStats(BaseModel):
+    # Calendar month in UTC, "YYYY-MM".
+    month: str
+    in_minor: int
+    out_minor: int
+
+
+class CurrencyStats(BaseModel):
+    currency: str
+    total_in_minor: int
+    total_out_minor: int
+    # One entry per month of the period, oldest first, zeros included.
+    months: list[MonthStats]
+
+
+class StatsResponse(BaseModel):
+    # The months covered, oldest first.
+    months: list[str]
+    # Only currencies with any movement in the period.
+    currencies: list[CurrencyStats]
+
+
+@router.get("/stats", response_model=StatsResponse)
+async def get_statistics(
+    months: int = Query(default=6, ge=1, le=24),
+    user: AuthenticatedUser = Depends(get_authenticated_user),
+    session: AsyncSession = Depends(get_db),
+) -> StatsResponse:
+    """Money in and money out per calendar month (UTC), per currency.
+    Out: completed transfers the caller sent and captured payments, net
+    of refunds. In: transfers that reached the caller. Exchanges are not
+    counted (the caller's own money changing currency), nor are
+    top-ups or a merchant's received payments."""
+    totals = await statistics.monthly_totals(session, user.user_id, months=months)
+    return StatsResponse(
+        months=statistics.month_keys(datetime.now(UTC), months),
+        currencies=[
+            CurrencyStats(
+                currency=currency,
+                total_in_minor=sum(entry.in_minor for entry in entries),
+                total_out_minor=sum(entry.out_minor for entry in entries),
+                months=[
+                    MonthStats(month=e.month, in_minor=e.in_minor, out_minor=e.out_minor)
+                    for e in entries
+                ],
+            )
+            for currency, entries in totals.items()
+        ],
+    )
 
 
 # How much history one statement holds. Enough for years of a person's

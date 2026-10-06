@@ -399,6 +399,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transactions/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Statistics
+         * @description Money in and money out per calendar month (UTC), per currency.
+         *     Out: completed transfers the caller sent and captured payments, net
+         *     of refunds. In: transfers that reached the caller. Exchanges are not
+         *     counted (the caller's own money changing currency), nor are
+         *     top-ups or a merchant's received payments.
+         */
+        get: operations["get_statistics_api_v1_transactions_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transactions/{transaction_id}": {
         parameters: {
             query?: never;
@@ -737,6 +761,17 @@ export interface components {
              */
             source_wallet_id: string;
         };
+        /** CurrencyStats */
+        CurrencyStats: {
+            /** Currency */
+            currency: string;
+            /** Months */
+            months: components["schemas"]["MonthStats"][];
+            /** Total In Minor */
+            total_in_minor: number;
+            /** Total Out Minor */
+            total_out_minor: number;
+        };
         /** ExchangeResponse */
         ExchangeResponse: {
             /** Completed At */
@@ -874,6 +909,15 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** MonthStats */
+        MonthStats: {
+            /** In Minor */
+            in_minor: number;
+            /** Month */
+            month: string;
+            /** Out Minor */
+            out_minor: number;
         };
         /** PayMoneyRequest */
         PayMoneyRequest: {
@@ -1050,6 +1094,13 @@ export interface components {
         /** ReviewDecisionRequest */
         ReviewDecisionRequest: {
             decision: components["schemas"]["ReviewDecision"];
+        };
+        /** StatsResponse */
+        StatsResponse: {
+            /** Currencies */
+            currencies: components["schemas"]["CurrencyStats"][];
+            /** Months */
+            months: string[];
         };
         /**
          * TransactionDirection
@@ -1815,6 +1866,37 @@ export interface operations {
                 };
                 content: {
                     "text/csv": unknown;
+                };
+            };
+        };
+    };
+    get_statistics_api_v1_transactions_stats_get: {
+        parameters: {
+            query?: {
+                months?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

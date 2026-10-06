@@ -368,6 +368,11 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
 * `GET /api/v1/admin/transactions` (SUPPORT, ADMIN) — every user's
   transfers and payments, filterable by type, status and user.
   Roles come from the access token's `roles` claim.
+* **Statistics**: `GET /api/v1/transactions/stats?months=6` — money in
+  and out per calendar month (UTC), per currency, zeros included so a
+  chart has every month. Out is completed transfers sent plus captured
+  payments net of refunds; in is transfers received. Exchanges (the
+  customer's own money changing currency) and top-ups are not counted.
 * **Receipts and statements**: `GET /api/v1/transactions/{id}/receipt.pdf`
   is a one-page PDF for any operation the caller can see in their
   history (so a recipient's receipt shows nothing of the sender's side),
@@ -854,7 +859,9 @@ refresh cookie.
   account page; wallets with available /
   held / ledger balance, card number and each wallet's ledger entries;
   send a transfer by typing the recipient's card number and checking
-  the name that comes back; pay a merchant; download a PDF receipt for any operation and the
+  the name that comes back; pay a merchant; a statistics page with money in and out per month
+  (a two-series column chart with a legend, keyboard-reachable
+  readouts and a table of the same numbers); download a PDF receipt for any operation and the
   whole history as CSV; exchange between their own UZS and USD wallets at a
   quoted amount; ask someone for money and pay or decline those who
   ask (Requests page); a QR code on each wallet for receiving money (a link
@@ -1260,7 +1267,7 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
 cd services/identity-service && .venv/bin/pytest -v     # 171 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 66 tests
-cd services/payment-service && .venv/bin/pytest -v      # 191 tests
+cd services/payment-service && .venv/bin/pytest -v      # 194 tests
 cd services/notification-service && .venv/bin/pytest -v # 75 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
@@ -1325,7 +1332,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 116 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 124 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1374,7 +1381,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-64 tests that run against a live `docker compose` stack, through the
+65 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit
