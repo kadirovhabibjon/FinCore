@@ -100,6 +100,13 @@ class Payment(Base):
         BigInteger, nullable=False, default=0, server_default="0"
     )
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # The merchant as it was when the payment was made, so whoever tells
+    # the payer and the merchant about it needs no lookup. NULL on
+    # payments made before these columns existed.
+    merchant_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    merchant_owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
     idempotency_key_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("idempotency_keys.id"),

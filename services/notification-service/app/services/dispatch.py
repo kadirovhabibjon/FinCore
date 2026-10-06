@@ -8,7 +8,7 @@ from fincore_common.kafka import EventProducer
 from app.core.metrics import DLT_MESSAGES_TOTAL
 from app.db import session as db_session
 from app.domain.dead_letter import DeadLetter
-from app.services.consumer import handle_transfer_event
+from app.services.consumer import handle_event
 from app.services.providers import NotificationProvider
 from app.services.retry import RetryPolicy, is_permanent, unwrap_retry, wrap_for_retry
 
@@ -25,7 +25,7 @@ async def process_with_retry_routing(
     dlt_topic: str,
     policy: RetryPolicy,
 ) -> None:
-    """Attempts `handle_transfer_event` once. On failure, routes the
+    """Attempts `handle_event` once. On failure, routes the
     event onward instead of letting the exception propagate and block
     whichever Kafka partition called this (spec Section 16 — "retry
     topics vs blocking retries: why blocking a partition is dangerous"):
@@ -40,7 +40,7 @@ async def process_with_retry_routing(
     blocking.
     """
     try:
-        await handle_transfer_event(envelope, providers)
+        await handle_event(envelope, providers)
         return
     except Exception as exc:
         logger.warning("event %s failed on attempt %d: %s", envelope.event_id, attempt, exc)

@@ -32,6 +32,7 @@ export type AdminTransaction = Payment["AdminTransactionResponse"];
 export type Merchant = Payment["MerchantResponse"];
 export type Notification = Notifications["NotificationResponse"];
 export type NotificationList = Notifications["NotificationListResponse"];
+export type Announcement = Notifications["AnnouncementResponse"];
 export type NewsItem = Notifications["NewsResponse"];
 export type NewsList = Notifications["NewsListResponse"];
 export type ReviewDecision = Payment["ReviewDecision"];
@@ -255,3 +256,11 @@ export const askAssistant = (messages: ChatMessage[]) =>
     method: "POST",
     body: { messages },
   });
+
+/** Messages from staff to every customer; they appear in each bell. */
+export const adminListAnnouncements = () =>
+  apiRequest<Announcement[]>("/api/v1/admin/announcements");
+export const adminPublishAnnouncement = (body: Notifications["CreateAnnouncementRequest"]) =>
+  apiRequest<Announcement>("/api/v1/admin/announcements", { method: "POST", body });
+export const adminWithdrawAnnouncement = (announcementId: string) =>
+  apiRequest<void>(`/api/v1/admin/announcements/${announcementId}`, { method: "DELETE" });

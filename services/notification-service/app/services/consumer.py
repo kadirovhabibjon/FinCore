@@ -1,8 +1,10 @@
 import logging
+from datetime import UTC, datetime
 
 from fincore_common import EventEnvelope
 from sqlalchemy.exc import IntegrityError
 
+from app.core.config import settings
 from app.db import session as db_session
 from app.domain.notification import Notification
 from app.repositories.notification_repository import NotificationRepository
@@ -12,7 +14,7 @@ from app.services.providers import NotificationProvider
 logger = logging.getLogger(__name__)
 
 
-async def handle_transfer_event(
+async def handle_event(
     envelope: EventEnvelope, providers: list[NotificationProvider]
 ) -> None:
     """The Kafka consumer's message handler (app/main.py). Idempotent on
@@ -22,6 +24,11 @@ async def handle_transfer_event(
     its own transaction, so a failure after the sender was told doesn't
     tell them again on the retry, and still tells the recipient.
     """
+    age = (datetime.now(UTC) - envelope.occurred_at).total_seconds()
+    if age > settings.max_event_age_seconds:
+        logger.info("event %s is %.0f s old; not notifying", envelope.event_id, age)
+        return
+
     for message in compose_messages(envelope):
         async with db_session.async_session_factory() as session:
             repository = NotificationRepository(session)
@@ -47,6 +54,7 @@ async def handle_transfer_event(
                     notification_type=message.notification_type,
                     subject=message.subject,
                     body=message.body,
+                    params=message.params or None,
                 )
             )
             try:

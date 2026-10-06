@@ -184,8 +184,15 @@ page, not in History.
   read.
 - A notification is created when: someone sends the customer money
   ("Money received", with the sender's name and the amount); a transfer
-  the customer sent completes ("Transfer completed"); a transfer the
-  customer sent fails ("Transfer failed", with the reason).
+  the customer sent completes ("Transfer completed") or fails ("Transfer
+  failed", with the reason); a payment to a merchant completes ("Payment
+  completed"), fails or expires ("Payment failed", no money taken); a
+  merchant refunds a payment, fully or partly ("Refund received"); and,
+  for a merchant's owner, when a customer pays that merchant ("Payment
+  received").
+- Announcements: FinCore staff can publish a message to every customer
+  at once. It appears in the bell's Activity list like any notification
+  and stays until staff withdraw it.
 - The bell has two tabs. "Activity" is the customer's own notifications
   described above. "News" lists banking, finance and economy headlines
   collected automatically from public news feeds (the Central Bank of
@@ -195,8 +202,7 @@ page, not in History.
   publisher's site; "All news" lists everything kept. FinCore does not
   write, check or endorse these articles, and you cannot read or quote
   them yourself - point the customer to the News tab.
-- Payments to merchants, refunds and sign-ins do not create
-  notifications yet. There are no SMS, email or phone push
+- Sign-ins do not create notifications in the bell. There are no SMS, email or phone push
   notifications: only the bell inside the web app, which checks for new
   ones every 15 seconds while a page is open.
 

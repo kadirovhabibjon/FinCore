@@ -6,6 +6,7 @@ import { AuthProvider } from "./auth/AuthProvider";
 import { RedirectIfAuthenticated, RequireAuth, RequireRole } from "./auth/guards";
 import { AdminLayout } from "./components/AdminLayout";
 import { Layout } from "./components/Layout";
+import { AdminAnnouncementsPage } from "./pages/admin/AdminAnnouncementsPage";
 import { AdminReviewsPage } from "./pages/admin/AdminReviewsPage";
 import { AdminTransactionsPage } from "./pages/admin/AdminTransactionsPage";
 import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
@@ -50,6 +51,7 @@ export function AppRoutes() {
             <Route path="reviews" element={<AdminReviewsPage />} />
             <Route path="transactions" element={<AdminTransactionsPage />} />
             <Route path="webhooks" element={<AdminWebhooksPage />} />
+            <Route path="announcements" element={<AdminAnnouncementsPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Route>

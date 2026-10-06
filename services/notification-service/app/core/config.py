@@ -9,6 +9,11 @@ class Settings(BaseServiceSettings):
 
     kafka_bootstrap_servers: str = "localhost:9094"
     transfers_topic: str = "transfers"
+    payments_topic: str = "payments"
+    # An event older than this is recorded nowhere and tells nobody: a
+    # notification about last week's payment, arriving because a topic
+    # was only just subscribed to or a long outage ended, is noise.
+    max_event_age_seconds: float = 24 * 60 * 60
     # A distinct group id per logical consumer — Kafka tracks committed
     # offsets per (group_id, topic, partition), so this is what lets a
     # restarted notification-service resume where it left off instead of

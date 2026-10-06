@@ -16,9 +16,6 @@ from app.domain.news import NewsItem, NewsRead
 from app.main import app
 from app.services import news
 
-# `issue` (a token issuer) comes from test_notifications_api.py.
-from tests.integration.test_notifications_api import issue  # noqa: F401
-
 pytestmark = pytest.mark.usefixtures("migrated_database")
 
 
@@ -86,7 +83,7 @@ async def test_a_refresh_keeps_relevant_articles_once_and_survives_broken_feeds(
 
 
 async def test_news_is_unread_until_the_customer_opens_it(
-    issue: Callable[[uuid.UUID], str],  # noqa: F811
+    issue: Callable[[uuid.UUID], str],
 ) -> None:
     await news.refresh()
     me, someone_else = issue(uuid.uuid4()), issue(uuid.uuid4())
@@ -119,7 +116,7 @@ async def test_news_is_unread_until_the_customer_opens_it(
 
 
 async def test_a_first_time_visitor_is_not_shown_an_old_backlog_as_unread(
-    issue: Callable[[uuid.UUID], str],  # noqa: F811
+    issue: Callable[[uuid.UUID], str],
 ) -> None:
     await news.refresh()
     async with db_session.async_session_factory() as session:
@@ -146,7 +143,7 @@ async def test_only_the_newest_articles_are_kept(monkeypatch: pytest.MonkeyPatch
 
 
 async def test_needs_a_signed_in_customer_and_a_real_article(
-    issue: Callable[[uuid.UUID], str],  # noqa: F811
+    issue: Callable[[uuid.UUID], str],
 ) -> None:
     async with _client() as client:
         assert (await client.get("/api/v1/news")).status_code == 401

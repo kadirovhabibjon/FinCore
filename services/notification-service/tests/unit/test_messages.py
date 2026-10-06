@@ -110,3 +110,98 @@ def test_only_the_sender_hears_about_a_failed_transfer_or_an_unknown_recipient()
         "Your transfer TRF-ABC123 of 150.00 UZS to Bobur T. failed: Insufficient Funds."
     )
     assert len(compose_messages(old)) == 1
+
+
+def _payment(event_type: EventType, **overrides: object) -> EventEnvelope:
+    data = {
+        "payment_id": str(uuid.uuid4()),
+        "reference": "PAY-ABC123",
+        "initiator_user_id": str(_USER_ID),
+        "merchant_id": str(uuid.uuid4()),
+        "merchant_name": "Choyxona",
+        "merchant_owner_user_id": str(uuid.uuid4()),
+        "amount_minor": 45_000_00,
+        "currency": "UZS",
+        "status": "SUCCESS",
+        "failure_reason": None,
+        "completed_at": "2026-01-01T00:00:00Z",
+    }
+    data.update(overrides)
+    return EventEnvelope(event_type=event_type, producer="payment-service", data=data)
+
+
+def test_a_completed_payment_tells_the_payer_and_the_merchants_owner() -> None:
+    envelope = _payment(EventType.PAYMENT_COMPLETED)
+
+    to_payer, to_merchant = compose_messages(envelope)
+
+    assert to_payer.recipient_user_id == _USER_ID
+    assert to_payer.notification_type == "payment.completed"
+    assert to_payer.body == "You paid 45,000.00 UZS to Choyxona — reference PAY-ABC123"
+    assert to_payer.params == {
+        "amount": "45,000.00 UZS",
+        "reference": "PAY-ABC123",
+        "counterparty": "Choyxona",
+    }
+    assert str(to_merchant.recipient_user_id) == envelope.data["merchant_owner_user_id"]
+    assert to_merchant.notification_type == "payment.received"
+    assert to_merchant.subject == "Payment received"
+    assert "Choyxona received a payment of 45,000.00 UZS" in to_merchant.body
+
+
+def test_paying_your_own_merchant_is_one_notification_not_two() -> None:
+    envelope = _payment(EventType.PAYMENT_COMPLETED, merchant_owner_user_id=str(_USER_ID))
+
+    assert [m.notification_type for m in compose_messages(envelope)] == ["payment.completed"]
+
+
+def test_a_payment_event_without_the_merchant_still_reads_properly() -> None:
+    """Events published before the merchant was put on them."""
+    envelope = _payment(EventType.PAYMENT_COMPLETED)
+    del envelope.data["merchant_name"]
+    del envelope.data["merchant_owner_user_id"]
+
+    [to_payer] = compose_messages(envelope)
+
+    assert to_payer.body == "You paid 45,000.00 UZS — reference PAY-ABC123"
+    assert "counterparty" not in to_payer.params
+
+
+def test_a_failed_or_expired_payment_says_why_and_that_nothing_was_taken() -> None:
+    failed = _payment(
+        EventType.PAYMENT_FAILED, status="FAILED", failure_reason="Insufficient Funds"
+    )
+    expired = _payment(EventType.PAYMENT_FAILED, status="EXPIRED")
+
+    [why_failed] = compose_messages(failed)
+    [why_expired] = compose_messages(expired)
+
+    assert why_failed.subject == "Payment failed"
+    assert why_failed.body == (
+        "Your payment PAY-ABC123 of 45,000.00 UZS to Choyxona failed: Insufficient Funds."
+        " No money was taken."
+    )
+    assert why_failed.params["reason"] == "Insufficient Funds"
+    assert "it was not approved in time" in why_expired.body
+
+
+def test_a_refund_tells_the_payer_whether_it_was_full_or_partial() -> None:
+    full = _payment(EventType.PAYMENT_REFUNDED, status="REFUNDED")
+    partial = _payment(EventType.PAYMENT_REFUNDED, status="PARTIALLY_REFUNDED")
+
+    [whole] = compose_messages(full)
+    [part] = compose_messages(partial)
+
+    assert whole.notification_type == "payment.refunded"
+    assert whole.subject == "Refund received"
+    assert "was refunded by Choyxona" in whole.body and whole.params["partial"] is False
+    assert "was partly refunded by Choyxona" in part.body and part.params["partial"] is True
+
+
+def test_an_event_from_another_topic_is_refused() -> None:
+    envelope = EventEnvelope(
+        event_type=EventType.USER_REGISTERED, producer="identity-service", data={}
+    )
+
+    with pytest.raises(UnhandledEventTypeError):
+        compose_messages(envelope)

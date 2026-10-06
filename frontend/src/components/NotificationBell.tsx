@@ -11,6 +11,11 @@ const KIND: Record<string, { mark: string; className: string }> = {
   "transfer.received": { mark: "↓", className: "notification-in" },
   "transfer.completed": { mark: "↑", className: "notification-out" },
   "transfer.failed": { mark: "!", className: "notification-failed" },
+  "payment.received": { mark: "↓", className: "notification-in" },
+  "payment.completed": { mark: "↑", className: "notification-out" },
+  "payment.failed": { mark: "!", className: "notification-failed" },
+  "payment.refunded": { mark: "↩", className: "notification-in" },
+  announcement: { mark: "i", className: "notification-announcement" },
 };
 
 type Tab = "activity" | "news";

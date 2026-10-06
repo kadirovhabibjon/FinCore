@@ -1,65 +1,17 @@
 """The bell in the web app: a customer's own notifications, how many are
 unread, and marking them read."""
 
-import base64
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
 
-import httpx
-import jwt
 import pytest
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from fastapi import FastAPI
-from fincore_common import EventEnvelope, EventType, JWTVerifier
+from fincore_common import EventEnvelope, EventType
 from httpx import ASGITransport, AsyncClient
 
-from app.core import auth as auth_module
-from app.core.config import settings
 from app.main import app
-from app.services.consumer import handle_transfer_event
+from app.services.consumer import handle_event
 
 pytestmark = pytest.mark.usefixtures("migrated_database")
-
-
-@pytest.fixture
-def issue(monkeypatch: pytest.MonkeyPatch) -> Callable[[uuid.UUID], str]:
-    private_key = Ed25519PrivateKey.generate()
-    pem = private_key.private_bytes(
-        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
-    )
-    public = private_key.public_key().public_bytes(
-        serialization.Encoding.Raw, serialization.PublicFormat.Raw
-    )
-    x = base64.urlsafe_b64encode(public).rstrip(b"=").decode("ascii")
-    jwks_app = FastAPI()
-
-    @jwks_app.get("/.well-known/jwks.json")
-    async def _jwks() -> dict:
-        return {"keys": [{"kty": "OKP", "crv": "Ed25519", "x": x, "kid": "k", "alg": "EdDSA"}]}
-
-    monkeypatch.setattr(
-        auth_module,
-        "jwt_verifier",
-        JWTVerifier(
-            jwks_url="http://identity/.well-known/jwks.json",
-            issuer=settings.jwt_issuer,
-            transport=httpx.ASGITransport(app=jwks_app),
-        ),
-    )
-
-    def _issue(user_id: uuid.UUID) -> str:
-        now = datetime.now(UTC)
-        claims = {
-            "sub": str(user_id),
-            "iss": settings.jwt_issuer,
-            "iat": now,
-            "exp": now + timedelta(minutes=15),
-        }
-        return jwt.encode(claims, pem, algorithm="EdDSA", headers={"kid": "k"})
-
-    return _issue
 
 
 async def _transfer(sender: uuid.UUID, recipient: uuid.UUID, amount_minor: int) -> None:
@@ -80,7 +32,7 @@ async def _transfer(sender: uuid.UUID, recipient: uuid.UUID, amount_minor: int) 
             "completed_at": "2026-01-01T00:00:00Z",
         },
     )
-    await handle_transfer_event(envelope, providers=[])
+    await handle_event(envelope, providers=[])
 
 
 def _client() -> AsyncClient:

@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import DateTime, String, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -34,6 +35,10 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    # The facts the text was built from (amount, names, reference...), so
+    # a client can show the notification in the reader's own language
+    # instead of the English `subject`/`body`. NULL on older rows.
+    params: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     # When the customer opened the bell with this in it; NULL = unread.
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

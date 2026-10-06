@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.db import session as db_session
 from app.domain.notification import Notification
-from app.services.consumer import handle_transfer_event
+from app.services.consumer import handle_event
 
 pytestmark = pytest.mark.usefixtures("migrated_database")
 
@@ -50,7 +50,7 @@ async def test_handling_an_event_dispatches_to_every_provider_and_records_it() -
     providers = [_RecordingProvider("EMAIL"), _RecordingProvider("SMS")]
     envelope = _envelope(user_id)
 
-    await handle_transfer_event(envelope, providers)
+    await handle_event(envelope, providers)
 
     for provider in providers:
         assert len(provider.calls) == 1
@@ -73,8 +73,8 @@ async def test_handling_the_same_event_id_twice_only_notifies_once() -> None:
     providers = [_RecordingProvider("EMAIL")]
     envelope = _envelope(user_id)
 
-    await handle_transfer_event(envelope, providers)
-    await handle_transfer_event(envelope, providers)
+    await handle_event(envelope, providers)
+    await handle_event(envelope, providers)
 
     assert len(providers[0].calls) == 1
     rows = await _notifications_for_event(envelope.event_id)
@@ -86,8 +86,8 @@ async def test_a_completed_transfer_notifies_both_people_once_each() -> None:
     provider = _RecordingProvider("PUSH")
     envelope = _envelope(sender, recipient_user_id=str(recipient), sender_name="Aziza K.")
 
-    await handle_transfer_event(envelope, [provider])
-    await handle_transfer_event(envelope, [provider])  # redelivered
+    await handle_event(envelope, [provider])
+    await handle_event(envelope, [provider])  # redelivered
 
     notifications = await _notifications_for_event(envelope.event_id)
     assert {n.recipient_user_id: n.notification_type for n in notifications} == {
@@ -114,9 +114,41 @@ async def test_a_retry_after_a_partial_failure_only_tells_whoever_was_missed() -
 
     provider = _FailsFor("PUSH")
     with pytest.raises(RuntimeError):
-        await handle_transfer_event(envelope, [provider])
+        await handle_event(envelope, [provider])
     provider.fail_for = None
-    await handle_transfer_event(envelope, [provider])
+    await handle_event(envelope, [provider])
 
     assert [call[0] for call in provider.calls] == [sender, recipient]
     assert len(await _notifications_for_event(envelope.event_id)) == 2
+
+
+async def test_the_facts_behind_the_text_are_stored_with_it() -> None:
+    sender, recipient = uuid.uuid4(), uuid.uuid4()
+    envelope = _envelope(
+        sender, recipient_user_id=str(recipient), sender_name="Aziza K.", recipient_name="Bobur T."
+    )
+
+    await handle_event(envelope, [])
+
+    by_person = {n.recipient_user_id: n for n in await _notifications_for_event(envelope.event_id)}
+    assert by_person[sender].params == {
+        "amount": "500.00 UZS",
+        "reference": "TRF-XYZ789",
+        "counterparty": "Bobur T.",
+    }
+    assert by_person[recipient].params["counterparty"] == "Aziza K."
+
+
+async def test_an_old_event_tells_nobody() -> None:
+    """Subscribing to a topic for the first time replays its history:
+    last month's payments must not light up everyone's bell."""
+    from datetime import UTC, datetime, timedelta
+
+    envelope = _envelope(uuid.uuid4())
+    envelope.occurred_at = datetime.now(UTC) - timedelta(days=2)
+    provider = _RecordingProvider("PUSH")
+
+    await handle_event(envelope, [provider])
+
+    assert provider.calls == []
+    assert await _notifications_for_event(envelope.event_id) == []

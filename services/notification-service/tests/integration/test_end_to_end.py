@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.db import session as db_session
 from app.domain.notification import Notification
-from app.services.consumer import handle_transfer_event
+from app.services.consumer import handle_event
 from app.services.providers import default_providers
 
 pytestmark = pytest.mark.usefixtures("migrated_database")
@@ -54,7 +54,7 @@ async def test_a_produced_transfer_completed_event_results_in_one_recorded_notif
     await consumer.start()
     try:
         await consumer.run(
-            lambda event: handle_transfer_event(event, providers), max_messages=1
+            lambda event: handle_event(event, providers), max_messages=1
         )
     finally:
         await consumer.stop()

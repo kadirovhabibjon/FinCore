@@ -9,7 +9,7 @@ from uuid import UUID
 import pytest
 from fincore_common import EventEnvelope, EventType
 
-from app.services.messages import compose_transfer_message
+from app.services.messages import compose_messages, compose_transfer_message
 from tests.contracts import assert_valid_event, event_example
 
 
@@ -25,3 +25,32 @@ def test_every_subscribed_event_can_be_turned_into_a_notification(event_type: Ev
     assert recipient == UUID(envelope.data["initiator_user_id"])
     assert subject
     assert envelope.data["reference"] in body
+
+
+@pytest.mark.parametrize(
+    "event_type",
+    [
+        EventType.TRANSFER_COMPLETED,
+        EventType.TRANSFER_FAILED,
+        EventType.PAYMENT_COMPLETED,
+        EventType.PAYMENT_FAILED,
+        EventType.PAYMENT_REFUNDED,
+    ],
+)
+def test_every_contract_example_tells_its_initiator_something_complete(
+    event_type: EventType,
+) -> None:
+    """Both topics this service subscribes to, each event type on them."""
+    envelope = EventEnvelope(
+        event_type=event_type, producer="payment-service", data=event_example(event_type.value)
+    )
+    assert_valid_event(envelope.model_dump(mode="json"))
+
+    messages = compose_messages(envelope)
+
+    first = messages[0]
+    assert first.recipient_user_id == UUID(envelope.data["initiator_user_id"])
+    assert first.subject and envelope.data["reference"] in first.body
+    assert first.params["reference"] == envelope.data["reference"]
+    assert first.params["amount"].endswith(envelope.data["currency"])
+    assert len({message.recipient_user_id for message in messages}) == len(messages)

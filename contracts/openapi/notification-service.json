@@ -1,6 +1,64 @@
 {
   "components": {
     "schemas": {
+      "AnnouncementResponse": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by_user_id": {
+            "format": "uuid",
+            "title": "Created By User Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "body",
+          "created_by_user_id",
+          "created_at"
+        ],
+        "title": "AnnouncementResponse",
+        "type": "object"
+      },
+      "CreateAnnouncementRequest": {
+        "properties": {
+          "body": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "body"
+        ],
+        "title": "CreateAnnouncementRequest",
+        "type": "object"
+      },
       "DeadLetterResponse": {
         "properties": {
           "attempts": {
@@ -172,6 +230,18 @@
             "title": "Id",
             "type": "string"
           },
+          "params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Params"
+          },
           "read": {
             "title": "Read",
             "type": "boolean"
@@ -190,6 +260,7 @@
           "type",
           "title",
           "body",
+          "params",
           "created_at",
           "read"
         ],
@@ -250,6 +321,148 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/announcements": {
+      "get": {
+        "description": "Published announcements, newest first. SUPPORT and ADMIN.",
+        "operationId": "list_announcements_api_v1_admin_announcements_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AnnouncementResponse"
+                  },
+                  "title": "Response List Announcements Api V1 Admin Announcements Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Announcements",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "Publishes a message to every customer at once. ADMIN only. Shown\nas plain text: no markup or links are interpreted.",
+        "operationId": "publish_announcement_api_v1_admin_announcements_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAnnouncementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Publish Announcement",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/announcements/{announcement_id}": {
+      "delete": {
+        "description": "Withdraws an announcement: it disappears from every bell. ADMIN only.",
+        "operationId": "withdraw_announcement_api_v1_admin_announcements__announcement_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "announcement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Announcement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Withdraw Announcement",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/news": {
       "get": {
         "description": "Banking and finance news from public feeds, newest first, and how\nmany arrived since the caller last opened the news.",
@@ -382,7 +595,7 @@
     },
     "/api/v1/notifications": {
       "get": {
-        "description": "The caller's own notifications, newest first, and how many of all\nof them are unread.",
+        "description": "The caller's own notifications together with FinCore's\nannouncements to everyone, newest first, and how many of all of\nthem are unread.\n\nThe two are merged here rather than in SQL: they live in different\ntables with different read tracking (per notification, and one\n\"last looked\" moment per customer for announcements), and both are\nread newest-first up to the end of the requested page.",
         "operationId": "list_my_notifications_api_v1_notifications_get",
         "parameters": [
           {
@@ -444,7 +657,7 @@
     },
     "/api/v1/notifications/read": {
       "post": {
-        "description": "Marks every unread notification of the caller read (opening the\nbell). Idempotent.",
+        "description": "Marks every unread notification of the caller read, and every\nannouncement so far seen (opening the bell). Idempotent.",
         "operationId": "mark_my_notifications_read_api_v1_notifications_read_post",
         "responses": {
           "204": {

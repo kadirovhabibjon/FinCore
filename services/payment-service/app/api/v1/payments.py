@@ -89,6 +89,8 @@ async def post_payment(
             amount_minor=amount_minor,
             currency=payload.currency,
             description=payload.description,
+            merchant_name=merchant.name,
+            merchant_owner_user_id=merchant.owner_user_id,
         ),
     )
 

@@ -1893,3 +1893,33 @@ textarea,
   opacity: 0.6;
   cursor: default;
 }
+
+/* --- announcements ---------------------------------------------------- */
+
+.notification-announcement {
+  background: var(--info-bg);
+  color: var(--accent);
+  font-style: italic;
+}
+
+.announcement-body,
+.bell-list .notification-text > span:not(.muted) {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  resize: vertical;
+  min-width: 0;
+}
+
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

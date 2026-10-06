@@ -39,6 +39,11 @@ def payment_outbox_event(
             "reference": payment.reference,
             "initiator_user_id": str(payment.initiator_user_id),
             "merchant_id": str(payment.merchant_id),
+            # For whoever tells the payer and the merchant; null when unknown.
+            "merchant_name": payment.merchant_name,
+            "merchant_owner_user_id": (
+                str(payment.merchant_owner_user_id) if payment.merchant_owner_user_id else None
+            ),
             "amount_minor": payment.amount_minor,
             "currency": payment.currency,
             "status": status.value,
@@ -57,6 +62,8 @@ class CreatePaymentInput:
     amount_minor: int
     currency: str
     description: str | None = None
+    merchant_name: str | None = None
+    merchant_owner_user_id: UUID | None = None
 
 
 async def create_payment(session: AsyncSession, data: CreatePaymentInput) -> Payment:
@@ -82,6 +89,8 @@ async def create_payment(session: AsyncSession, data: CreatePaymentInput) -> Pay
         currency=data.currency,
         description=data.description,
         idempotency_key_id=data.idempotency_key_id,
+        merchant_name=data.merchant_name,
+        merchant_owner_user_id=data.merchant_owner_user_id,
     )
     session.add(payment)
     await session.commit()

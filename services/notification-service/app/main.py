@@ -16,6 +16,7 @@ from fincore_common import (
 from fincore_common.kafka import EventConsumer, EventHandler
 
 from app.api.internal.dead_letters import router as dead_letters_router
+from app.api.v1.announcements import router as announcements_router
 from app.api.v1.news import router as news_router
 from app.api.v1.notifications import router as notifications_router
 from app.core import kafka as kafka_module
@@ -114,6 +115,7 @@ configure_metrics(app, service_name=settings.service_name)
 app.include_router(dead_letters_router)
 app.include_router(notifications_router)
 app.include_router(news_router)
+app.include_router(announcements_router)
 
 
 @app.get("/health")

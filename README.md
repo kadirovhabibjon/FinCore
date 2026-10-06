@@ -500,19 +500,23 @@ Sections 15 and 16 — and keeps them for the bell in the web app.
   entities refused), capped at 2 MB, reduced to plain text, and its
   link kept only if it is an http(s) address. Only the headline and
   summary are shown; the article opens on the publisher's site.
-* **Both sides of a transfer are told.** `transfer.completed` produces
-  "Transfer completed — You sent 12,500.00 UZS to Bobur T." for the
-  sender and "Money received — Aziza K. sent you 12,500.00 UZS." for the
-  recipient; `transfer.failed` tells the sender only. The recipient and
-  both display names come in the event (payment-service records them
-  when the transfer is created); an event without them still notifies
-  the sender. Payments, refunds and announcements don't notify yet.
-
-* Consumes `transfer.completed` / `transfer.failed` from the `transfers`
-  topic and dispatches each through three logging-mock channels
-  (`app/services/providers.py` — Email/SMS/Push behind one interface, so
-  a real provider can replace a mock later without touching the
-  consumer). No paid external provider is required for v1, per spec.
+* **Both sides of an operation are told**, from the `transfers` and
+  `payments` topics: a completed transfer notifies the sender ("You sent
+  12,500.00 UZS to Bobur T.") and the recipient ("Aziza K. sent you
+  12,500.00 UZS."); a completed payment notifies the payer and the
+  merchant's owner; a failed transfer or payment (and an expired one)
+  tells its initiator why; a refund tells the payer. The names come in
+  the event (payment-service records them when the operation is
+  created); an event without them still notifies its initiator. Each
+  notification keeps the facts its text was built from (`params`:
+  amount, counterparty, reference, reason) so a client can render it in
+  another language. Events older than a day notify nobody, so
+  subscribing to a topic never replays its history into people's bells.
+* **Announcements**: an ADMIN publishes a message to every customer
+  (`POST /api/v1/admin/announcements`; `GET` for staff, `DELETE` to
+  withdraw). One row for everyone, merged into each customer's
+  notifications by time; "unread" is what was published since that
+  customer last opened the bell. The admin console has a page for it.
 * **Consumer idempotency**: `(event_id, recipient_user_id)` is `UNIQUE`
   and doubles as the guard, each person's notification in its own
   transaction (a retry after the sender was told doesn't tell them
@@ -1203,7 +1207,7 @@ cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
 cd services/identity-service && .venv/bin/pytest -v     # 149 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 65 tests
 cd services/payment-service && .venv/bin/pytest -v      # 149 tests
-cd services/notification-service && .venv/bin/pytest -v # 50 tests
+cd services/notification-service && .venv/bin/pytest -v # 68 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
 cd services/audit-service && .venv/bin/pytest -v        # 51 tests
@@ -1267,7 +1271,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 94 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 97 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1316,7 +1320,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-55 tests that run against a live `docker compose` stack, through the
+57 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

@@ -15,3 +15,15 @@ class AlreadyReplayedError(DomainError):
 class NewsNotFoundError(DomainError):
     status_code = status.HTTP_404_NOT_FOUND
     title = "News Not Found"
+
+
+class AnnouncementNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Announcement Not Found"
+
+
+class InsufficientRoleError(DomainError):
+    """Authenticated, but without a role the endpoint requires."""
+
+    status_code = status.HTTP_403_FORBIDDEN
+    title = "Insufficient Role"

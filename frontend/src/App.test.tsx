@@ -1173,3 +1173,88 @@ describe("editing the profile", () => {
     });
   });
 });
+
+describe("announcements", () => {
+  const ADMIN = { ...USER, roles: ["USER", "ADMIN"] };
+  const published = {
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    title: "Maintenance",
+    body: "FinCore will be unavailable on Sunday.",
+    created_by_user_id: ADMIN.id,
+    created_at: "2026-10-06T09:00:00Z",
+  };
+
+  it("lets an admin publish to every customer and withdraw again", async () => {
+    let items = [published];
+    const { requests } = fakeApi({
+      ...signedInRoutes(ADMIN),
+      "GET /api/v1/admin/announcements": () => json(items),
+      "POST /api/v1/admin/announcements": (request) => {
+        const created = { ...published, id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", ...(request.body as object) };
+        items = [created, ...items];
+        return json(created, 201);
+      },
+      [`DELETE /api/v1/admin/announcements/${published.id}`]: () => {
+        items = items.filter((item) => item.id !== published.id);
+        return noContent();
+      },
+    });
+    renderApp("/admin/announcements");
+
+    expect(await screen.findByText("Maintenance")).toBeInTheDocument();
+    const publish = screen.getByRole("button", { name: "Publish to all customers" });
+    expect(publish).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText("Title"), "  New limits ");
+    await userEvent.type(screen.getByLabelText("Message"), "Transfers are now faster.");
+    await userEvent.click(publish);
+
+    expect(await screen.findByText("Published to every customer.")).toBeInTheDocument();
+    expect(requests.find((r) => r.method === "POST" && r.path.endsWith("/announcements"))?.body).toEqual({
+      title: "New limits",
+      body: "Transfers are now faster.",
+    });
+    expect(await screen.findByText("New limits")).toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toHaveValue("");
+
+    const row = screen.getByText("Maintenance").closest("li") as HTMLElement;
+    await userEvent.click(within(row).getByRole("button", { name: "Withdraw" }));
+    await waitFor(() => expect(screen.queryByText("Maintenance")).not.toBeInTheDocument());
+  });
+
+  it("shows support staff the list but no way to publish or withdraw", async () => {
+    fakeApi({
+      ...signedInRoutes({ ...USER, roles: ["USER", "SUPPORT"] }),
+      "GET /api/v1/admin/announcements": () => json([published]),
+    });
+    renderApp("/admin/announcements");
+
+    expect(await screen.findByText("Maintenance")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Withdraw" })).not.toBeInTheDocument();
+  });
+
+  it("shows an announcement and a refund in the customer's bell", async () => {
+    fakeApi({
+      ...signedInRoutes(),
+      "GET /api/v1/wallets": () => json([]),
+      "GET /api/v1/notifications": () =>
+        json({
+          unread_count: 2,
+          items: [
+            { id: published.id, type: "announcement", title: published.title, body: published.body, params: null, created_at: published.created_at, read: false },
+            { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", type: "payment.refunded", title: "Refund received", body: "Your payment PAY-1 of 50.00 UZS was refunded by Choyxona.", params: { amount: "50.00 UZS", reference: "PAY-1", counterparty: "Choyxona", partial: false }, created_at: "2026-10-06T08:00:00Z", read: false },
+          ],
+        }),
+      "POST /api/v1/notifications/read": () => noContent(),
+    });
+    renderApp("/");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Notifications, 2 unread" }));
+
+    const panel = await screen.findByRole("dialog", { name: "Notifications" });
+    expect(within(panel).getByText("Maintenance")).toBeInTheDocument();
+    expect(within(panel).getByText("FinCore will be unavailable on Sunday.")).toBeInTheDocument();
+    expect(within(panel).getByText("Refund received")).toBeInTheDocument();
+  });
+});

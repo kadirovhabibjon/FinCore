@@ -88,14 +88,28 @@ class FinCoreClient:
 
     # --- identity -------------------------------------------------------
 
+    def _auth_post(self, path: str, body: dict[str, Any]) -> httpx.Response:
+        """POSTs to a sign-in endpoint, waiting out the gateway's
+        brute-force limit (10 requests a second per client, answered 503
+        beyond its burst). The suite registers and signs in far faster
+        than a person, and one rejected sign-in would otherwise fail
+        every test after it; a real client is expected to back off the
+        same way."""
+        for attempt in range(1, 9):
+            response = self.gateway.post(path, json=body)
+            if response.status_code not in (429, 503):
+                break
+            time.sleep(0.25 * attempt)
+        return response
+
     def register_and_login(self) -> User:
         email = f"e2e-{uuid.uuid4().hex[:12]}@example.com"
         password = "E2e-Passw0rd!"
         phone = "+99890" + "".join(secrets.choice("0123456789") for _ in range(7))
 
-        registered = self.gateway.post(
+        registered = self._auth_post(
             "/api/v1/auth/register",
-            json={
+            {
                 "email": email,
                 "phone": phone,
                 "password": password,
@@ -138,9 +152,7 @@ class FinCoreClient:
         )
 
     def login(self, email: str, password: str) -> dict[str, Any]:
-        response = self.gateway.post(
-            "/api/v1/auth/login", json={"email": email, "password": password}
-        )
+        response = self._auth_post("/api/v1/auth/login", {"email": email, "password": password})
         response.raise_for_status()
         return response.json()
 
