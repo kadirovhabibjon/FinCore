@@ -50,6 +50,16 @@ class RecipientResponse(BaseModel):
     own: bool
 
 
+class RecentRecipientResponse(BaseModel):
+    """Someone the caller has sent money to before."""
+
+    card_number: str
+    # As recorded when money was last sent to this card; null if unknown.
+    display_name: str | None
+    currency: str
+    last_sent_at: datetime
+
+
 class CreateMerchantRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255)
 

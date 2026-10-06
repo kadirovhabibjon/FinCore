@@ -10,7 +10,12 @@ from app.api.v1.dependencies import (
     get_authenticated_user,
     get_idempotency_fingerprint,
 )
-from app.api.v1.schemas import CreateTransferRequest, RecipientResponse, TransferResponse
+from app.api.v1.schemas import (
+    CreateTransferRequest,
+    RecentRecipientResponse,
+    RecipientResponse,
+    TransferResponse,
+)
 from app.core.exceptions import (
     CurrencyMismatchError,
     InvalidAmountError,
@@ -89,6 +94,7 @@ async def post_transfer(
             recipient_user_id=parties.recipient_user_id,
             sender_name=parties.sender_name,
             recipient_name=parties.recipient_name,
+            recipient_card_number=parties.recipient_card_number,
         ),
     )
 
@@ -102,6 +108,31 @@ async def post_transfer(
         resource_id=transfer.id,
     )
     return response
+
+
+@router.get("/recipients", response_model=list[RecentRecipientResponse])
+async def list_recent_recipients(
+    limit: int = Query(default=8, ge=1, le=20),
+    user: AuthenticatedUser = Depends(get_authenticated_user),
+    session: AsyncSession = Depends(get_db),
+) -> list[RecentRecipientResponse]:
+    """The cards the caller has sent money to, most recent first, one
+    entry per card - for choosing the same person again without typing
+    16 digits. Only transfers that completed, and whose card is known.
+    The name is the one recorded when the money was last sent; the Send
+    page still looks the card up again before anything is sent."""
+    recipients = await TransferRepository(session).list_recent_recipients(
+        user.user_id, limit=limit
+    )
+    return [
+        RecentRecipientResponse(
+            card_number=transfer.recipient_card_number or "",
+            display_name=transfer.recipient_name,
+            currency=transfer.currency,
+            last_sent_at=transfer.created_at,
+        )
+        for transfer in recipients
+    ]
 
 
 # Declared before /{transfer_id}, which would otherwise capture "recipient".

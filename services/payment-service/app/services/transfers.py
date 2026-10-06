@@ -67,6 +67,7 @@ class CreateTransferInput:
     recipient_user_id: UUID | None = None
     sender_name: str | None = None
     recipient_name: str | None = None
+    recipient_card_number: str | None = None
 
 
 async def create_transfer(session: AsyncSession, data: CreateTransferInput) -> Transfer:
@@ -102,6 +103,7 @@ async def create_transfer(session: AsyncSession, data: CreateTransferInput) -> T
         recipient_user_id=data.recipient_user_id,
         sender_name=data.sender_name,
         recipient_name=data.recipient_name,
+        recipient_card_number=data.recipient_card_number,
     )
     session.add(transfer)
     await session.commit()

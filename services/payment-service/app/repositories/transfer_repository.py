@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.transfer import FraudDecision, Transfer, TransferStatus
@@ -36,6 +36,35 @@ class TransferRepository:
             .order_by(Transfer.created_at.desc())
             .limit(limit)
             .offset(offset)
+        )
+        return list(result.scalars().all())
+
+    async def list_recent_recipients(self, user_id: UUID, *, limit: int) -> list[Transfer]:
+        """The newest completed transfer to each card the user has sent
+        money to, most recent card first."""
+        newest = (
+            select(
+                Transfer.id,
+                func.row_number()
+                .over(
+                    partition_by=Transfer.recipient_card_number,
+                    order_by=Transfer.created_at.desc(),
+                )
+                .label("position"),
+            )
+            .where(
+                Transfer.initiator_user_id == user_id,
+                Transfer.status == TransferStatus.COMPLETED,
+                Transfer.recipient_card_number.is_not(None),
+            )
+            .subquery()
+        )
+        result = await self._session.execute(
+            select(Transfer)
+            .join(newest, newest.c.id == Transfer.id)
+            .where(newest.c.position == 1)
+            .order_by(Transfer.created_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 

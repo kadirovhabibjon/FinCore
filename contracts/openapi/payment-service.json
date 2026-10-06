@@ -508,6 +508,43 @@
         "title": "PaymentStatus",
         "type": "string"
       },
+      "RecentRecipientResponse": {
+        "description": "Someone the caller has sent money to before.",
+        "properties": {
+          "card_number": {
+            "title": "Card Number",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "last_sent_at": {
+            "format": "date-time",
+            "title": "Last Sent At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "card_number",
+          "display_name",
+          "currency",
+          "last_sent_at"
+        ],
+        "title": "RecentRecipientResponse",
+        "type": "object"
+      },
       "RecipientResponse": {
         "description": "Who a card number belongs to, for the sender to confirm.",
         "properties": {
@@ -1726,6 +1763,61 @@
           }
         ],
         "summary": "Get Recipient",
+        "tags": [
+          "transfers"
+        ]
+      }
+    },
+    "/api/v1/transfers/recipients": {
+      "get": {
+        "description": "The cards the caller has sent money to, most recent first, one\nentry per card - for choosing the same person again without typing\n16 digits. Only transfers that completed, and whose card is known.\nThe name is the one recorded when the money was last sent; the Send\npage still looks the card up again before anything is sent.",
+        "operationId": "list_recent_recipients_api_v1_transfers_recipients_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecentRecipientResponse"
+                  },
+                  "title": "Response List Recent Recipients Api V1 Transfers Recipients Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Recent Recipients",
         "tags": [
           "transfers"
         ]

@@ -1,6 +1,7 @@
 # FinCore
 
 **▶ Customer app: [ninth-distinct-sincere.ngrok-free.dev](https://ninth-distinct-sincere.ngrok-free.dev)** ·
+
 **Admin console: [ninth-distinct-sincere.ngrok-free.dev/admin](https://ninth-distinct-sincere.ngrok-free.dev/admin)**
 (staff accounts only)
 
@@ -329,6 +330,12 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
   mistyped number is a `422` before any lookup; an unknown card, a
   frozen wallet and a blocked owner are the same `404`. Signed-in
   customers only, 30 lookups a minute per client at the gateway.
+* `GET /api/v1/transfers/recipients` — the cards the caller has sent
+  money to, most recent first, one entry per card, with the name
+  recorded when the money was sent. The Send page offers them as
+  one-tap chips; choosing one only fills the card number in, and the
+  lookup above still runs, so a card that stopped accepting money is
+  caught as usual.
 * `POST /api/v1/transfers` — the flow runs in this exact order:
   authorize (does the source wallet belong to the caller — relayed to
   `ledger-service`'s own public wallet endpoint rather than duplicating
@@ -1210,9 +1217,9 @@ docker run --rm -d --name fincore-jaeger-dev -p 16686:16686 -p 4318:4318 \
 
 ```bash
 cd libs/fincore-common && .venv/bin/pytest -v           # 55 tests
-cd services/identity-service && .venv/bin/pytest -v     # 172 tests
+cd services/identity-service && .venv/bin/pytest -v     # 171 tests
 cd services/ledger-service && .venv/bin/pytest -v       # 65 tests
-cd services/payment-service && .venv/bin/pytest -v      # 172 tests
+cd services/payment-service && .venv/bin/pytest -v      # 143 tests
 cd services/notification-service && .venv/bin/pytest -v # 68 tests
 cd services/fraud-service && .venv/bin/pytest -v        # 35 tests
 cd services/webhook-service && .venv/bin/pytest -v      # 47 tests
@@ -1277,7 +1284,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 97 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 98 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1326,7 +1333,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-57 tests that run against a live `docker compose` stack, through the
+58 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

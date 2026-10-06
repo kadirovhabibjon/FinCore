@@ -44,6 +44,8 @@ class CardWallet:
     owner_user_id: UUID
     currency: str
     status: str
+    # None only from a ledger-service older than this field.
+    card_number: str | None = None
 
 
 class LedgerUnavailableError(Exception):
@@ -355,6 +357,7 @@ class LedgerClient:
             owner_user_id=UUID(data["owner_user_id"]),
             currency=data["currency"],
             status=data["status"],
+            card_number=data.get("card_number"),
         )
 
 
@@ -384,6 +387,7 @@ class LedgerClient:
             owner_user_id=UUID(data["owner_user_id"]),
             currency=data["currency"],
             status=data["status"],
+            card_number=data.get("card_number"),
         )
 
 

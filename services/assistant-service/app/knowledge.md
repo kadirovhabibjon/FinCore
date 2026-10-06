@@ -99,6 +99,10 @@ balances inside FinCore only.
   the name that appears (first name and last initial, for example
   "Aziza K."), then enter the amount and an optional note (up to 255
   characters). Send stays disabled until a recipient is found.
+- People the customer has already sent money to appear on the Send page
+  under "Recent" (name and the last 4 digits of the card): tapping one
+  fills the card number in, so it doesn't have to be typed again. Only
+  recipients in the chosen wallet's currency are shown.
 - If no name appears: a wrong digit is reported straight away; "no
   FinCore wallet can receive money at this card number" means the number
   isn't a wallet's or that wallet can't receive money right now.

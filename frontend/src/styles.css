@@ -1923,3 +1923,41 @@ textarea:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* --- recent recipients on the Send page ------------------------------- */
+
+.field-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.recipient-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.recipient-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.75rem 0.3rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.recipient-chip:hover,
+.recipient-chip[aria-pressed="true"] {
+  border-color: var(--accent);
+}
+
+.recipient-chip .recipient-avatar {
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.8rem;
+}

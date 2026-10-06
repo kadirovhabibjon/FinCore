@@ -472,6 +472,10 @@
       "WalletByCardResponse": {
         "description": "Who a card number belongs to - for payment-service, which shows\nthe sender a recipient before a transfer. Never exposed publicly:\nit carries the owner's user id.",
         "properties": {
+          "card_number": {
+            "title": "Card Number",
+            "type": "string"
+          },
           "currency": {
             "title": "Currency",
             "type": "string"
@@ -493,6 +497,7 @@
         "required": [
           "id",
           "owner_user_id",
+          "card_number",
           "currency",
           "status"
         ],

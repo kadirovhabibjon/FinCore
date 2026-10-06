@@ -281,6 +281,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transfers/recipients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Recent Recipients
+         * @description The cards the caller has sent money to, most recent first, one
+         *     entry per card - for choosing the same person again without typing
+         *     16 digits. Only transfers that completed, and whose card is known.
+         *     The name is the one recorded when the money was last sent; the Send
+         *     page still looks the card up again before anything is sent.
+         */
+        get: operations["list_recent_recipients_api_v1_transfers_recipients_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transfers/{transfer_id}": {
         parameters: {
             query?: never;
@@ -591,6 +615,23 @@ export interface components {
          * @enum {string}
          */
         PaymentStatus: "CREATED" | "PROCESSING" | "SUCCESS" | "FAILED" | "EXPIRED" | "PARTIALLY_REFUNDED" | "REFUNDED";
+        /**
+         * RecentRecipientResponse
+         * @description Someone the caller has sent money to before.
+         */
+        RecentRecipientResponse: {
+            /** Card Number */
+            card_number: string;
+            /** Currency */
+            currency: string;
+            /** Display Name */
+            display_name: string | null;
+            /**
+             * Last Sent At
+             * Format: date-time
+             */
+            last_sent_at: string;
+        };
         /**
          * RecipientResponse
          * @description Who a card number belongs to, for the sender to confirm.
@@ -1220,6 +1261,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecipientResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_recent_recipients_api_v1_transfers_recipients_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentRecipientResponse"][];
                 };
             };
             /** @description Validation Error */

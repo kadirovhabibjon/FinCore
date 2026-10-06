@@ -50,6 +50,8 @@ const DEFAULT_ROUTES: Record<string, Handler> = {
   // The bell is on every signed-in page.
   "GET /api/v1/notifications": () => json({ unread_count: 0, items: [] }),
   "GET /api/v1/news": () => json({ unread_count: 0, items: [] }),
+  // The Send page offers recent recipients when there are any.
+  "GET /api/v1/transfers/recipients": () => json([]),
 };
 
 /**

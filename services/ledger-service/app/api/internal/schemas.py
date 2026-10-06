@@ -86,5 +86,6 @@ class WalletByCardResponse(BaseModel):
 
     id: UUID
     owner_user_id: UUID
+    card_number: str
     currency: str
     status: AccountStatus

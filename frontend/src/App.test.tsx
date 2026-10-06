@@ -280,6 +280,33 @@ describe("sending money", () => {
     expect(keys[0]).not.toBe(keys[1]);
   });
 
+  it("offers people sent to before, and still looks the chosen card up", async () => {
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      ...recipientRoute,
+      "GET /api/v1/wallets": () => json([WALLET]),
+      "GET /api/v1/transfers/recipients": () =>
+        json([
+          { card_number: card, display_name: "Bobur T.", currency: "UZS", last_sent_at: "2026-10-05T09:00:00Z" },
+          // Another currency: this wallet can't send to it, so it isn't offered.
+          { card_number: "9955987654321094", display_name: "Dollar D.", currency: "USD", last_sent_at: "2026-10-04T09:00:00Z" },
+        ]),
+    });
+    renderApp("/transfer");
+
+    const chip = await screen.findByRole("button", { name: /Bobur T\..*9011/ });
+    expect(screen.queryByRole("button", { name: /Dollar D\./ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+
+    await userEvent.click(chip);
+
+    expect(screen.getByLabelText("To card number")).toHaveValue("9955 1234 5678 9011");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeEnabled());
+    expect(requests.find((r) => r.path === "/api/v1/transfers/recipient")?.search).toBe(
+      "?card_number=9955123456789011",
+    );
+  });
+
   it("shows who a card number belongs to before anything can be sent", async () => {
     const { requests } = fakeApi({
       ...signedInRoutes(),

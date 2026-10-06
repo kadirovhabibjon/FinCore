@@ -29,6 +29,18 @@ export function TransferPage() {
   const source =
     wallets.data?.find((wallet) => wallet.id === sourceId) ?? wallets.data?.[0];
 
+  // People this customer has sent money to before, to pick instead of
+  // typing a card number. Nice to have: a failure just hides the list.
+  const recents = useQuery({
+    queryKey: ["recipients"],
+    queryFn: api.listRecentRecipients,
+    retry: false,
+  });
+  // Only those the chosen wallet can actually send to.
+  const recentHere = (recents.data ?? []).filter(
+    (item) => item.currency === source?.currency,
+  );
+
   // The recipient is looked up as soon as a complete, well-formed number
   // is typed, so the sender sees a name before anything is sent.
   const cardComplete = cardNumber.length === CARD_NUMBER_LENGTH;
@@ -75,6 +87,7 @@ export function TransferPage() {
       renewKey();
       void queryClient.invalidateQueries({ queryKey: ["wallets"] });
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["recipients"] });
     },
   });
 
@@ -172,6 +185,41 @@ export function TransferPage() {
             ))}
           </select>
         </label>
+        {recentHere.length > 0 && (
+          <div className="field">
+            <span className="field-label" id="recent-label">
+              Recent
+            </span>
+            <div
+              className="recipient-chips"
+              role="group"
+              aria-labelledby="recent-label"
+            >
+              {recentHere.map((item) => (
+                <button
+                  key={item.card_number}
+                  type="button"
+                  className="recipient-chip"
+                  aria-pressed={item.card_number === cardNumber}
+                  // Fills the card in; the lookup below still runs, so a
+                  // card that stopped accepting money is caught as usual.
+                  onClick={() => edited(setCardNumber)(item.card_number)}
+                >
+                  <span className="recipient-avatar" aria-hidden="true">
+                    {(item.display_name ?? "•").slice(0, 1).toUpperCase()}
+                  </span>
+                  <span>
+                    <strong>{item.display_name ?? "Card"}</strong>
+                    <span className="muted small">
+                      {" "}
+                      ···· {item.card_number.slice(-4)}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="field">
           <label>
             To card number

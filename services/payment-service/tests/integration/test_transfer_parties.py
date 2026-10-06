@@ -19,6 +19,7 @@ from app.services import fraud, identity, ledger
 pytestmark = pytest.mark.usefixtures("migrated_database")
 
 _NAMES = {"sender": ("Aziza", "Karimova"), "recipient": ("Bobur", "Tursunov")}
+_CARD = "9955123456789011"
 
 
 class Parties:
@@ -55,6 +56,7 @@ def _ledger_app(parties: Parties, *, posting_status: int = 201, owner_lookup: in
             {
                 "id": wallet_id,
                 "owner_user_id": str(parties.recipient),
+                "card_number": _CARD,
                 "currency": "UZS",
                 "status": "ACTIVE",
             }
@@ -273,3 +275,48 @@ async def test_money_still_moves_when_the_parties_cannot_be_looked_up(
     assert [t["counterparty_name"] for t in received] == (
         [None] if expected_recipient_known else []
     )
+
+
+async def test_recent_recipients_list_each_card_once_newest_first(
+    monkeypatch: pytest.MonkeyPatch, issue_access_token
+) -> None:
+    parties = Parties()
+    _wire(monkeypatch, _ledger_app(parties), _identity_app(parties))
+    sender_token = issue_access_token(parties.sender)
+
+    async with _client() as client:
+        await _send(client, sender_token, parties)
+        await _send(client, sender_token, parties)
+        mine = await client.get(
+            "/api/v1/transfers/recipients", headers={"Authorization": f"Bearer {sender_token}"}
+        )
+        # Receiving money does not make the sender one of *your* recipients.
+        theirs = await client.get(
+            "/api/v1/transfers/recipients",
+            headers={"Authorization": f"Bearer {issue_access_token(parties.recipient)}"},
+        )
+        anonymous = await client.get("/api/v1/transfers/recipients")
+
+    assert mine.status_code == 200
+    [recipient] = mine.json()
+    assert recipient["card_number"] == _CARD
+    assert recipient["display_name"] == "Bobur T."
+    assert recipient["currency"] == "UZS"
+    assert theirs.json() == []
+    assert anonymous.status_code == 401
+
+
+async def test_a_failed_transfer_does_not_make_a_recent_recipient(
+    monkeypatch: pytest.MonkeyPatch, issue_access_token
+) -> None:
+    parties = Parties()
+    _wire(monkeypatch, _ledger_app(parties, posting_status=409), _identity_app(parties))
+    token = issue_access_token(parties.sender)
+
+    async with _client() as client:
+        await _send(client, token, parties)
+        response = await client.get(
+            "/api/v1/transfers/recipients", headers={"Authorization": f"Bearer {token}"}
+        )
+
+    assert response.json() == []

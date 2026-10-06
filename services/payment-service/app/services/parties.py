@@ -24,6 +24,7 @@ class TransferParties:
     recipient_user_id: UUID | None = None
     sender_name: str | None = None
     recipient_name: str | None = None
+    recipient_card_number: str | None = None
 
 
 async def _name_of(user_id: UUID) -> str | None:
@@ -31,15 +32,23 @@ async def _name_of(user_id: UUID) -> str | None:
     return display_name(user.first_name, user.last_name) if user else None
 
 
-async def _recipient_of(wallet_id: UUID) -> tuple[UUID | None, str | None]:
+@dataclass(frozen=True)
+class _Recipient:
+    user_id: UUID | None = None
+    name: str | None = None
+    card_number: str | None = None
+
+
+async def _recipient_of(wallet_id: UUID) -> _Recipient:
     wallet = await ledger.ledger_client.find_wallet_owner(wallet_id)
     if wallet is None:
-        return None, None
+        return _Recipient()
     try:
-        return wallet.owner_user_id, await _name_of(wallet.owner_user_id)
+        name = await _name_of(wallet.owner_user_id)
     except Exception as exc:  # the owner is still worth recording without a name
         logger.warning("recipient name lookup failed: %s", exc)
-        return wallet.owner_user_id, None
+        name = None
+    return _Recipient(user_id=wallet.owner_user_id, name=name, card_number=wallet.card_number)
 
 
 async def resolve_parties(
@@ -53,7 +62,10 @@ async def resolve_parties(
         sender = None
     if isinstance(recipient, BaseException):
         logger.warning("recipient lookup failed: %s", recipient)
-        recipient = (None, None)
+        recipient = _Recipient()
     return TransferParties(
-        recipient_user_id=recipient[0], sender_name=sender, recipient_name=recipient[1]
+        recipient_user_id=recipient.user_id,
+        sender_name=sender,
+        recipient_name=recipient.name,
+        recipient_card_number=recipient.card_number,
     )

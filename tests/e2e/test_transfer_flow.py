@@ -246,3 +246,28 @@ def test_news_is_served_to_signed_in_customers(api: FinCoreClient, user: User) -
         assert item["url"].startswith(("http://", "https://"))
     assert api.gateway.post("/api/v1/news/read", headers=user.auth).status_code == 204
     assert api.gateway.get("/api/v1/news", headers=user.auth).json()["unread_count"] == 0
+
+
+def test_someone_sent_to_before_is_offered_again(
+    api: FinCoreClient, user: User, other_user: User
+) -> None:
+    source = api.funded_wallet(user, 50_000)
+    destination = api.create_wallet(other_user)
+    card_number = api.wallet(other_user, destination)["card_number"]
+
+    def recents(who: User) -> list[dict]:
+        return api.gateway.get("/api/v1/transfers/recipients", headers=who.auth).json()
+
+    assert recents(user) == []
+    for amount in ("10.00", "20.00"):
+        assert api.transfer(
+            user, source=source, destination=destination, amount=amount
+        ).json()["status"] == "COMPLETED"
+
+    [recent] = recents(user)  # two transfers, one card: listed once
+    assert recent["card_number"] == card_number
+    assert recent["display_name"] == "E2E U."
+    assert recent["currency"] == "UZS"
+    # Having been paid by someone doesn't put them in your list.
+    assert recents(other_user) == []
+    assert api.gateway.get("/api/v1/transfers/recipients").status_code == 401

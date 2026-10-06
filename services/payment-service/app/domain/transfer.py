@@ -96,6 +96,9 @@ class Transfer(Base):
     recipient_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True
     )
+    # The card the money was sent to, so the sender can pick the same
+    # person again without retyping it.
+    recipient_card_number: Mapped[str | None] = mapped_column(String(16), nullable=True)
     sender_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     recipient_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

@@ -70,6 +70,7 @@ async def test_finds_the_wallet_a_card_number_belongs_to(issue_access_token) -> 
     assert response.json() == {
         "id": wallet["id"],
         "owner_user_id": str(owner),
+        "card_number": wallet["card_number"],
         "currency": "USD",
         "status": "ACTIVE",
     }
@@ -123,5 +124,6 @@ async def test_finds_a_wallets_owner_by_wallet_id(issue_access_token) -> None:
 
     assert found.status_code == 200
     assert found.json()["owner_user_id"] == str(owner)
+    assert found.json()["card_number"] == wallet["card_number"]
     assert unknown.status_code == 404
     assert unauthorized.status_code == 403

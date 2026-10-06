@@ -493,6 +493,8 @@ export interface components {
          *     it carries the owner's user id.
          */
         WalletByCardResponse: {
+            /** Card Number */
+            card_number: string;
             /** Currency */
             currency: string;
             /**
