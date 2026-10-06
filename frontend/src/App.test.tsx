@@ -1285,3 +1285,66 @@ describe("announcements", () => {
     expect(within(panel).getByText("Refund received")).toBeInTheDocument();
   });
 });
+
+describe("QR codes", () => {
+  const card = "9955123456789011";
+  const recipient = {
+    "GET /api/v1/transfers/recipient": () =>
+      json({ wallet_id: "33333333-3333-4333-8333-333333333333", currency: "UZS", display_name: "Bobur T.", own: false }),
+  };
+
+  it("opens the Send page with the scanned card filled in and looked up", async () => {
+    const { requests } = fakeApi({
+      ...signedInRoutes(),
+      ...recipient,
+      "GET /api/v1/wallets": () => json([WALLET]),
+    });
+    // What a FinCore QR code links to.
+    renderApp(`/transfer?to=${card}`);
+
+    expect(await screen.findByLabelText("To card number")).toHaveValue("9955 1234 5678 9011");
+    expect(await screen.findByText("Bobur T.")).toBeInTheDocument();
+    expect(requests.find((r) => r.path === "/api/v1/transfers/recipient")?.search).toBe(
+      `?card_number=${card}`,
+    );
+  });
+
+  it("ignores a link that carries something other than a card", async () => {
+    const { requests } = fakeApi({ ...signedInRoutes(), "GET /api/v1/wallets": () => json([WALLET]) });
+    renderApp("/transfer?to=%3Cscript%3Ealert(1)%3C/script%3E");
+
+    expect(await screen.findByLabelText("To card number")).toHaveValue("");
+    expect(requests.some((r) => r.path === "/api/v1/transfers/recipient")).toBe(false);
+  });
+
+  it("says so when the camera can't be used, and typing still works", async () => {
+    fakeApi({ ...signedInRoutes(), ...recipient, "GET /api/v1/wallets": () => json([WALLET]) });
+    renderApp("/transfer");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Scan QR code" }));
+
+    const scanner = await screen.findByRole("dialog", { name: "Scan a QR code" });
+    expect(await within(scanner).findByRole("alert")).toHaveTextContent(/can.t use the camera/);
+    await userEvent.click(within(scanner).getByRole("button", { name: "Close camera" }));
+    expect(screen.queryByRole("dialog", { name: "Scan a QR code" })).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("To card number"), card);
+    expect(await screen.findByText("Bobur T.")).toBeInTheDocument();
+  });
+
+  it("offers a wallet's QR code for receiving money", async () => {
+    fakeApi({
+      ...signedInRoutes(),
+      [`GET /api/v1/wallets/${WALLET.id}`]: () => json(WALLET),
+      [`GET /api/v1/wallets/${WALLET.id}/entries`]: () => json([]),
+    });
+    renderApp(`/wallets/${WALLET.id}`);
+
+    const toggle = await screen.findByRole("button", { name: "Show QR code to receive money" });
+    await userEvent.click(toggle);
+
+    expect(await screen.findByText(/Scan to send money to this card/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Hide QR code" }));
+    expect(screen.queryByText(/Scan to send money to this card/)).not.toBeInTheDocument();
+  });
+});

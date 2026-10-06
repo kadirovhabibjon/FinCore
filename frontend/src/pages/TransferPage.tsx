@@ -6,6 +6,7 @@ import * as api from "../api/endpoints";
 import { ApiError } from "../api/client";
 import { ErrorAlert, Loading, Money } from "../components/ui";
 import { OperationOutcome } from "../components/OperationOutcome";
+import { QrScanner } from "../components/QrScanner";
 import {
   CARD_NUMBER_LENGTH,
   cardDigits,
@@ -13,6 +14,7 @@ import {
   isValidCardNumber,
 } from "../lib/card";
 import { validateAmount, walletLabel } from "../lib/money";
+import { cardFromScan } from "../lib/qr";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
 
 export function TransferPage() {
@@ -20,7 +22,11 @@ export function TransferPage() {
   const queryClient = useQueryClient();
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: api.listWallets });
   const [sourceId, setSourceId] = useState(params.get("from") ?? "");
-  const [cardNumber, setCardNumber] = useState("");
+  // ?to= is what a FinCore QR code links to: the card arrives filled in.
+  // Anything in it that is not a well-formed card is ignored.
+  const [cardNumber, setCardNumber] = useState(() => cardFromScan(params.get("to") ?? "") ?? "");
+  const [scanning, setScanning] = useState(false);
+  const [scanProblem, setScanProblem] = useState(false);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [amountError, setAmountError] = useState<string | null>(null);
@@ -221,6 +227,25 @@ export function TransferPage() {
           </div>
         )}
         <div className="field">
+          {scanning && (
+            <QrScanner
+              onRead={(text) => {
+                const card = cardFromScan(text);
+                // Something else's QR code: keep looking, but say so.
+                setScanProblem(card === null);
+                if (card === null) return;
+                edited(setCardNumber)(card);
+                setScanning(false);
+              }}
+              onClose={() => {
+                setScanning(false);
+                setScanProblem(false);
+              }}
+            />
+          )}
+          {scanning && scanProblem && (
+            <span className="field-error">That QR code is not a FinCore card.</span>
+          )}
           <label>
             To card number
             <input
@@ -236,6 +261,15 @@ export function TransferPage() {
               aria-describedby="recipient-status"
             />
           </label>
+          {!scanning && (
+            <button
+              type="button"
+              className="button button-small button-ghost scan-button"
+              onClick={() => setScanning(true)}
+            >
+              Scan QR code
+            </button>
+          )}
           <span id="recipient-status" aria-live="polite">
             {recipientProblem ? (
               <span className="field-error">{recipientProblem}</span>

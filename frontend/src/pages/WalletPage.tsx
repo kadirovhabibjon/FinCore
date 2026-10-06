@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import * as api from "../api/endpoints";
+import { CardQr } from "../components/CardQr";
 import {
   CopyButton,
   DateTime,
@@ -21,6 +22,7 @@ const PAGE_SIZE = 25;
 export function WalletPage() {
   const { walletId = "" } = useParams();
   const [offset, setOffset] = useState(0);
+  const [showQr, setShowQr] = useState(false);
   const wallet = useQuery({ queryKey: ["wallet", walletId], queryFn: () => api.getWallet(walletId) });
   const entries = useQuery({
     queryKey: ["wallet", walletId, "entries", offset],
@@ -50,6 +52,18 @@ export function WalletPage() {
           Send from this wallet
         </Link>
       </header>
+
+      <div className="receive">
+        <button
+          type="button"
+          className="button button-ghost"
+          aria-expanded={showQr}
+          onClick={() => setShowQr((shown) => !shown)}
+        >
+          {showQr ? "Hide QR code" : "Show QR code to receive money"}
+        </button>
+        {showQr && <CardQr cardNumber={wallet.data.card_number} />}
+      </div>
 
       <div className="stats">
         <div className="card stat">

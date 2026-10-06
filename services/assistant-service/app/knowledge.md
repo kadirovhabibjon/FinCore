@@ -103,6 +103,12 @@ balances inside FinCore only.
   under "Recent" (name and the last 4 digits of the card): tapping one
   fills the card number in, so it doesn't have to be typed again. Only
   recipients in the chosen wallet's currency are shown.
+- QR codes: a wallet's page has "Show QR code to receive money". Someone
+  who scans it with their phone's camera gets FinCore's Send page with
+  that card already filled in; the Send page also has a "Scan QR code"
+  button that uses the camera (the browser asks for permission; if the
+  camera can't be used, the card number can still be typed). The code
+  only contains the card number, never a balance or personal data.
 - If no name appears: a wrong digit is reported straight away; "no
   FinCore wallet can receive money at this card number" means the number
   isn't a wallet's or that wallet can't receive money right now.

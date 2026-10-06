@@ -818,7 +818,9 @@ refresh cookie.
   account page; wallets with available /
   held / ledger balance, card number and each wallet's ledger entries;
   send a transfer by typing the recipient's card number and checking
-  the name that comes back; pay a merchant; a notifications bell
+  the name that comes back; pay a merchant; a QR code on each wallet for receiving money (a link
+  to the Send page with the card filled in, drawn in the browser) and a
+  camera scanner on Send that reads one; a notifications bell
   (money received and sent, banking news, unread badge) on every page; history of
   money sent, paid and received with per-operation detail (including
   why something is `PENDING` or `FAILED`); merchants with received
@@ -1284,7 +1286,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 98 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 105 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 

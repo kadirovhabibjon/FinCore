@@ -1961,3 +1961,48 @@ textarea:focus {
   height: 1.6rem;
   font-size: 0.8rem;
 }
+
+/* --- QR codes ---------------------------------------------------------- */
+
+.receive {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.card-qr {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 260px;
+}
+
+.card-qr canvas {
+  /* Always dark on white, whatever the theme: scanners expect it. */
+  background: #fff;
+  border-radius: 12px;
+  max-width: 100%;
+  height: auto;
+}
+
+.scan-button {
+  align-self: flex-start;
+}
+
+.qr-scanner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.qr-scanner video {
+  width: 100%;
+  max-height: 320px;
+  border-radius: 12px;
+  background: #000;
+  object-fit: cover;
+}
