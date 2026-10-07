@@ -32,7 +32,16 @@ if [[ "$ADDRESS" != *@gmail.com && "$ADDRESS" != *@googlemail.com ]]; then
   [[ -n "$HOST" ]] || { echo "No server entered." >&2; exit 1; }
 fi
 
-read -rsp "App password (input is hidden): " PASSWORD
+# Mail services (Brevo, SendGrid, Mailgun...) sign in with a login of
+# their own, not with the address the mail is sent from.
+LOGIN="$ADDRESS"
+if [[ "$HOST" != "smtp.gmail.com" ]]; then
+  read -rp "SMTP login (Enter if it is the address itself): " LOGIN
+  LOGIN="$(printf '%s' "$LOGIN" | tr -d '[:space:]')"
+  LOGIN="${LOGIN:-$ADDRESS}"
+fi
+
+read -rsp "App password or SMTP key (input is hidden): " PASSWORD
 echo
 # Google shows app passwords in groups of four separated by spaces.
 PASSWORD="$(printf '%s' "$PASSWORD" | tr -d '[:space:]')"
@@ -44,7 +53,7 @@ fi
 # Sign in to the mail server before saving anything. The password goes to
 # the checker on stdin, never on a command line.
 echo "Checking with $HOST ..."
-if ! printf '%s' "$PASSWORD" | SMTP_CHECK_HOST="$HOST" SMTP_CHECK_USER="$ADDRESS" python3 -c '
+if ! printf '%s' "$PASSWORD" | SMTP_CHECK_HOST="$HOST" SMTP_CHECK_USER="$LOGIN" python3 -c '
 import os, smtplib, ssl, sys
 password = sys.stdin.read()
 try:
@@ -52,7 +61,7 @@ try:
         smtp.starttls(context=ssl.create_default_context())
         smtp.login(os.environ["SMTP_CHECK_USER"], password)
 except smtplib.SMTPAuthenticationError:
-    sys.exit("The mail server rejected this address and password. For Gmail it must be an"
+    sys.exit("The mail server rejected this login and password. For Gmail it must be an"
              " app password (https://myaccount.google.com/apppasswords), not your normal one.")
 except Exception as exc:
     sys.exit(f"Could not reach the mail server: {type(exc).__name__}")
@@ -64,11 +73,11 @@ echo "The mail server accepted the sign-in."
 tmp="$(mktemp)"
 grep -vE '^SMTP_(HOST|PORT|USERNAME|PASSWORD|FROM)=' "$ENV_FILE" > "$tmp" || true
 printf 'SMTP_HOST=%s\nSMTP_PORT=587\nSMTP_USERNAME=%s\nSMTP_PASSWORD=%s\nSMTP_FROM=FinCore <%s>\n' \
-  "$HOST" "$ADDRESS" "$PASSWORD" "$ADDRESS" >> "$tmp"
+  "$HOST" "$LOGIN" "$PASSWORD" "$ADDRESS" >> "$tmp"
 mv "$tmp" "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 unset PASSWORD
 
 cd "$ROOT"
 docker compose up -d --build --force-recreate --wait identity-service >/dev/null
-echo "Saved. Password reset codes will be sent from $ADDRESS."
+echo "Saved. FinCore emails will be sent from $ADDRESS."

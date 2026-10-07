@@ -171,7 +171,10 @@ Authentication, users, and RBAC — spec Sections 5 and 19.
   `422`, and the code is stored only as a hash, lives 10 minutes, dies
   after 5 wrong tries, and at most 5 are issued per account per hour.
   Mail goes out over SMTP (`./scripts/set-smtp.sh` sets it up with a
-  free Gmail app password); with none configured both customers and
+  free Gmail app password, or with any mail service's SMTP server and
+  login). Use a mailbox made for this, not a personal one: every code
+  sent sits in the sender's "Sent" folder and bounces come back to it.
+  With none configured both customers and
   strangers get `503 Password Reset Unavailable`.
 * `POST /api/v1/auth/logout` — idempotent.
 * Browser mode ([ADR-0006](docs/adr/0006-browser-auth-storage.md)): with
