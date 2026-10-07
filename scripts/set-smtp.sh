@@ -56,15 +56,22 @@ echo "Checking with $HOST ..."
 if ! printf '%s' "$PASSWORD" | SMTP_CHECK_HOST="$HOST" SMTP_CHECK_USER="$LOGIN" python3 -c '
 import os, smtplib, ssl, sys
 password = sys.stdin.read()
+step = "connecting"
 try:
     with smtplib.SMTP(os.environ["SMTP_CHECK_HOST"], 587, timeout=20) as smtp:
+        step = "starting encryption"
         smtp.starttls(context=ssl.create_default_context())
+        step = "signing in"
         smtp.login(os.environ["SMTP_CHECK_USER"], password)
 except smtplib.SMTPAuthenticationError:
     sys.exit("The mail server rejected this login and password. For Gmail it must be an"
              " app password (https://myaccount.google.com/apppasswords), not your normal one.")
 except Exception as exc:
-    sys.exit(f"Could not reach the mail server: {type(exc).__name__}")
+    if step == "signing in":
+        sys.exit(f"The mail server dropped the sign-in ({type(exc).__name__}). Nothing was saved."
+                 " Check that the app password was pasted whole (16 letters) and belongs to this"
+                 " address; a mailbox created minutes ago may also be refused for a while.")
+    sys.exit(f"Could not reach the mail server while {step}: {type(exc).__name__}")
 '; then
   exit 1
 fi
