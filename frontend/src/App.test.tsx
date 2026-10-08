@@ -146,7 +146,10 @@ describe("roles", () => {
     });
     renderApp("/admin/reviews");
 
+    // The first press only arms it: nothing is decided yet.
     await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
+    expect(requests.some((r) => r.method === "POST" && r.path.includes("reviews"))).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Confirm approve" }));
 
     const notice = await screen.findByText(/is now/);
     expect(within(notice).getByText("COMPLETED")).toBeInTheDocument();
@@ -1246,6 +1249,8 @@ describe("announcements", () => {
 
     const row = screen.getByText("Maintenance").closest("li") as HTMLElement;
     await userEvent.click(within(row).getByRole("button", { name: "Withdraw" }));
+    expect(screen.getByText("Maintenance")).toBeInTheDocument(); // armed, not done
+    await userEvent.click(within(row).getByRole("button", { name: "Confirm withdraw" }));
     await waitFor(() => expect(screen.queryByText("Maintenance")).not.toBeInTheDocument());
   });
 

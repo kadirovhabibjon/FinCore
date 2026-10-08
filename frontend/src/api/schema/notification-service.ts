@@ -468,6 +468,8 @@ export interface components {
         InboxResponse: {
             /** Items */
             items: components["schemas"]["ThreadResponse"][];
+            /** Unread Count */
+            unread_count: number;
             /** Waiting Count */
             waiting_count: number;
         };

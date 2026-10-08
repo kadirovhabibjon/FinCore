@@ -664,6 +664,8 @@ notification_db: notifications, dead_letters
   it is the "Operator" side of the chat widget, next to the AI
   assistant, which offers "Write to an operator" and carries the
   question over; staff answer on the console's Support page.
+  The inbox also reports `unread_count`: customers' messages no staff
+  member has opened, across all conversations.
 
 ### `fraud-service`
 
@@ -958,6 +960,15 @@ refresh cookie.
   `src/api/schema/*.ts` from `contracts/openapi`; CI regenerates and
   fails on any diff, so a backend API change breaks the frontend build,
   not the running app.
+
+**Admin console.** Its menu counts what is waiting for staff - reviews
+to decide, customers' messages nobody has opened - from whichever page
+is open. Tables name the customer (linked to the Users page) instead of
+showing an id. What can't be taken back with one more click is not done
+with one: approving or rejecting a review, withdrawing an announcement
+and disabling a webhook take a second press, and changing a user's
+status asks first. The Users search lives in the URL (`?q=`), so other
+pages link straight to one customer.
 
 **Theme.** Light, dark, or the device's own (`frontend/src/lib/theme.ts`):
 a forced theme is a `data-theme` attribute on `<html>`, applied before
@@ -1407,7 +1418,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 165 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 173 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 

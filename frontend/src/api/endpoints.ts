@@ -365,8 +365,9 @@ export const askAssistant = (messages: ChatMessage[]) =>
   });
 
 /** Messages from staff to every customer; they appear in each bell. */
-export const adminSupportInbox = () =>
-  apiRequest<SupportInbox>("/api/v1/admin/support/threads");
+/** Every conversation, or only those with this status. */
+export const adminSupportInbox = (status?: SupportThread["status"]) =>
+  apiRequest<SupportInbox>("/api/v1/admin/support/threads", { query: { status } });
 export const adminSupportThread = (userId: string) =>
   apiRequest<SupportThreadDetail>(`/api/v1/admin/support/threads/${userId}`);
 export const adminSupportAct = (userId: string, action: "read" | "resolve" | "reopen") =>

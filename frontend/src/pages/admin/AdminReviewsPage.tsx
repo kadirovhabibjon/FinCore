@@ -3,6 +3,8 @@ import { useState } from "react";
 
 import * as api from "../../api/endpoints";
 import { hasAnyRole, useAuth } from "../../auth/context";
+import { ConfirmButton } from "../../components/admin/ConfirmButton";
+import { CustomerLink } from "../../components/admin/Customer";
 import { DateTime, Empty, ErrorAlert, Loading, Money, Notice, ShortId, StatusBadge } from "../../components/ui";
 
 export function AdminReviewsPage() {
@@ -71,7 +73,7 @@ export function AdminReviewsPage() {
                   <div className="muted small">{item.type}</div>
                 </td>
                 <td data-label="Customer">
-                  <ShortId id={item.initiator_user_id} />
+                  <CustomerLink userId={item.initiator_user_id} />
                 </td>
                 <td data-label="Destination">
                   <span className="muted small">{item.type === "TRANSFER" ? "wallet" : "merchant"}</span>{" "}
@@ -83,22 +85,22 @@ export function AdminReviewsPage() {
                 <td className="num" data-label="">
                   {isAdmin ? (
                     <div className="actions">
-                      <button
-                        type="button"
-                        className="button button-small"
+                      {/* Either way money moves, or doesn't, for good. */}
+                      <ConfirmButton
+                        confirm="Confirm approve"
                         disabled={decide.isPending}
-                        onClick={() => decide.mutate({ id: item.id, decision: "APPROVE" })}
+                        onConfirm={() => decide.mutate({ id: item.id, decision: "APPROVE" })}
                       >
                         Approve
-                      </button>
-                      <button
-                        type="button"
+                      </ConfirmButton>
+                      <ConfirmButton
+                        confirm="Confirm reject"
                         className="button button-small button-danger"
                         disabled={decide.isPending}
-                        onClick={() => decide.mutate({ id: item.id, decision: "REJECT" })}
+                        onConfirm={() => decide.mutate({ id: item.id, decision: "REJECT" })}
                       >
                         Reject
-                      </button>
+                      </ConfirmButton>
                     </div>
                   ) : (
                     <span className="muted small">ADMIN decides</span>

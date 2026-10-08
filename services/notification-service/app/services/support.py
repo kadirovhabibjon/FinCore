@@ -191,6 +191,13 @@ async def inbox(
     return list(result.scalars().all())
 
 
+async def unread_count(session: AsyncSession) -> int:
+    """Messages from customers that no staff member has opened yet,
+    across every conversation."""
+    result = await session.execute(select(func.coalesce(func.sum(SupportThread.staff_unread), 0)))
+    return int(result.scalar_one())
+
+
 async def waiting_count(session: AsyncSession) -> int:
     """Open conversations whose last word is the customer's."""
     result = await session.execute(

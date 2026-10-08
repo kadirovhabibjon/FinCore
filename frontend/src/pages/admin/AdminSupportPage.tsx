@@ -1,57 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import * as api from "../../api/endpoints";
 import { DateTime, Empty, ErrorAlert, Loading, StatusBadge } from "../../components/ui";
+import { CustomerContact, CustomerName } from "../../components/admin/Customer";
 import { SUPPORT_MAX_CHARS } from "../../lib/support";
 
 const INBOX_POLL_MS = 10_000;
 const THREAD_POLL_MS = 5_000;
-
-/** Who a conversation is with. The support service knows only the
- * user's id; the name comes from identity-service, once per customer. */
-function CustomerName({ userId }: { userId: string }) {
-  const user = useQuery({
-    queryKey: ["admin", "user", userId],
-    queryFn: () => api.adminGetUser(userId),
-    staleTime: 5 * 60 * 1000,
-    retry: false,
-  });
-  if (!user.data) return <code className="short-id">{userId.slice(0, 8)}</code>;
-  return (
-    <>
-      {user.data.first_name} {user.data.last_name}
-    </>
-  );
-}
-
-/** How to recognise the customer on the Users page: email, phone, id. */
-function CustomerContact({ userId }: { userId: string }) {
-  const user = useQuery({
-    queryKey: ["admin", "user", userId],
-    queryFn: () => api.adminGetUser(userId),
-    staleTime: 5 * 60 * 1000,
-    retry: false,
-  });
-  return (
-    <>
-      {user.data ? `${user.data.email} · ${user.data.phone} · ` : ""}
-      <code>{userId}</code>
-    </>
-  );
-}
 
 /** Customers' conversations with staff: an inbox and, beside it, the
  * conversation being answered (?user= in the URL, so it can be linked). */
 export function AdminSupportPage() {
   const [params, setParams] = useSearchParams();
   const selected = params.get("user");
+  // Resolved conversations are history: out of the way until asked for.
+  const [showResolved, setShowResolved] = useState(false);
   const inbox = useQuery({
-    queryKey: ["admin", "support", "inbox"],
-    queryFn: api.adminSupportInbox,
+    queryKey: ["admin", "support", "inbox", showResolved ? "all" : "open"],
+    queryFn: () => api.adminSupportInbox(showResolved ? undefined : "OPEN"),
     refetchInterval: INBOX_POLL_MS,
   });
+  const listed = inbox.data?.items ?? [];
 
   return (
     <section className="page">
@@ -67,16 +38,27 @@ export function AdminSupportPage() {
               : ""}
           </p>
         </div>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={showResolved}
+            onChange={(event) => setShowResolved(event.target.checked)}
+          />
+          Show resolved
+        </label>
       </header>
       <ErrorAlert error={inbox.error} />
       {inbox.isPending ? (
         <Loading what="Loading conversations" />
-      ) : inbox.data?.items.length === 0 ? (
-        <Empty>No customer has written yet.</Empty>
+      ) : listed.length === 0 && !selected ? (
+        <Empty>
+          {showResolved ? "No customer has written yet." : "No open conversations."}
+        </Empty>
       ) : (
         <div className="support-layout">
           <ul className="support-inbox" aria-label="Conversations">
-            {inbox.data?.items.map((thread) => (
+            {listed.length === 0 && <li className="muted small">No open conversations.</li>}
+            {listed.map((thread) => (
               <li key={thread.user_id}>
                 <button
                   type="button"
@@ -172,6 +154,11 @@ function Conversation({ userId }: { userId: string }) {
           <StatusBadge status={thread.data.status} />
           <div className="muted small">
             <CustomerContact userId={userId} />
+          </div>
+          <div className="small">
+            <Link to={`/admin/users?q=${userId}`}>Open in Users</Link>
+            {" · "}
+            <Link to={`/admin/transactions?user_id=${userId}`}>transactions</Link>
           </div>
         </div>
         <button

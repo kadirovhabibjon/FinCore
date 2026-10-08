@@ -84,6 +84,9 @@ class ThreadResponse(BaseModel):
 class InboxResponse(BaseModel):
     # Open conversations whose last word is the customer's.
     waiting_count: int
+    # Messages from customers no staff member has opened yet, in all
+    # conversations together (not only the ones listed).
+    unread_count: int
     items: list[ThreadResponse]
 
 
@@ -145,6 +148,7 @@ async def list_threads(
     threads = await support.inbox(session, status=status, limit=limit, offset=offset)
     return InboxResponse(
         waiting_count=await support.waiting_count(session),
+        unread_count=await support.unread_count(session),
         items=[ThreadResponse.of(thread) for thread in threads],
     )
 

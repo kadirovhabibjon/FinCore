@@ -52,6 +52,9 @@ const DEFAULT_ROUTES: Record<string, Handler> = {
   "GET /api/v1/news": () => json({ unread_count: 0, items: [] }),
   // The Send page offers recent recipients when there are any.
   "GET /api/v1/transfers/recipients": () => json([]),
+  // The admin console's menu counts what is waiting for staff.
+  "GET /api/v1/admin/reviews": () => json([]),
+  "GET /api/v1/admin/support/threads": () => json({ waiting_count: 0, unread_count: 0, items: [] }),
   // The chat launcher shows how many replies from staff are unread.
   "GET /api/v1/support/messages": () => json({ status: "OPEN", unread_count: 0, items: [] }),
   // The wallets page shows how many people are asking for money.
@@ -89,7 +92,10 @@ export function fakeApi(routes: Record<string, Handler>) {
       // Every money form reads the chosen card's daily limit: none set.
       (method === "GET" && url.pathname.startsWith("/api/v1/limits/")
         ? () => json(noLimit(url.pathname.split("/").pop() ?? ""))
-        : undefined);
+        : // Admin tables name the customers in them; unknown unless a test says.
+          method === "GET" && /^\/api\/v1\/admin\/users\/[0-9a-f-]{36}$/.test(url.pathname)
+          ? () => problem(404, "User Not Found")
+          : undefined);
     if (!handler) throw new Error(`unexpected request ${method} ${url.pathname}`);
     return handler(request);
   });

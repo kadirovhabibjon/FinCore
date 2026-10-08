@@ -3,6 +3,8 @@ import { useState } from "react";
 
 import * as api from "../../api/endpoints";
 import { hasAnyRole, useAuth } from "../../auth/context";
+import { ConfirmButton } from "../../components/admin/ConfirmButton";
+import { CustomerLink } from "../../components/admin/Customer";
 import { DeliveriesTable } from "../../components/DeliveriesTable";
 import { Empty, ErrorAlert, Loading, Pager, ShortId, StatusBadge } from "../../components/ui";
 
@@ -64,24 +66,34 @@ export function AdminWebhooksPage() {
                     <code>{endpoint.url}</code>
                     <div className="muted small">
                       merchant <ShortId id={endpoint.merchant_id} /> · owner{" "}
-                      <ShortId id={endpoint.owner_user_id} /> · {endpoint.consecutive_failures}{" "}
+                      <CustomerLink userId={endpoint.owner_user_id} /> ·{" "}
+                      {endpoint.consecutive_failures}{" "}
                       consecutive failures
                     </div>
                   </div>
                   <div className="actions">
                     <StatusBadge status={endpoint.status} />
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        className={`button button-small ${endpoint.status === "ACTIVE" ? "button-danger" : ""}`}
-                        disabled={toggle.isPending}
-                        onClick={() =>
-                          toggle.mutate({ id: endpoint.id, enabled: endpoint.status !== "ACTIVE" })
-                        }
-                      >
-                        {endpoint.status === "ACTIVE" ? "Disable" : "Enable"}
-                      </button>
-                    )}
+                    {isAdmin &&
+                      (endpoint.status === "ACTIVE" ? (
+                        // The merchant stops hearing about their payments.
+                        <ConfirmButton
+                          confirm="Confirm disable"
+                          className="button button-small button-danger"
+                          disabled={toggle.isPending}
+                          onConfirm={() => toggle.mutate({ id: endpoint.id, enabled: false })}
+                        >
+                          Disable
+                        </ConfirmButton>
+                      ) : (
+                        <button
+                          type="button"
+                          className="button button-small"
+                          disabled={toggle.isPending}
+                          onClick={() => toggle.mutate({ id: endpoint.id, enabled: true })}
+                        >
+                          Enable
+                        </button>
+                      ))}
                     <button
                       type="button"
                       className="button button-small button-ghost"

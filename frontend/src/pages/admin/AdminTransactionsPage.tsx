@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import * as api from "../../api/endpoints";
+import { CustomerLink, CustomerName } from "../../components/admin/Customer";
 import { DateTime, Empty, ErrorAlert, Loading, Money, Pager, ShortId, StatusBadge } from "../../components/ui";
 
 const PAGE_SIZE = 50;
@@ -113,7 +114,7 @@ export function AdminTransactionsPage() {
                     </div>
                   </td>
                   <td data-label="User">
-                    <ShortId id={item.initiator_user_id} />
+                    <CustomerLink userId={item.initiator_user_id} />
                   </td>
                   <td data-label="Status">
                     <StatusBadge status={item.status} />
@@ -125,7 +126,7 @@ export function AdminTransactionsPage() {
                     {item.fraud_decision ? <StatusBadge status={item.fraud_decision} /> : "—"}
                     {item.reviewed_by_user_id && (
                       <div className="muted small">
-                        reviewed by <ShortId id={item.reviewed_by_user_id} />
+                        reviewed by <CustomerName userId={item.reviewed_by_user_id} />
                       </div>
                     )}
                   </td>

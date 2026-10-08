@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 
 import * as api from "../../api/endpoints";
 import { hasAnyRole, useAuth } from "../../auth/context";
+import { ConfirmButton } from "../../components/admin/ConfirmButton";
 import { DateTime, Empty, ErrorAlert, Loading, Notice } from "../../components/ui";
 
 const TITLE_MAX = 120;
@@ -114,14 +115,14 @@ export function AdminAnnouncementsPage() {
                   </div>
                 </div>
                 {isAdmin && (
-                  <button
-                    type="button"
+                  <ConfirmButton
+                    confirm="Confirm withdraw"
                     className="button button-small button-danger"
                     disabled={withdraw.isPending}
-                    onClick={() => withdraw.mutate(item.id)}
+                    onConfirm={() => withdraw.mutate(item.id)}
                   >
                     Withdraw
-                  </button>
+                  </ConfirmButton>
                 )}
               </div>
             </li>

@@ -79,6 +79,7 @@ async def test_a_customer_and_staff_talk_and_each_is_told_about_the_other(issue:
 
     assert first["sender"] == "CUSTOMER" and first["body"] == "My transfer is stuck."
     assert inbox["waiting_count"] == 1
+    assert inbox["unread_count"] == 1
     assert len(inbox["items"]) == 1
     assert inbox["items"][0] | {"last_message_at": None} == {
         "user_id": str(customer_id),
@@ -107,6 +108,7 @@ async def test_a_customer_and_staff_talk_and_each_is_told_about_the_other(issue:
     assert after["unread_count"] == 0
     # Answered: nobody is waiting, though the conversation stays open.
     assert inbox_after["waiting_count"] == 0
+    assert inbox_after["unread_count"] == 0
     assert inbox_after["items"][0]["last_sender"] == "STAFF"
     assert [m["sender"] for m in detail["items"]] == ["CUSTOMER", "STAFF"]
 
@@ -134,7 +136,7 @@ async def test_a_resolved_conversation_reopens_when_the_customer_writes_again(is
         )
 
     assert resolved.json()["status"] == "RESOLVED" and resolved.json()["unread_count"] == 0
-    assert open_only == {"waiting_count": 0, "items": []}
+    assert open_only == {"waiting_count": 0, "unread_count": 0, "items": []}
     assert seen_by_customer["status"] == "RESOLVED"
     assert again["waiting_count"] == 1
     assert (again["items"][0]["status"], again["items"][0]["unread_count"]) == ("OPEN", 1)
@@ -171,6 +173,8 @@ async def test_the_inbox_shows_open_conversations_first_then_the_latest(issue: I
 
     assert [item["user_id"] for item in inbox["items"]] == [str(new), str(old), str(resolved)]
     assert inbox["waiting_count"] == 2
+    # Every unopened message, whichever page of the inbox is shown.
+    assert inbox["unread_count"] == page["unread_count"] == 2
     assert [item["user_id"] for item in page["items"]] == [str(old)]
 
 

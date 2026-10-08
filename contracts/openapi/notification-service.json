@@ -161,6 +161,10 @@
             "title": "Items",
             "type": "array"
           },
+          "unread_count": {
+            "title": "Unread Count",
+            "type": "integer"
+          },
           "waiting_count": {
             "title": "Waiting Count",
             "type": "integer"
@@ -168,6 +172,7 @@
         },
         "required": [
           "waiting_count",
+          "unread_count",
           "items"
         ],
         "title": "InboxResponse",
