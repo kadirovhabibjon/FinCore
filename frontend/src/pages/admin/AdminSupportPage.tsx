@@ -5,6 +5,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import * as api from "../../api/endpoints";
 import { DateTime, Empty, ErrorAlert, Loading, StatusBadge } from "../../components/ui";
 import { CustomerContact, CustomerName } from "../../components/admin/Customer";
+import { useI18n } from "../../i18n";
 import { SUPPORT_MAX_CHARS } from "../../lib/support";
 
 const INBOX_POLL_MS = 10_000;
@@ -13,6 +14,7 @@ const THREAD_POLL_MS = 5_000;
 /** Customers' conversations with staff: an inbox and, beside it, the
  * conversation being answered (?user= in the URL, so it can be linked). */
 export function AdminSupportPage() {
+  const { t } = useI18n();
   const [params, setParams] = useSearchParams();
   const selected = params.get("user");
   // Resolved conversations are history: out of the way until asked for.
@@ -28,13 +30,13 @@ export function AdminSupportPage() {
     <section className="page">
       <header className="page-header">
         <div>
-          <h1>Support</h1>
+          <h1>{t("admin.support.title")}</h1>
           <p className="muted">
-            Messages customers wrote to an operator from the chat on the site.{" "}
+            {t("admin.support.intro")}{" "}
             {inbox.data
               ? inbox.data.waiting_count === 0
-                ? "Nobody is waiting for an answer."
-                : `${inbox.data.waiting_count} waiting for an answer.`
+                ? t("admin.support.nobodyWaiting")
+                : t("admin.support.waiting", { count: inbox.data.waiting_count })
               : ""}
           </p>
         </div>
@@ -44,20 +46,22 @@ export function AdminSupportPage() {
             checked={showResolved}
             onChange={(event) => setShowResolved(event.target.checked)}
           />
-          Show resolved
+          {t("admin.support.showResolved")}
         </label>
       </header>
       <ErrorAlert error={inbox.error} />
       {inbox.isPending ? (
-        <Loading what="Loading conversations" />
+        <Loading what={t("admin.support.loading")} />
       ) : listed.length === 0 && !selected ? (
         <Empty>
-          {showResolved ? "No customer has written yet." : "No open conversations."}
+          {showResolved ? t("admin.support.nobodyWrote") : t("admin.support.noOpen")}
         </Empty>
       ) : (
         <div className="support-layout">
-          <ul className="support-inbox" aria-label="Conversations">
-            {listed.length === 0 && <li className="muted small">No open conversations.</li>}
+          <ul className="support-inbox" aria-label={t("admin.support.conversations")}>
+            {listed.length === 0 && (
+              <li className="muted small">{t("admin.support.noOpen")}</li>
+            )}
             {listed.map((thread) => (
               <li key={thread.user_id}>
                 <button
@@ -71,18 +75,18 @@ export function AdminSupportPage() {
                       <CustomerName userId={thread.user_id} />
                     </strong>
                     {thread.unread_count > 0 && (
-                      <span className="chat-badge" aria-label={`${thread.unread_count} unread`}>
+                      <span className="chat-badge" aria-label={t("admin.support.unread", { count: thread.unread_count })}>
                         {thread.unread_count}
                       </span>
                     )}
                   </span>
                   <span className="muted small support-preview">
-                    {thread.last_sender === "STAFF" ? "You: " : ""}
+                    {thread.last_sender === "STAFF" ? t("admin.support.you") : ""}
                     {thread.last_body}
                   </span>
                   <span className="muted small">
                     <DateTime value={thread.last_message_at} />
-                    {thread.status === "RESOLVED" && " · resolved"}
+                    {thread.status === "RESOLVED" && t("admin.support.resolvedMark")}
                   </span>
                 </button>
               </li>
@@ -91,7 +95,7 @@ export function AdminSupportPage() {
           {selected ? (
             <Conversation key={selected} userId={selected} />
           ) : (
-            <Empty>Choose a conversation to read and answer it.</Empty>
+            <Empty>{t("admin.support.choose")}</Empty>
           )}
         </div>
       )}
@@ -101,6 +105,7 @@ export function AdminSupportPage() {
 
 function Conversation({ userId }: { userId: string }) {
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const refresh = () => {
@@ -140,7 +145,7 @@ function Conversation({ userId }: { userId: string }) {
     if (draft.trim()) reply.mutate();
   }
 
-  if (thread.isPending) return <Loading what="Loading conversation" />;
+  if (thread.isPending) return <Loading what={t("admin.support.loadingOne")} />;
   if (thread.error) return <ErrorAlert error={thread.error} />;
   const resolved = thread.data.status === "RESOLVED";
 
@@ -156,9 +161,11 @@ function Conversation({ userId }: { userId: string }) {
             <CustomerContact userId={userId} />
           </div>
           <div className="small">
-            <Link to={`/admin/users?q=${userId}`}>Open in Users</Link>
+            <Link to={`/admin/users/${userId}`}>{t("admin.support.openCustomer")}</Link>
             {" · "}
-            <Link to={`/admin/transactions?user_id=${userId}`}>transactions</Link>
+            <Link to={`/admin/transactions?user_id=${userId}`}>
+              {t("admin.users.transactions")}
+            </Link>
           </div>
         </div>
         <button
@@ -167,17 +174,17 @@ function Conversation({ userId }: { userId: string }) {
           disabled={act.isPending}
           onClick={() => act.mutate(resolved ? "reopen" : "resolve")}
         >
-          {resolved ? "Reopen" : "Mark resolved"}
+          {resolved ? t("admin.support.reopen") : t("admin.support.resolve")}
         </button>
       </header>
-      <div className="support-log" role="log" aria-label="Messages">
+      <div className="support-log" role="log" aria-label={t("admin.support.messages")}>
         {thread.data.items.map((message) => (
           <p
             key={message.id}
             className={`chat-bubble chat-${message.sender === "STAFF" ? "user" : "assistant"}`}
           >
             <span className="chat-sender">
-              {message.sender === "STAFF" ? "Staff" : "Customer"} ·{" "}
+              {message.sender === "STAFF" ? t("admin.support.staff") : t("admin.support.customer")} ·{" "}
               <DateTime value={message.created_at} />
             </span>
             {message.body}
@@ -188,21 +195,19 @@ function Conversation({ userId }: { userId: string }) {
       <form className="support-reply" onSubmit={onSubmit}>
         <ErrorAlert error={reply.error ?? act.error} />
         <label>
-          Reply
+          {t("admin.support.reply")}
           <textarea
             rows={3}
             maxLength={SUPPORT_MAX_CHARS}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="The customer sees this in the chat and in their notifications."
+            placeholder={t("admin.support.replyPlaceholder")}
           />
         </label>
         <div className="actions">
-          <span className="muted small">
-            Plain text. Never ask for a password or a code.
-          </span>
+          <span className="muted small">{t("admin.support.plainText")}</span>
           <button type="submit" className="button" disabled={reply.isPending || !draft.trim()}>
-            {reply.isPending ? "Sending…" : "Send reply"}
+            {reply.isPending ? t("admin.support.sending") : t("admin.support.send")}
           </button>
         </div>
       </form>

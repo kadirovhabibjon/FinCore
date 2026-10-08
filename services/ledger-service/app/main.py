@@ -17,6 +17,7 @@ from app.api.internal.accounts import router as internal_accounts_router
 from app.api.internal.holds import router as internal_holds_router
 from app.api.internal.postings import router as internal_postings_router
 from app.api.internal.reconciliation import router as internal_reconciliation_router
+from app.api.v1.admin import router as admin_router
 from app.api.v1.wallets import router as wallets_router
 from app.core.config import settings
 from app.core.metrics import RECONCILIATION_MISMATCHES
@@ -66,6 +67,7 @@ configure_tracing(
 )
 configure_metrics(app, service_name=settings.service_name)
 app.include_router(wallets_router)
+app.include_router(admin_router)
 app.include_router(internal_postings_router)
 app.include_router(internal_holds_router)
 app.include_router(internal_reconciliation_router)

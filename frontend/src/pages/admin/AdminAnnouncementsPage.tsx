@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import * as api from "../../api/endpoints";
 import { hasAnyRole, useAuth } from "../../auth/context";
 import { ConfirmButton } from "../../components/admin/ConfirmButton";
+import { useI18n } from "../../i18n";
 import { DateTime, Empty, ErrorAlert, Loading, Notice } from "../../components/ui";
 
 const TITLE_MAX = 120;
@@ -11,6 +12,7 @@ const BODY_MAX = 1000;
 
 export function AdminAnnouncementsPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const isAdmin = hasAnyRole(user, "ADMIN");
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
@@ -43,22 +45,19 @@ export function AdminAnnouncementsPage() {
     <section className="page">
       <header className="page-header">
         <div>
-          <h1>Announcements</h1>
+          <h1>{t("admin.ann.title")}</h1>
           <p className="muted">
-            A message to every customer at once: it appears in each customer&apos;s notifications
-            bell.{" "}
-            {isAdmin
-              ? "Published immediately, as plain text."
-              : "Publishing and withdrawing need the ADMIN role."}
+            {t("admin.ann.intro")}{" "}
+            {isAdmin ? t("admin.ann.adminNote") : t("admin.ann.supportNote")}
           </p>
         </div>
       </header>
       {isAdmin && (
         <form className="card form" onSubmit={onSubmit}>
-          {publish.isSuccess && <Notice>Published to every customer.</Notice>}
+          {publish.isSuccess && <Notice>{t("admin.ann.published")}</Notice>}
           <ErrorAlert error={publish.error} />
           <label>
-            Title
+            {t("admin.ann.fieldTitle")}
             <input
               value={title}
               onChange={(e) => {
@@ -70,7 +69,7 @@ export function AdminAnnouncementsPage() {
             />
           </label>
           <label>
-            Message
+            {t("admin.ann.fieldMessage")}
             <textarea
               value={body}
               onChange={(e) => {
@@ -91,17 +90,17 @@ export function AdminAnnouncementsPage() {
               className="button"
               disabled={publish.isPending || !title.trim() || !body.trim()}
             >
-              {publish.isPending ? "Publishing…" : "Publish to all customers"}
+              {publish.isPending ? t("admin.ann.publishing") : t("admin.ann.publish")}
             </button>
           </div>
         </form>
       )}
-      <h2>Published</h2>
+      <h2>{t("admin.ann.list")}</h2>
       <ErrorAlert error={announcements.error ?? withdraw.error} />
       {announcements.isPending ? (
-        <Loading what="Loading announcements" />
+        <Loading what={t("admin.ann.loading")} />
       ) : announcements.data?.length === 0 ? (
-        <Empty>No announcements yet.</Empty>
+        <Empty>{t("admin.ann.empty")}</Empty>
       ) : (
         <ul className="list">
           {announcements.data?.map((item) => (
@@ -116,12 +115,12 @@ export function AdminAnnouncementsPage() {
                 </div>
                 {isAdmin && (
                   <ConfirmButton
-                    confirm="Confirm withdraw"
+                    confirm={t("admin.ann.confirmWithdraw")}
                     className="button button-small button-danger"
                     disabled={withdraw.isPending}
                     onConfirm={() => withdraw.mutate(item.id)}
                   >
-                    Withdraw
+                    {t("admin.ann.withdraw")}
                   </ConfirmButton>
                 )}
               </div>

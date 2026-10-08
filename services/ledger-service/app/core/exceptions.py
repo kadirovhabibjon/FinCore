@@ -63,6 +63,13 @@ class WalletNotFoundError(DomainError):
     title = "Wallet Not Found"
 
 
+class InsufficientRoleError(DomainError):
+    """Authenticated, but without a role the endpoint requires."""
+
+    status_code = status.HTTP_403_FORBIDDEN
+    title = "Insufficient Role"
+
+
 class InvalidAccountKindError(DomainError):
     status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
     title = "Invalid Account Kind"

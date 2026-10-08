@@ -237,7 +237,8 @@ class AdminTransactionResponse(TransactionResponse):
 
     initiator_user_id: UUID
     source_wallet_id: UUID
-    # The destination wallet for a TRANSFER, the merchant for a PAYMENT.
+    # The destination wallet for a TRANSFER, the merchant for a PAYMENT,
+    # the customer's own other wallet for an EXCHANGE.
     counterparty_id: UUID
     failure_reason: str | None
     fraud_decision: FraudDecision | None
@@ -246,7 +247,23 @@ class AdminTransactionResponse(TransactionResponse):
     updated_at: datetime
 
     @classmethod
-    def from_operation(cls, operation: Transfer | Payment) -> "AdminTransactionResponse":
+    def from_operation(
+        cls, operation: Transfer | Payment | Exchange
+    ) -> "AdminTransactionResponse":
+        if isinstance(operation, Exchange):
+            # No fraud check and no review: it is the customer's own
+            # money changing currency.
+            return cls(
+                **TransactionResponse.from_exchange(operation).model_dump(),
+                initiator_user_id=operation.initiator_user_id,
+                source_wallet_id=operation.source_wallet_id,
+                counterparty_id=operation.destination_wallet_id,
+                failure_reason=operation.failure_reason,
+                fraud_decision=None,
+                reviewed_by_user_id=None,
+                reviewed_at=None,
+                updated_at=operation.updated_at,
+            )
         if isinstance(operation, Transfer):
             # The console looks at an operation from its initiator's side.
             base = TransactionResponse.from_transfer(

@@ -55,6 +55,10 @@ const DEFAULT_ROUTES: Record<string, Handler> = {
   // The admin console's menu counts what is waiting for staff.
   "GET /api/v1/admin/reviews": () => json([]),
   "GET /api/v1/admin/support/threads": () => json({ waiting_count: 0, unread_count: 0, items: [] }),
+  // The console's first page: nothing has happened yet.
+  "GET /api/v1/admin/stats": () =>
+    json({ generated_at: "2026-10-08T10:00:00Z", awaiting_review: 0, currencies: [] }),
+  "GET /api/v1/admin/users/stats": () => json({ total: 0, by_status: {}, days: [] }),
   // The chat launcher shows how many replies from staff are unread.
   "GET /api/v1/support/messages": () => json({ status: "OPEN", unread_count: 0, items: [] }),
   // The wallets page shows how many people are asking for money.

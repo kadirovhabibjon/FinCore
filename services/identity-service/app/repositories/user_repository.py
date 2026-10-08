@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -43,6 +44,21 @@ class UserRepository:
         for user_id, role_name in result.all():
             roles[user_id].append(role_name)
         return roles
+
+    async def count_by_status(self) -> dict[str, int]:
+        result = await self._session.execute(
+            select(User.status, func.count()).group_by(User.status)
+        )
+        return {status.value: count for status, count in result.all()}
+
+    async def registrations_per_day(self, since: datetime) -> dict[date, int]:
+        """How many accounts were created on each calendar day (UTC)
+        from `since` on; days with none are absent."""
+        day = func.date(func.timezone("UTC", User.created_at)).label("day")
+        result = await self._session.execute(
+            select(day, func.count()).where(User.created_at >= since).group_by(day)
+        )
+        return {row_day: count for row_day, count in result.all()}
 
     async def search(self, query: str | None, *, limit: int, offset: int) -> list[User]:
         """Admin lookup (ADR-0005): a full user id matches exactly;

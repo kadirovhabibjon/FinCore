@@ -35,10 +35,10 @@ export function LoginPage({ admin = false }: { admin?: boolean }) {
 
   return (
     <div className="auth-page">
-      {!admin && <LanguageSwitch className="auth-lang" />}
+      <LanguageSwitch className="auth-lang" />
       <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>{admin ? "FinCore Admin" : t("login.title")}</h1>
-        {admin && <p className="muted">Staff sign-in. Customer accounts can't use this console.</p>}
+        <h1>{admin ? t("admin.login.title") : t("login.title")}</h1>
+        {admin && <p className="muted">{t("admin.login.note")}</p>}
         {state?.registered && <Notice>{t("login.registered")}</Notice>}
         {state?.passwordReset && (
           <Notice>{t("login.passwordReset")}</Notice>

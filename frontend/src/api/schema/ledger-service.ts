@@ -2,6 +2,28 @@
 // Do not edit by hand: run `npm run gen:api`.
 
 export interface paths {
+    "/api/v1/admin/wallets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Wallets Of User
+         * @description One customer's wallets with their balances, the main one first -
+         *     what the customer sees on their own wallets page. SUPPORT and ADMIN.
+         *     Read-only: staff cannot move, block or rename anything here.
+         */
+        get: operations["list_wallets_of_user_api_v1_admin_wallets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/wallets": {
         parameters: {
             query?: never;
@@ -638,6 +660,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_wallets_of_user_api_v1_admin_wallets_get: {
+        parameters: {
+            query: {
+                user_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_my_wallets_api_v1_wallets_get: {
         parameters: {
             query?: never;

@@ -340,6 +340,29 @@ export const adminListTransactions = (filters: AdminTransactionFilters, page: Pa
     query: { ...filters, ...page },
   });
 
+/** The same listing as a CSV file, under the same filters. */
+export const adminDownloadTransactions = (filters: AdminTransactionFilters) => {
+  const query = new URLSearchParams(
+    Object.entries(filters).filter((entry): entry is [string, string] => !!entry[1]),
+  ).toString();
+  return apiDownload(
+    `/api/v1/admin/transactions/export.csv${query ? `?${query}` : ""}`,
+    "fincore-transactions.csv",
+  );
+};
+
+export type PlatformStats = Payment["PlatformStatsResponse"];
+export type UserStats = Identity["UserStatsResponse"];
+/** Operations per day and currency over the last `days` days. */
+export const adminPlatformStats = (days: number) =>
+  apiRequest<PlatformStats>("/api/v1/admin/stats", { query: { days } });
+/** How many accounts there are and how many were created per day. */
+export const adminUserStats = (days: number) =>
+  apiRequest<UserStats>("/api/v1/admin/users/stats", { query: { days } });
+/** One customer's wallets, as they see them. */
+export const adminListWallets = (userId: string) =>
+  apiRequest<Wallet[]>("/api/v1/admin/wallets", { query: { user_id: userId } });
+
 export const adminListWebhookEndpoints = (status: string | undefined, page: Page) =>
   apiRequest<AdminWebhookEndpoint[]>("/api/v1/admin/webhooks/endpoints", {
     query: { status, ...page },

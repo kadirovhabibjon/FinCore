@@ -2658,3 +2658,31 @@ path.viz-out {
 .checkbox input {
   width: auto;
 }
+
+/* --- admin dashboard --------------------------------------------------- */
+
+.stat-number {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.dash-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+  align-items: start;
+}
+
+.admin-account-actions {
+  flex-wrap: wrap;
+}
+
+.admin-account-actions .lang-select {
+  width: auto;
+  color: #e5e7eb;
+  background: transparent;
+  border-color: #374151;
+}

@@ -32,10 +32,10 @@ export function CustomerName({ userId }: { userId: string }) {
   );
 }
 
-/** The name as a link to that customer on the Users page. */
+/** The name as a link to that customer's page. */
 export function CustomerLink({ userId }: { userId: string }) {
   return (
-    <Link to={`/admin/users?q=${userId}`} title={userId}>
+    <Link to={`/admin/users/${userId}`} title={userId}>
       <CustomerName userId={userId} />
     </Link>
   );

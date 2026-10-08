@@ -108,7 +108,7 @@ describe("roles", () => {
     expect(screen.queryByText("Create an account")).not.toBeInTheDocument();
   });
 
-  it("opens the console on the review queue", async () => {
+  it("opens the console on its dashboard", async () => {
     fakeApi({
       ...signedInRoutes({ ...USER, roles: ["ADMIN", "USER"] }),
       "GET /api/v1/admin/reviews": () => json([]),
@@ -116,7 +116,7 @@ describe("roles", () => {
 
     renderApp("/admin");
 
-    expect(await screen.findByRole("heading", { name: "Fraud review queue" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Admin" })).toBeInTheDocument();
   });
 
@@ -608,7 +608,7 @@ describe("staying signed in, and out, across reloads", () => {
     await userEvent.type(screen.getByLabelText("Password"), "correct-horse");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
-    expect(await screen.findByRole("heading", { name: "Fraud review queue" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     const login = requests.find((r) => r.path === "/api/v1/auth/login");
     expect(login?.headers["x-refresh-token-transport"]).toBe("cookie-admin");
   });

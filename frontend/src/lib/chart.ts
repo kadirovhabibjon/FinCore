@@ -50,3 +50,13 @@ export function columnPath(x: number, baseline: number, width: number, height: n
     "Z",
   ].join(" ");
 }
+
+/** "2026-10-08" -> "8" or, where a month starts or `full`, "8 Oct". */
+export function dayLabel(date: string, locale: string, full = false): string {
+  const moment = new Date(`${date}T00:00:00Z`);
+  const day = moment.getUTCDate();
+  if (!full && day !== 1) return String(day);
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(
+    moment,
+  );
+}

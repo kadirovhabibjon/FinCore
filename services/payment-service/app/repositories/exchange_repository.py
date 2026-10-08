@@ -27,6 +27,25 @@ class ExchangeRepository:
         )
         return list(result.scalars().all())
 
+    async def list_all(
+        self,
+        *,
+        statuses: tuple[ExchangeStatus, ...] | None,
+        user_id: UUID | None,
+        limit: int,
+        offset: int,
+    ) -> list[Exchange]:
+        """Newest first across every user - the admin transactions view."""
+        query = select(Exchange)
+        if statuses is not None:
+            query = query.where(Exchange.status.in_(statuses))
+        if user_id is not None:
+            query = query.where(Exchange.initiator_user_id == user_id)
+        result = await self._session.execute(
+            query.order_by(Exchange.created_at.desc()).limit(limit).offset(offset)
+        )
+        return list(result.scalars().all())
+
     async def list_stuck(self, *, older_than: datetime) -> list[Exchange]:
         """Exchanges left mid-saga by an unknown ledger outcome, not
         touched since `older_than` (a request still in flight is left

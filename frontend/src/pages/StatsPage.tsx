@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import * as api from "../api/endpoints";
 import { Empty, ErrorAlert, Loading, Money } from "../components/ui";
 import { columnPath, compact, monthLabel, niceTicks } from "../lib/chart";
 import { formatMinor } from "../lib/money";
+import { useWidth } from "../lib/useWidth";
 import { useI18n } from "../i18n";
 
 const PERIODS = [6, 12];
@@ -13,23 +14,6 @@ const HEIGHT = 260;
 const MARGIN = { top: 12, right: 8, bottom: 28, left: 48 };
 const BAR_MAX = 24;
 const BAR_GAP = 2;
-
-/** How wide the chart has to draw itself, so its text stays one size on
- * a phone and on a desktop instead of scaling with the picture. */
-function useWidth(fallback: number) {
-  const element = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(fallback);
-  useEffect(() => {
-    const node = element.current;
-    if (!node || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry && entry.contentRect.width > 0) setWidth(entry.contentRect.width);
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-  return [element, width] as const;
-}
 
 /** Money in and out per month. Two series on one axis, in one currency
  * at a time: UZS and USD amounts differ by four orders of magnitude and

@@ -5,12 +5,14 @@ import { Link, useSearchParams } from "react-router-dom";
 import * as api from "../../api/endpoints";
 import { hasAnyRole, useAuth } from "../../auth/context";
 import { DateTime, Empty, ErrorAlert, Loading, Pager, StatusBadge } from "../../components/ui";
+import { useI18n } from "../../i18n";
 
 const PAGE_SIZE = 25;
 const STATUSES: api.UserStatus[] = ["ACTIVE", "SUSPENDED", "BLOCKED"];
 
 export function AdminUsersPage() {
   const { user: me } = useAuth();
+  const { t, tr, maybe } = useI18n();
   const isAdmin = hasAnyRole(me, "ADMIN");
   const queryClient = useQueryClient();
   // The search lives in the URL (?q=), so other pages can link to one
@@ -49,32 +51,33 @@ export function AdminUsersPage() {
     <section className="page">
       <header className="page-header">
         <div>
-          <h1>Users</h1>
+          <h1>{t("admin.users.title")}</h1>
           <p className="muted">
-            Search by email, phone or user id.{" "}
-            {isAdmin
-              ? "Suspending or blocking a user signs them out everywhere."
-              : "Changing a user's status needs the ADMIN role."}
+            {t("admin.users.intro")}{" "}
+            {isAdmin ? t("admin.users.adminNote") : t("admin.users.supportNote")}
           </p>
         </div>
         <form className="inline-form" onSubmit={onSearch} role="search">
           <input
-            aria-label="Search users"
-            placeholder="email, phone or id"
+            aria-label={t("admin.users.searchLabel")}
+            placeholder={t("admin.users.searchPlaceholder")}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
           <button type="submit" className="button">
-            Search
+            {t("admin.users.search")}
           </button>
         </form>
       </header>
       <ErrorAlert error={users.error ?? setStatus.error} />
       {pending && (
-        <div className="alert alert-info confirm-bar" role="alertdialog" aria-label="Confirm">
+        <div className="alert alert-info confirm-bar" role="alertdialog" aria-label={t("admin.users.confirmLabel")}>
           <span>
-            Set <strong>{pending.user.email}</strong> to <strong>{pending.status}</strong>?
-            {pending.status !== "ACTIVE" && " They are signed out everywhere and can't sign in."}
+            {tr("admin.users.setTo", {
+              email: <strong>{pending.user.email}</strong>,
+              status: <strong>{pending.status}</strong>,
+            })}
+            {pending.status !== "ACTIVE" && ` ${t("admin.users.signedOut")}`}
           </span>
           <span className="actions">
             <button
@@ -82,7 +85,7 @@ export function AdminUsersPage() {
               className="button button-small button-ghost"
               onClick={() => setPending(null)}
             >
-              Cancel
+              {t("admin.users.cancel")}
             </button>
             <button
               type="button"
@@ -92,50 +95,54 @@ export function AdminUsersPage() {
                 setStatus.mutate({ userId: pending.user.id, status: pending.status })
               }
             >
-              Confirm
+              {t("admin.users.confirm")}
             </button>
           </span>
         </div>
       )}
       {users.isPending ? (
-        <Loading what="Searching" />
+        <Loading what={t("admin.users.searching")} />
       ) : users.data?.length === 0 && offset === 0 ? (
-        <Empty>No users match.</Empty>
+        <Empty>{t("admin.users.empty")}</Empty>
       ) : (
         <>
           <table className="table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email / phone</th>
-                <th>Roles</th>
-                <th>Joined</th>
-                <th>Status</th>
+                <th>{t("admin.users.name")}</th>
+                <th>{t("admin.users.contact")}</th>
+                <th>{t("admin.users.roles")}</th>
+                <th>{t("admin.users.joined")}</th>
+                <th>{t("admin.col.status")}</th>
               </tr>
             </thead>
             <tbody>
               {users.data?.map((user) => (
                 <tr key={user.id}>
-                  <td data-label="Name">
-                    {user.first_name} {user.last_name}
+                  <td data-label={t("admin.users.name")}>
+                    <Link to={`/admin/users/${user.id}`}>
+                      {user.first_name} {user.last_name}
+                    </Link>
                     <div className="small">
-                      <Link to={`/admin/transactions?user_id=${user.id}`}>transactions</Link>
+                      <Link to={`/admin/transactions?user_id=${user.id}`}>
+                        {t("admin.users.transactions")}
+                      </Link>
                       {" · "}
-                      <Link to={`/admin/support?user=${user.id}`}>messages</Link>
+                      <Link to={`/admin/support?user=${user.id}`}>{t("admin.users.messages")}</Link>
                     </div>
                   </td>
-                  <td data-label="Email / phone">
+                  <td data-label={t("admin.users.contact")}>
                     {user.email}
                     <div className="muted small">{user.phone}</div>
                   </td>
-                  <td data-label="Roles">{user.roles.join(", ")}</td>
-                  <td data-label="Joined">
+                  <td data-label={t("admin.users.roles")}>{user.roles.join(", ")}</td>
+                  <td data-label={t("admin.users.joined")}>
                     <DateTime value={user.created_at} />
                   </td>
-                  <td data-label="Status">
+                  <td data-label={t("admin.col.status")}>
                     {isAdmin && user.id !== me?.id ? (
                       <select
-                        aria-label={`Status of ${user.email}`}
+                        aria-label={t("admin.users.statusOf", { email: user.email })}
                         value={pending?.user.id === user.id ? pending.status : user.status}
                         disabled={setStatus.isPending}
                         onChange={(e) => {
@@ -144,7 +151,9 @@ export function AdminUsersPage() {
                         }}
                       >
                         {STATUSES.map((status) => (
-                          <option key={status}>{status}</option>
+                          <option key={status} value={status}>
+                            {maybe(`status.${status}`) ?? status}
+                          </option>
                         ))}
                       </select>
                     ) : (

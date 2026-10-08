@@ -47,6 +47,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Platform Stats
+         * @description Per currency and per day (UTC) over the last `days` days: how
+         *     many transfers, payments and exchanges were started, how many
+         *     transfers and payments failed, and how much those that went through
+         *     moved. SUPPORT and ADMIN.
+         */
+        get: operations["get_platform_stats_api_v1_admin_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/transactions": {
         parameters: {
             query?: never;
@@ -56,12 +79,32 @@ export interface paths {
         };
         /**
          * List All Transactions
-         * @description Every user's transfers and payments, newest first. `status` is
-         *     matched against each type's own state machine, so e.g. SUCCESS only
-         *     ever matches payments and COMPLETED only transfers. Merged in Python
-         *     the same way the user-facing `GET /api/v1/transactions` is.
+         * @description Every user's transfers, payments and currency exchanges, newest
+         *     first, optionally only one type, one status or one user's.
          */
         get: operations["list_all_transactions_api_v1_admin_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/transactions/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export All Transactions
+         * @description What `GET /api/v1/admin/transactions` lists under the same
+         *     filters, as a CSV file (newest first, up to 5,000 rows), amounts as
+         *     decimal strings. SUPPORT and ADMIN.
+         */
+        get: operations["export_all_transactions_api_v1_admin_transactions_export_csv_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -842,6 +885,13 @@ export interface components {
              */
             source_wallet_id: string;
         };
+        /** CurrencyDayStats */
+        CurrencyDayStats: {
+            /** Currency */
+            currency: string;
+            /** Days */
+            days: components["schemas"]["DayStats"][];
+        };
         /** CurrencyStats */
         CurrencyStats: {
             /** Currency */
@@ -852,6 +902,24 @@ export interface components {
             total_in_minor: number;
             /** Total Out Minor */
             total_out_minor: number;
+        };
+        /** DayStats */
+        DayStats: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Exchanges */
+            exchanges: number;
+            /** Failed */
+            failed: number;
+            /** Payments */
+            payments: number;
+            /** Transfers */
+            transfers: number;
+            /** Volume Minor */
+            volume_minor: number;
         };
         /** ExchangeResponse */
         ExchangeResponse: {
@@ -1101,6 +1169,18 @@ export interface components {
          * @enum {string}
          */
         PaymentStatus: "CREATED" | "PROCESSING" | "SUCCESS" | "FAILED" | "EXPIRED" | "PARTIALLY_REFUNDED" | "REFUNDED";
+        /** PlatformStatsResponse */
+        PlatformStatsResponse: {
+            /** Awaiting Review */
+            awaiting_review: number;
+            /** Currencies */
+            currencies: components["schemas"]["CurrencyDayStats"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+        };
         /** QuoteResponse */
         QuoteResponse: {
             /** Destination Amount Minor */
@@ -1437,6 +1517,37 @@ export interface operations {
             };
         };
     };
+    get_platform_stats_api_v1_admin_stats_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformStatsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_all_transactions_api_v1_admin_transactions_get: {
         parameters: {
             query?: {
@@ -1459,6 +1570,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminTransactionResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_all_transactions_api_v1_admin_transactions_export_csv_get: {
+        parameters: {
+            query?: {
+                type?: components["schemas"]["TransactionType"] | null;
+                status?: string | null;
+                user_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The operations as a CSV file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": unknown;
                 };
             };
             /** @description Validation Error */

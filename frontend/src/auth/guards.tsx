@@ -47,17 +47,17 @@ export function RequireAuth({ loginPath = "/login" }: { loginPath?: string }) {
  * gets no further than this. (The APIs check the role again anyway.) */
 export function RequireRole({ roles }: { roles: Role[] }) {
   const { user, logout } = useAuth();
+  const { t } = useI18n();
   if (!hasAnyRole(user, ...roles)) {
     return (
       <div className="auth-page">
         <div className="card auth-card">
-          <h1>No admin access</h1>
+          <h1>{t("admin.noAccess.title")}</h1>
           <p className="muted">
-            {user?.email} is not a staff account. The admin console needs one of these roles:{" "}
-            {roles.join(", ")}.
+            {t("admin.noAccess.body", { email: user?.email ?? "", roles: roles.join(", ") })}
           </p>
           <button type="button" className="button" onClick={() => void logout()}>
-            Sign out
+            {t("admin.signOut")}
           </button>
         </div>
       </div>

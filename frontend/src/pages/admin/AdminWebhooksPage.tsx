@@ -5,6 +5,7 @@ import * as api from "../../api/endpoints";
 import { hasAnyRole, useAuth } from "../../auth/context";
 import { ConfirmButton } from "../../components/admin/ConfirmButton";
 import { CustomerLink } from "../../components/admin/Customer";
+import { useI18n } from "../../i18n";
 import { DeliveriesTable } from "../../components/DeliveriesTable";
 import { Empty, ErrorAlert, Loading, Pager, ShortId, StatusBadge } from "../../components/ui";
 
@@ -12,6 +13,7 @@ const PAGE_SIZE = 50;
 
 export function AdminWebhooksPage() {
   const { user } = useAuth();
+  const { t, tr, maybe } = useI18n();
   const isAdmin = hasAnyRole(user, "ADMIN");
   const queryClient = useQueryClient();
   const [status, setStatus] = useState("");
@@ -32,30 +34,27 @@ export function AdminWebhooksPage() {
     <section className="page">
       <header className="page-header">
         <div>
-          <h1>Webhook endpoints</h1>
-          <p className="muted">
-            Every merchant&apos;s endpoints. Disabling one stops deliveries until it is enabled
-            again; its owner can re-enable it too.
-          </p>
+          <h1>{t("admin.webhooks.title")}</h1>
+          <p className="muted">{t("admin.webhooks.subtitle")}</p>
         </div>
         <select
-          aria-label="Endpoint status"
+          aria-label={t("admin.webhooks.status")}
           value={status}
           onChange={(e) => {
             setOffset(0);
             setStatus(e.target.value);
           }}
         >
-          <option value="">Any status</option>
-          <option value="ACTIVE">ACTIVE</option>
-          <option value="DISABLED">DISABLED</option>
+          <option value="">{t("admin.tx.anyStatus")}</option>
+          <option value="ACTIVE">{maybe("status.ACTIVE") ?? "ACTIVE"}</option>
+          <option value="DISABLED">{maybe("status.DISABLED") ?? "DISABLED"}</option>
         </select>
       </header>
       <ErrorAlert error={endpoints.error ?? toggle.error} />
       {endpoints.isPending ? (
-        <Loading what="Loading endpoints" />
+        <Loading what={t("admin.webhooks.loading")} />
       ) : endpoints.data?.length === 0 && offset === 0 ? (
-        <Empty>No endpoints match.</Empty>
+        <Empty>{t("admin.webhooks.empty")}</Empty>
       ) : (
         <>
           <ul className="list">
@@ -65,10 +64,11 @@ export function AdminWebhooksPage() {
                   <div>
                     <code>{endpoint.url}</code>
                     <div className="muted small">
-                      merchant <ShortId id={endpoint.merchant_id} /> · owner{" "}
-                      <CustomerLink userId={endpoint.owner_user_id} /> ·{" "}
-                      {endpoint.consecutive_failures}{" "}
-                      consecutive failures
+                      {tr("admin.webhooks.meta", {
+                        merchant: <ShortId id={endpoint.merchant_id} />,
+                        owner: <CustomerLink userId={endpoint.owner_user_id} />,
+                        failures: endpoint.consecutive_failures,
+                      })}
                     </div>
                   </div>
                   <div className="actions">
@@ -77,12 +77,12 @@ export function AdminWebhooksPage() {
                       (endpoint.status === "ACTIVE" ? (
                         // The merchant stops hearing about their payments.
                         <ConfirmButton
-                          confirm="Confirm disable"
+                          confirm={t("admin.webhooks.confirmDisable")}
                           className="button button-small button-danger"
                           disabled={toggle.isPending}
                           onConfirm={() => toggle.mutate({ id: endpoint.id, enabled: false })}
                         >
-                          Disable
+                          {t("admin.webhooks.disable")}
                         </ConfirmButton>
                       ) : (
                         <button
@@ -91,7 +91,7 @@ export function AdminWebhooksPage() {
                           disabled={toggle.isPending}
                           onClick={() => toggle.mutate({ id: endpoint.id, enabled: true })}
                         >
-                          Enable
+                          {t("admin.webhooks.enable")}
                         </button>
                       ))}
                     <button
@@ -101,7 +101,9 @@ export function AdminWebhooksPage() {
                         setOpenEndpoint(openEndpoint === endpoint.id ? null : endpoint.id)
                       }
                     >
-                      {openEndpoint === endpoint.id ? "Hide deliveries" : "Deliveries"}
+                      {openEndpoint === endpoint.id
+                        ? t("admin.webhooks.hideDeliveries")
+                        : t("admin.webhooks.deliveries")}
                     </button>
                   </div>
                 </div>
@@ -122,11 +124,12 @@ export function AdminWebhooksPage() {
 }
 
 function AdminDeliveries({ endpointId }: { endpointId: string }) {
+  const { t } = useI18n();
   const deliveries = useQuery({
     queryKey: ["admin", "webhooks", endpointId, "deliveries"],
     queryFn: () => api.adminListWebhookDeliveries(endpointId, { limit: 50, offset: 0 }),
   });
-  if (deliveries.isPending) return <Loading what="Loading deliveries" />;
+  if (deliveries.isPending) return <Loading what={t("admin.webhooks.loadingDeliveries")} />;
   if (deliveries.error) return <ErrorAlert error={deliveries.error} />;
   return <DeliveriesTable deliveries={deliveries.data} />;
 }

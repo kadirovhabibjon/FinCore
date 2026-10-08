@@ -961,14 +961,28 @@ refresh cookie.
   fails on any diff, so a backend API change breaks the frontend build,
   not the running app.
 
-**Admin console.** Its menu counts what is waiting for staff - reviews
-to decide, customers' messages nobody has opened - from whichever page
-is open. Tables name the customer (linked to the Users page) instead of
-showing an id. What can't be taken back with one more click is not done
-with one: approving or rejecting a review, withdrawing an announcement
-and disabling a webhook take a second press, and changing a user's
-status asks first. The Users search lives in the URL (`?q=`), so other
-pages link straight to one customer.
+**Admin console.** In Uzbek, Russian or English like the customer
+site. It opens on a **dashboard**: what is waiting for staff (reviews,
+unanswered messages), how many customers there are, and per day and
+currency how many operations were started, how many failed and how much
+money moved - as tiles, two column charts with keyboard-reachable
+readouts, and the same numbers as tables. The numbers come from
+`GET /api/v1/admin/stats` (payment-service) and
+`GET /api/v1/admin/users/stats` (identity-service); days are UTC.
+Each **customer has a page** (`/admin/users/{id}`): profile, wallets
+as the customer sees them (`GET /api/v1/admin/wallets?user_id=`,
+ledger-service, read-only), latest operations and their conversation
+with support. **Transactions** lists exchanges as well as transfers and
+payments and downloads as CSV under the current filters
+(`GET /api/v1/admin/transactions/export.csv`, up to 5,000 rows, text
+that a spreadsheet would run as a formula defused).
+The menu counts what is waiting for staff - reviews to decide,
+customers' messages nobody has opened - from whichever page is open.
+Tables name the customer (linked to their page) instead of showing an
+id. What can't be taken back with one more click is not done with one:
+approving or rejecting a review, withdrawing an announcement and
+disabling a webhook take a second press, and changing a user's status
+asks first. The Users search lives in the URL (`?q=`).
 
 **Theme.** Light, dark, or the device's own (`frontend/src/lib/theme.ts`):
 a forced theme is a `data-theme` attribute on `<html>`, applied before
@@ -984,8 +998,7 @@ compile) and a test checks they use the same placeholders. Text the
 server writes in English is translated where the app knows what it
 means: statuses, the API's error titles, failure reasons, and
 notifications, which carry the facts they were built from (`params`)
-so the bell can rebuild the sentence. Not translated: the admin
-console, emails, PDF receipts, the CSV statement, announcements and
+so the bell can rebuild the sentence. Not translated: emails, PDF receipts, the CSV statement, announcements and
 news (shown as written), and error details beyond the title.
 
 ### Distributed tracing (all services)
@@ -1418,7 +1431,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 173 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 183 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1467,7 +1480,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-74 tests that run against a live `docker compose` stack, through the
+77 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

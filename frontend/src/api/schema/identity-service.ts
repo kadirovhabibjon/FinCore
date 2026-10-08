@@ -36,6 +36,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/users/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User Stats
+         * @description How many accounts there are, by status, and how many were created
+         *     on each of the last `days` days (UTC). SUPPORT and ADMIN.
+         */
+        get: operations["get_user_stats_api_v1_admin_users_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users/{user_id}": {
         parameters: {
             query?: never;
@@ -499,6 +520,16 @@ export interface components {
             /** Phone */
             phone: string;
         };
+        /** RegistrationsDay */
+        RegistrationsDay: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Registered */
+            registered: number;
+        };
         /** SessionResponse */
         SessionResponse: {
             /**
@@ -576,6 +607,17 @@ export interface components {
             phone: string;
             status: components["schemas"]["UserStatus"];
         };
+        /** UserStatsResponse */
+        UserStatsResponse: {
+            /** By Status */
+            by_status: {
+                [key: string]: number;
+            };
+            /** Days */
+            days: components["schemas"]["RegistrationsDay"][];
+            /** Total */
+            total: number;
+        };
         /**
          * UserStatus
          * @enum {string}
@@ -649,6 +691,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminUserResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_stats_api_v1_admin_users_stats_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserStatsResponse"];
                 };
             };
             /** @description Validation Error */

@@ -106,18 +106,22 @@ class FinCoreClient:
     def register_and_login(self) -> User:
         email = f"e2e-{uuid.uuid4().hex[:12]}@example.com"
         password = "E2e-Passw0rd!"
-        phone = "+99890" + "".join(secrets.choice("0123456789") for _ in range(7))
-
-        registered = self._auth_post(
-            "/api/v1/auth/register",
-            {
-                "email": email,
-                "phone": phone,
-                "password": password,
-                "first_name": "E2E",
-                "last_name": "User",
-            },
-        )
+        # A random number can be one an earlier run already registered
+        # (a long-lived stack holds thousands): draw another.
+        for _ in range(5):
+            phone = "+99890" + "".join(secrets.choice("0123456789") for _ in range(7))
+            registered = self._auth_post(
+                "/api/v1/auth/register",
+                {
+                    "email": email,
+                    "phone": phone,
+                    "password": password,
+                    "first_name": "E2E",
+                    "last_name": "User",
+                },
+            )
+            if registered.status_code != 409:
+                break
         registered.raise_for_status()
 
         tokens = self.login(email, password)

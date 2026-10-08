@@ -4,6 +4,10 @@ import { useSearchParams } from "react-router-dom";
 
 import * as api from "../../api/endpoints";
 import { CustomerLink, CustomerName } from "../../components/admin/Customer";
+import { DownloadButton } from "../../components/DownloadButton";
+import { useI18n } from "../../i18n";
+import { formatMinor } from "../../lib/money";
+import { reasonText } from "../../lib/reasons";
 import { DateTime, Empty, ErrorAlert, Loading, Money, Pager, ShortId, StatusBadge } from "../../components/ui";
 
 const PAGE_SIZE = 50;
@@ -23,6 +27,8 @@ const STATUSES = [
 export function AdminTransactionsPage() {
   // Filters live in the URL so a filtered view can be linked to (the
   // users page links here with ?user_id=).
+  const i18n = useI18n();
+  const { t, maybe } = i18n;
   const [params, setParams] = useSearchParams();
   const [offset, setOffset] = useState(0);
   const filters: api.AdminTransactionFilters = {
@@ -48,90 +54,107 @@ export function AdminTransactionsPage() {
     <section className="page">
       <header className="page-header">
         <div>
-          <h1>All transactions</h1>
-          <p className="muted">Every user&apos;s transfers and payments, newest first.</p>
+          <h1>{t("admin.tx.title")}</h1>
+          <p className="muted">{t("admin.tx.subtitle")}</p>
         </div>
         <div className="inline-form">
           <select
-            aria-label="Type"
+            aria-label={t("admin.tx.type")}
             value={filters.type ?? ""}
             onChange={(e) => setFilter("type", e.target.value)}
           >
-            <option value="">All types</option>
-            <option value="TRANSFER">Transfers</option>
-            <option value="PAYMENT">Payments</option>
+            <option value="">{t("admin.tx.allTypes")}</option>
+            <option value="TRANSFER">{t("admin.tx.transfers")}</option>
+            <option value="PAYMENT">{t("admin.tx.payments")}</option>
+            <option value="EXCHANGE">{t("admin.tx.exchanges")}</option>
           </select>
           <select
-            aria-label="Status"
+            aria-label={t("admin.col.status")}
             value={filters.status ?? ""}
             onChange={(e) => setFilter("status", e.target.value)}
           >
-            <option value="">Any status</option>
+            <option value="">{t("admin.tx.anyStatus")}</option>
             {STATUSES.map((status) => (
-              <option key={status}>{status}</option>
+              <option key={status} value={status}>
+                {maybe(`status.${status}`) ?? status}
+              </option>
             ))}
           </select>
           <input
             key={filters.user_id ?? ""}
-            aria-label="User id"
-            placeholder="user id"
+            aria-label={t("admin.tx.userId")}
+            placeholder={t("admin.tx.userIdPlaceholder")}
             defaultValue={filters.user_id ?? ""}
             onBlur={(e) => setFilter("user_id", e.target.value.trim())}
             onKeyDown={(e) => {
               if (e.key === "Enter") setFilter("user_id", e.currentTarget.value.trim());
             }}
           />
+          {/* What is listed, under the same filters, as a file. */}
+          <DownloadButton
+            label={t("admin.tx.download")}
+            fetchFile={() => api.adminDownloadTransactions(filters)}
+          />
         </div>
       </header>
       <ErrorAlert error={transactions.error} />
       {transactions.isPending ? (
-        <Loading what="Loading transactions" />
+        <Loading what={t("admin.tx.loading")} />
       ) : transactions.data?.length === 0 && offset === 0 ? (
-        <Empty>No transactions match.</Empty>
+        <Empty>{t("admin.tx.empty")}</Empty>
       ) : (
         <>
           <table className="table">
             <thead>
               <tr>
-                <th>When</th>
-                <th>Reference</th>
-                <th>User</th>
-                <th>Status</th>
-                <th>Fraud</th>
-                <th className="num">Amount</th>
+                <th>{t("admin.col.when")}</th>
+                <th>{t("admin.col.reference")}</th>
+                <th>{t("admin.col.user")}</th>
+                <th>{t("admin.col.status")}</th>
+                <th>{t("admin.col.fraud")}</th>
+                <th className="num">{t("admin.col.amount")}</th>
               </tr>
             </thead>
             <tbody>
               {transactions.data?.map((item) => (
                 <tr key={item.id}>
-                  <td data-label="When">
+                  <td data-label={t("admin.col.when")}>
                     <DateTime value={item.created_at} />
                   </td>
-                  <td data-label="Reference">
+                  <td data-label={t("admin.col.reference")}>
                     {item.reference}
                     <div className="muted small">
-                      {item.type} → <ShortId id={item.counterparty_id} />
+                      {maybe(`type.${item.type}`) ?? item.type} →{" "}
+                      {item.counterparty_name ?? <ShortId id={item.counterparty_id} />}
                     </div>
                   </td>
-                  <td data-label="User">
+                  <td data-label={t("admin.col.user")}>
                     <CustomerLink userId={item.initiator_user_id} />
                   </td>
-                  <td data-label="Status">
+                  <td data-label={t("admin.col.status")}>
                     <StatusBadge status={item.status} />
                     {item.failure_reason && (
-                      <div className="muted small">{item.failure_reason}</div>
+                      <div className="muted small">{reasonText(item.failure_reason, i18n)}</div>
                     )}
                   </td>
-                  <td data-label="Fraud">
+                  <td data-label={t("admin.col.fraud")}>
                     {item.fraud_decision ? <StatusBadge status={item.fraud_decision} /> : "—"}
                     {item.reviewed_by_user_id && (
                       <div className="muted small">
-                        reviewed by <CustomerName userId={item.reviewed_by_user_id} />
+                        {t("admin.tx.reviewedBy")} <CustomerName userId={item.reviewed_by_user_id} />
                       </div>
                     )}
                   </td>
-                  <td className="num" data-label="Amount">
+                  <td className="num" data-label={t("admin.col.amount")}>
                     <Money minor={item.amount_minor} currency={item.currency} />
+                    {/* An exchange: what that amount was exchanged for. */}
+                    {item.received_amount_minor != null && item.received_currency && (
+                      <div className="muted small">
+                        {t("admin.tx.received", {
+                          amount: formatMinor(item.received_amount_minor, item.received_currency),
+                        })}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

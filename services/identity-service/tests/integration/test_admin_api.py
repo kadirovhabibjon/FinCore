@@ -150,3 +150,58 @@ async def test_unknown_users_are_not_found() -> None:
 
     assert detail.status_code == 404
     assert status_change.status_code == 404
+
+
+async def test_staff_see_how_many_accounts_there_are_and_when_they_were_created() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import update
+
+    from app.domain.user import User, UserStatus
+
+    today = datetime.now(UTC).date()
+    async with _client() as client:
+        support = await _register(client, f"sup{uuid.uuid4().hex[:8]}", RoleName.SUPPORT)
+        before = (
+            await client.get("/api/v1/admin/users/stats", headers=_auth(support))
+        ).json()
+
+        earlier = await _register(client, f"old{uuid.uuid4().hex[:8]}")
+        blocked = await _register(client, f"blk{uuid.uuid4().hex[:8]}")
+        async with db_session.async_session_factory() as session:
+            await session.execute(
+                update(User)
+                .where(User.id == uuid.UUID(earlier["id"]))
+                .values(created_at=datetime.now(UTC) - timedelta(days=2))
+            )
+            await session.execute(
+                update(User)
+                .where(User.id == uuid.UUID(blocked["id"]))
+                .values(status=UserStatus.BLOCKED)
+            )
+            await session.commit()
+
+        stats = await client.get(
+            "/api/v1/admin/users/stats", params={"days": 3}, headers=_auth(support)
+        )
+        as_customer = await client.get("/api/v1/admin/users/stats", headers=_auth(earlier))
+        anonymous = await client.get("/api/v1/admin/users/stats")
+        too_many = await client.get(
+            "/api/v1/admin/users/stats", params={"days": 91}, headers=_auth(support)
+        )
+
+    assert as_customer.status_code == 403 and anonymous.status_code == 401
+    assert too_many.status_code == 422
+    assert stats.status_code == 200
+    body = stats.json()
+    # Other tests share this database: compare with what was there before.
+    assert body["total"] == before["total"] + 2
+    assert body["by_status"].get("BLOCKED", 0) == before["by_status"].get("BLOCKED", 0) + 1
+    assert sum(body["by_status"].values()) == body["total"]
+    assert [day["date"] for day in body["days"]] == [
+        str(today - timedelta(days=2)),
+        str(today - timedelta(days=1)),
+        str(today),
+    ]
+    assert body["days"][0]["registered"] >= 1
+    assert body["days"][2]["registered"] == before["days"][-1]["registered"] + 1

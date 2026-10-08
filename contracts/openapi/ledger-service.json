@@ -622,6 +622,59 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/wallets": {
+      "get": {
+        "description": "One customer's wallets with their balances, the main one first -\nwhat the customer sees on their own wallets page. SUPPORT and ADMIN.\nRead-only: staff cannot move, block or rename anything here.",
+        "operationId": "list_wallets_of_user_api_v1_admin_wallets_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WalletResponse"
+                  },
+                  "title": "Response List Wallets Of User Api V1 Admin Wallets Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Wallets Of User",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/wallets": {
       "get": {
         "operationId": "list_my_wallets_api_v1_wallets_get",

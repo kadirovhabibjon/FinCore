@@ -10,6 +10,7 @@ import io
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from fincore_common import minor_to_decimal
@@ -278,6 +279,59 @@ def render_csv(rows: list[StatementRow]) -> bytes:
                 row.received_currency or "",
                 _safe(row.counterparty),
                 _safe(row.note),
+            ]
+        )
+    return out.getvalue().encode("utf-8-sig")
+
+
+def render_admin_csv(operations: list[Any]) -> bytes:
+    """Operations as the admin console lists them
+    (`AdminTransactionResponse`), one per row. Ids are written whole:
+    this file is for staff, who look things up by them."""
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\r\n")
+    writer.writerow(
+        [
+            "Date (UTC)",
+            "Type",
+            "Reference",
+            "Status",
+            "User id",
+            "Amount",
+            "Currency",
+            "Received amount",
+            "Received currency",
+            "Source wallet id",
+            "Counterparty id",
+            "Counterparty name",
+            "Failure reason",
+            "Fraud decision",
+            "Note",
+        ]
+    )
+    for item in operations:
+        received = (
+            str(minor_to_decimal(item.received_amount_minor, item.received_currency))
+            if item.received_amount_minor is not None and item.received_currency
+            else ""
+        )
+        writer.writerow(
+            [
+                item.created_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+                item.type.value,
+                item.reference,
+                item.status,
+                str(item.initiator_user_id),
+                str(minor_to_decimal(item.amount_minor, item.currency)),
+                item.currency,
+                received,
+                item.received_currency or "",
+                str(item.source_wallet_id),
+                str(item.counterparty_id),
+                _safe(item.counterparty_name),
+                _safe(item.failure_reason),
+                item.fraud_decision.value if item.fraud_decision else "",
+                _safe(item.description),
             ]
         )
     return out.getvalue().encode("utf-8-sig")

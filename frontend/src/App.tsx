@@ -1,13 +1,15 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
-import { BrowserRouter, Link, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "./auth/AuthProvider";
 import { RedirectIfAuthenticated, RequireAuth, RequireRole } from "./auth/guards";
 import { AdminLayout } from "./components/AdminLayout";
 import { Layout } from "./components/Layout";
 import { AdminAnnouncementsPage } from "./pages/admin/AdminAnnouncementsPage";
+import { AdminDashboardPage } from "./pages/admin/AdminDashboardPage";
 import { AdminReviewsPage } from "./pages/admin/AdminReviewsPage";
+import { AdminUserPage } from "./pages/admin/AdminUserPage";
 import { AdminSupportPage } from "./pages/admin/AdminSupportPage";
 import { AdminTransactionsPage } from "./pages/admin/AdminTransactionsPage";
 import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
@@ -53,8 +55,9 @@ export function AppRoutes() {
       <Route path="admin" element={<RequireAuth loginPath="/admin/login" />}>
         <Route element={<RequireRole roles={["SUPPORT", "ADMIN"]} />}>
           <Route element={<AdminLayout />}>
-            <Route index element={<Navigate to="reviews" replace />} />
+            <Route index element={<AdminDashboardPage />} />
             <Route path="users" element={<AdminUsersPage />} />
+            <Route path="users/:userId" element={<AdminUserPage />} />
             <Route path="reviews" element={<AdminReviewsPage />} />
             <Route path="transactions" element={<AdminTransactionsPage />} />
             <Route path="webhooks" element={<AdminWebhooksPage />} />

@@ -409,6 +409,27 @@
         "title": "CreateTransferRequest",
         "type": "object"
       },
+      "CurrencyDayStats": {
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayStats"
+            },
+            "title": "Days",
+            "type": "array"
+          }
+        },
+        "required": [
+          "currency",
+          "days"
+        ],
+        "title": "CurrencyDayStats",
+        "type": "object"
+      },
       "CurrencyStats": {
         "properties": {
           "currency": {
@@ -438,6 +459,45 @@
           "months"
         ],
         "title": "CurrencyStats",
+        "type": "object"
+      },
+      "DayStats": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "exchanges": {
+            "title": "Exchanges",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "payments": {
+            "title": "Payments",
+            "type": "integer"
+          },
+          "transfers": {
+            "title": "Transfers",
+            "type": "integer"
+          },
+          "volume_minor": {
+            "title": "Volume Minor",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "transfers",
+          "payments",
+          "exchanges",
+          "failed",
+          "volume_minor"
+        ],
+        "title": "DayStats",
         "type": "object"
       },
       "ExchangeResponse": {
@@ -994,6 +1054,33 @@
         ],
         "title": "PaymentStatus",
         "type": "string"
+      },
+      "PlatformStatsResponse": {
+        "properties": {
+          "awaiting_review": {
+            "title": "Awaiting Review",
+            "type": "integer"
+          },
+          "currencies": {
+            "items": {
+              "$ref": "#/components/schemas/CurrencyDayStats"
+            },
+            "title": "Currencies",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "generated_at",
+          "awaiting_review",
+          "currencies"
+        ],
+        "title": "PlatformStatsResponse",
+        "type": "object"
       },
       "QuoteResponse": {
         "properties": {
@@ -1719,9 +1806,60 @@
         ]
       }
     },
+    "/api/v1/admin/stats": {
+      "get": {
+        "description": "Per currency and per day (UTC) over the last `days` days: how\nmany transfers, payments and exchanges were started, how many\ntransfers and payments failed, and how much those that went through\nmoved. SUPPORT and ADMIN.",
+        "operationId": "get_platform_stats_api_v1_admin_stats_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Platform Stats",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/transactions": {
       "get": {
-        "description": "Every user's transfers and payments, newest first. `status` is\nmatched against each type's own state machine, so e.g. SUCCESS only\never matches payments and COMPLETED only transfers. Merged in Python\nthe same way the user-facing `GET /api/v1/transactions` is.",
+        "description": "Every user's transfers, payments and currency exchanges, newest\nfirst, optionally only one type, one status or one user's.",
         "operationId": "list_all_transactions_api_v1_admin_transactions_get",
         "parameters": [
           {
@@ -1830,6 +1968,91 @@
           }
         ],
         "summary": "List All Transactions",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/transactions/export.csv": {
+      "get": {
+        "description": "What `GET /api/v1/admin/transactions` lists under the same\nfilters, as a CSV file (newest first, up to 5,000 rows), amounts as\ndecimal strings. SUPPORT and ADMIN.",
+        "operationId": "export_all_transactions_api_v1_admin_transactions_export_csv_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TransactionType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": "The operations as a CSV file."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export All Transactions",
         "tags": [
           "admin"
         ]

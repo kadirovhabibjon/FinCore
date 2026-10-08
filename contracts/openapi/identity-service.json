@@ -359,6 +359,25 @@
         "title": "RegisterRequest",
         "type": "object"
       },
+      "RegistrationsDay": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "registered": {
+            "title": "Registered",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "registered"
+        ],
+        "title": "RegistrationsDay",
+        "type": "object"
+      },
       "SessionResponse": {
         "properties": {
           "created_at": {
@@ -571,6 +590,35 @@
         "title": "UserResponse",
         "type": "object"
       },
+      "UserStatsResponse": {
+        "properties": {
+          "by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Status",
+            "type": "object"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/RegistrationsDay"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "by_status",
+          "days"
+        ],
+        "title": "UserStatsResponse",
+        "type": "object"
+      },
       "UserStatus": {
         "enum": [
           "ACTIVE",
@@ -746,6 +794,57 @@
           }
         ],
         "summary": "Search Users",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users/stats": {
+      "get": {
+        "description": "How many accounts there are, by status, and how many were created\non each of the last `days` days (UTC). SUPPORT and ADMIN.",
+        "operationId": "get_user_stats_api_v1_admin_users_stats_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get User Stats",
         "tags": [
           "admin"
         ]

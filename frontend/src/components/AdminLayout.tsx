@@ -3,20 +3,25 @@ import { NavLink, Outlet } from "react-router-dom";
 
 import * as api from "../api/endpoints";
 import { useAuth } from "../auth/context";
+import { useI18n, type MessageKey } from "../i18n";
+import { LanguageSwitch } from "./LanguageSwitch";
 import { ThemeButton } from "./ThemeSwitch";
 
-const LINKS = [
-  { to: "/admin/reviews", label: "Fraud reviews", count: "reviews" },
-  { to: "/admin/users", label: "Users" },
-  { to: "/admin/transactions", label: "Transactions" },
-  { to: "/admin/webhooks", label: "Webhooks" },
-  { to: "/admin/announcements", label: "Announcements" },
-  { to: "/admin/support", label: "Support", count: "support" },
-] as const;
+type Counted = "reviews" | "support";
 
-const WHAT: Record<"reviews" | "support", string> = {
-  reviews: "waiting for a decision",
-  support: "unread",
+const LINKS: { to: string; label: MessageKey; end?: boolean; count?: Counted }[] = [
+  { to: "/admin", label: "admin.nav.dashboard", end: true },
+  { to: "/admin/reviews", label: "admin.nav.reviews", count: "reviews" },
+  { to: "/admin/users", label: "admin.nav.users" },
+  { to: "/admin/transactions", label: "admin.nav.transactions" },
+  { to: "/admin/webhooks", label: "admin.nav.webhooks" },
+  { to: "/admin/announcements", label: "admin.nav.announcements" },
+  { to: "/admin/support", label: "admin.nav.support", count: "support" },
+];
+
+const WHAT: Record<Counted, MessageKey> = {
+  reviews: "admin.nav.waitingReviews",
+  support: "admin.nav.unreadSupport",
 };
 
 /** The admin console (ADR-0005): its own app at /admin, with its own
@@ -28,6 +33,7 @@ const WHAT: Record<"reviews" | "support", string> = {
  * a count that can't be read is left out rather than shown as zero. */
 export function AdminLayout() {
   const { user, logout } = useAuth();
+  const { t } = useI18n();
   const reviews = useQuery({
     queryKey: ["admin", "reviews"],
     queryFn: api.adminListReviews,
@@ -38,7 +44,10 @@ export function AdminLayout() {
     queryFn: () => api.adminSupportInbox("OPEN"),
     refetchInterval: 10_000,
   });
-  const counts = { reviews: reviews.data?.length ?? 0, support: support.data?.unread_count ?? 0 };
+  const counts: Record<Counted, number> = {
+    reviews: reviews.data?.length ?? 0,
+    support: support.data?.unread_count ?? 0,
+  };
 
   return (
     <div className="admin-shell">
@@ -46,14 +55,14 @@ export function AdminLayout() {
         <NavLink to="/admin" end className="admin-brand">
           FinCore <span>Admin</span>
         </NavLink>
-        <nav className="admin-nav" aria-label="Admin">
+        <nav className="admin-nav" aria-label={t("admin.nav.label")}>
           {LINKS.map((link) => {
-            const count = "count" in link ? counts[link.count] : 0;
+            const count = link.count ? counts[link.count] : 0;
             return (
-              <NavLink key={link.to} to={link.to} className="admin-nav-link">
-                {link.label}
-                {count > 0 && "count" in link && (
-                  <span className="admin-count" aria-label={`${count} ${WHAT[link.count]}`}>
+              <NavLink key={link.to} to={link.to} end={link.end} className="admin-nav-link">
+                {t(link.label)}
+                {link.count && count > 0 && (
+                  <span className="admin-count" aria-label={t(WHAT[link.count], { count })}>
                     {count > 99 ? "99+" : count}
                   </span>
                 )}
@@ -70,9 +79,10 @@ export function AdminLayout() {
               className="button button-small button-ghost"
               onClick={() => void logout()}
             >
-              Sign out
+              {t("admin.signOut")}
             </button>
             <ThemeButton />
+            <LanguageSwitch />
           </div>
         </div>
       </aside>
