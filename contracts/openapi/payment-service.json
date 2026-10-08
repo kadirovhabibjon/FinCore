@@ -545,6 +545,59 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "LimitResponse": {
+        "properties": {
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "daily_limit_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Limit Minor"
+          },
+          "remaining_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Minor"
+          },
+          "spent_minor": {
+            "title": "Spent Minor",
+            "type": "integer"
+          },
+          "wallet_id": {
+            "format": "uuid",
+            "title": "Wallet Id",
+            "type": "string"
+          },
+          "window_hours": {
+            "title": "Window Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "wallet_id",
+          "currency",
+          "daily_limit_minor",
+          "spent_minor",
+          "remaining_minor",
+          "window_hours"
+        ],
+        "title": "LimitResponse",
+        "type": "object"
+      },
       "MerchantOwnershipResponse": {
         "description": "Lets a caller (webhook-service, registering a webhook endpoint)\nverify who owns a merchant and whether it's active, without needing\nits own copy of the merchants table \u2014 same reasoning as\nledger-service's SystemAccountResponse.",
         "properties": {
@@ -1085,6 +1138,27 @@
           "decision"
         ],
         "title": "ReviewDecisionRequest",
+        "type": "object"
+      },
+      "SetLimitRequest": {
+        "properties": {
+          "daily_limit": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Limit"
+          }
+        },
+        "required": [
+          "daily_limit"
+        ],
+        "title": "SetLimitRequest",
         "type": "object"
       },
       "StatsResponse": {
@@ -1814,6 +1888,112 @@
         "summary": "Get Exchange",
         "tags": [
           "exchanges"
+        ]
+      }
+    },
+    "/api/v1/limits/{wallet_id}": {
+      "get": {
+        "description": "The caller's own daily sending limit on one of their wallets, and\nhow much of it the last 24 hours have used.",
+        "operationId": "get_limit_api_v1_limits__wallet_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wallet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Wallet Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LimitResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Limit",
+        "tags": [
+          "limits"
+        ]
+      },
+      "put": {
+        "description": "Sets, changes or (with null) removes the limit.",
+        "operationId": "put_limit_api_v1_limits__wallet_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wallet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Wallet Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetLimitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LimitResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Limit",
+        "tags": [
+          "limits"
         ]
       }
     },

@@ -7,6 +7,8 @@ import { ApiError } from "../api/client";
 import { ErrorAlert, Loading, Money } from "../components/ui";
 import { OperationOutcome } from "../components/OperationOutcome";
 import { QrScanner } from "../components/QrScanner";
+import { BlockedNotice } from "../components/WalletSettings";
+import { useDailyLimit } from "../lib/useDailyLimit";
 import {
   CARD_NUMBER_LENGTH,
   cardDigits,
@@ -77,7 +79,8 @@ export function TransferPage() {
   } else if (recipient && source && recipient.currency !== source.currency) {
     recipientProblem = t("send.otherCurrency", { currency: recipient.currency });
   }
-  const canSend = !!recipient && !recipientProblem;
+  const canSend = !!recipient && !recipientProblem && !source?.blocked;
+  const dailyLimit = useDailyLimit(source);
 
   const transfer = useMutation({
     mutationFn: () =>
@@ -96,6 +99,7 @@ export function TransferPage() {
       void queryClient.invalidateQueries({ queryKey: ["wallets"] });
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["recipients"] });
+      void queryClient.invalidateQueries({ queryKey: ["limit"] });
     },
   });
 
@@ -111,7 +115,7 @@ export function TransferPage() {
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!source || !canSend) return;
-    const problem = validateAmount(amount, source.currency);
+    const problem = validateAmount(amount, source.currency) ?? dailyLimit.over(amount);
     setAmountError(problem);
     if (!problem) transfer.mutate();
   }
@@ -183,6 +187,7 @@ export function TransferPage() {
       <h1>{t("send.title")}</h1>
       <form className="card form" onSubmit={onSubmit}>
         <ErrorAlert error={wallets.error ?? transfer.error} />
+        <BlockedNotice wallet={source} />
         <label>
           {t("send.from")}
           <select

@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Enum, Index, String, func, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, Index, String, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -76,6 +76,19 @@ class LedgerAccount(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    # What the owner sets on their own wallet (wallets only - enforced
+    # below by ck_ledger_accounts_only_wallets_are_set_up).
+    # A label of their choosing, e.g. "Salary".
+    name: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # Their main wallet: exactly one per owner, the first they opened
+    # until they choose another (uq_ledger_accounts_primary_per_owner).
+    is_primary: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    # Set while the owner has blocked the wallet: money can still arrive
+    # but none can leave. Separate from `status`, which is FinCore's own
+    # decision about the account and not the owner's to change.
+    blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         CheckConstraint(
@@ -86,6 +99,16 @@ class LedgerAccount(Base):
         CheckConstraint(
             "(kind = 'USER_WALLET') = (card_number IS NOT NULL)",
             name="ck_ledger_accounts_wallet_has_card_number",
+        ),
+        CheckConstraint(
+            "kind = 'USER_WALLET' OR (name IS NULL AND NOT is_primary AND blocked_at IS NULL)",
+            name="ck_ledger_accounts_only_wallets_are_set_up",
+        ),
+        Index(
+            "uq_ledger_accounts_primary_per_owner",
+            "owner_user_id",
+            unique=True,
+            postgresql_where=text("is_primary"),
         ),
         Index(
             "uq_ledger_accounts_card_number",

@@ -23,6 +23,7 @@ export type UserStatus = Identity["UserStatus"];
 export type RegisterRequest = Identity["RegisterRequest"];
 export type Wallet = Ledger["WalletResponse"];
 export type LedgerEntry = Ledger["LedgerEntryResponse"];
+export type WalletLimit = Payment["LimitResponse"];
 export type Transfer = Payment["TransferResponse"];
 export type Recipient = Payment["RecipientResponse"];
 export type RecentRecipient = Payment["RecentRecipientResponse"];
@@ -130,6 +131,24 @@ export const listWallets = () => apiRequest<Wallet[]>("/api/v1/wallets");
 export const getWallet = (walletId: string) => apiRequest<Wallet>(`/api/v1/wallets/${walletId}`);
 export const createWallet = (currency: string) =>
   apiRequest<Wallet>("/api/v1/wallets", { method: "POST", body: { currency } });
+/** The owner's own label for a wallet; null or blank removes it. */
+export const renameWallet = (walletId: string, name: string | null) =>
+  apiRequest<Wallet>(`/api/v1/wallets/${walletId}`, { method: "PATCH", body: { name } });
+export const makeWalletPrimary = (walletId: string) =>
+  apiRequest<Wallet>(`/api/v1/wallets/${walletId}/primary`, { method: "POST" });
+/** Blocked: money can still arrive, none can leave. */
+export const setWalletBlocked = (walletId: string, blocked: boolean) =>
+  apiRequest<Wallet>(`/api/v1/wallets/${walletId}/${blocked ? "block" : "unblock"}`, {
+    method: "POST",
+  });
+export const getWalletLimit = (walletId: string) =>
+  apiRequest<WalletLimit>(`/api/v1/limits/${walletId}`);
+/** `dailyLimit` is a decimal string in the wallet's currency; null removes the limit. */
+export const setWalletLimit = (walletId: string, dailyLimit: string | null) =>
+  apiRequest<WalletLimit>(`/api/v1/limits/${walletId}`, {
+    method: "PUT",
+    body: { daily_limit: dailyLimit },
+  });
 export const listWalletEntries = (walletId: string, page: Page) =>
   apiRequest<LedgerEntry[]>(`/api/v1/wallets/${walletId}/entries`, { query: { ...page } });
 

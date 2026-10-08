@@ -14,6 +14,7 @@ from app.core.exceptions import (
     InsufficientFundsError,
     InvalidAccountKindError,
     UnknownAccountError,
+    WalletBlockedError,
 )
 from app.domain.account import AccountKind, AccountStatus
 from app.domain.hold import Hold, HoldStatus
@@ -55,6 +56,8 @@ async def create_hold(
         )
     if account.status != AccountStatus.ACTIVE:
         raise AccountNotActiveError(f"account {account_id} is {account.status.value}")
+    if account.blocked_at is not None:
+        raise WalletBlockedError(f"wallet {account_id} is blocked by its owner")
 
     balances = await account_repository.lock_balances([account_id])
     balance = balances[account_id]
@@ -154,6 +157,7 @@ async def capture_hold(
             EntryInput(hold.account_id, EntryDirection.DEBIT, amount_minor),
             EntryInput(merchant_account.id, EntryDirection.CREDIT, amount_minor),
         ],
+        settles_hold=True,
     )
 
 

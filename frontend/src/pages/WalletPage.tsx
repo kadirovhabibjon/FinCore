@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 
 import * as api from "../api/endpoints";
 import { CardQr } from "../components/CardQr";
+import { WalletSettings } from "../components/WalletSettings";
 import {
   CopyButton,
   DateTime,
@@ -40,8 +41,14 @@ export function WalletPage() {
       <header className="page-header">
         <div>
           <h1>
-            {t("wallet.name", { currency })} <ShortId id={wallet.data.id} />
+            {wallet.data.name ?? t("wallet.name", { currency })} <ShortId id={wallet.data.id} />
           </h1>
+          {(wallet.data.is_primary || wallet.data.blocked) && (
+            <p className="wallet-flags">
+              {wallet.data.is_primary && <span className="badge">{t("card.main")}</span>}
+              {wallet.data.blocked && <span className="badge badge-bad">{t("card.blocked")}</span>}
+            </p>
+          )}
           <p className="muted">
             {t("wallet.cardNumber")}{" "}
             <strong className="card-number">{formatCardNumber(wallet.data.card_number)}</strong>{" "}
@@ -85,6 +92,8 @@ export function WalletPage() {
           <StatusBadge status={wallet.data.status} />
         </div>
       </div>
+
+      <WalletSettings key={wallet.data.id} wallet={wallet.data} />
 
       <h2>{t("wallet.entries")}</h2>
       <ErrorAlert error={entries.error} />

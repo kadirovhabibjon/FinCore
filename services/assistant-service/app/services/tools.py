@@ -175,6 +175,11 @@ def _wallet(wallet: dict[str, Any]) -> dict[str, Any]:
         "card_number": _card(wallet.get("card_number")),
         "currency": currency,
         "status": wallet["status"],
+        # What the owner set: their name for it, whether it is their main
+        # wallet, and whether they have blocked it (nothing can leave).
+        "name": wallet.get("name"),
+        "main": bool(wallet.get("is_primary")),
+        "blocked_by_owner": bool(wallet.get("blocked")),
         "available": _money(wallet["balance_minor"] - wallet["held_minor"], currency),
         "on_hold": _money(wallet["held_minor"], currency),
         "ledger_balance": _money(wallet["balance_minor"], currency),

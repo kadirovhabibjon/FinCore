@@ -22,6 +22,15 @@ class AccountNotActiveError(DomainError):
     title = "Account Not Active"
 
 
+class WalletBlockedError(DomainError):
+    """The owner has blocked this wallet: nothing may be taken from it
+    until they unblock it. A business rejection, like insufficient
+    funds - the caller moves its own operation to FAILED."""
+
+    status_code = status.HTTP_409_CONFLICT
+    title = "Wallet Blocked"
+
+
 class InsufficientFundsError(DomainError):
     """A business rejection, not a bug: the caller (payment-service) is
     expected to catch this and move its own operation to FAILED — this is

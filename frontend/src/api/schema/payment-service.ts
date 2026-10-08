@@ -133,6 +133,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/limits/{wallet_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Limit
+         * @description The caller's own daily sending limit on one of their wallets, and
+         *     how much of it the last 24 hours have used.
+         */
+        get: operations["get_limit_api_v1_limits__wallet_id__get"];
+        /**
+         * Put Limit
+         * @description Sets, changes or (with null) removes the limit.
+         */
+        put: operations["put_limit_api_v1_limits__wallet_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/merchants": {
         parameters: {
             query?: never;
@@ -830,6 +855,24 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** LimitResponse */
+        LimitResponse: {
+            /** Currency */
+            currency: string;
+            /** Daily Limit Minor */
+            daily_limit_minor: number | null;
+            /** Remaining Minor */
+            remaining_minor: number | null;
+            /** Spent Minor */
+            spent_minor: number;
+            /**
+             * Wallet Id
+             * Format: uuid
+             */
+            wallet_id: string;
+            /** Window Hours */
+            window_hours: number;
+        };
         /**
          * MerchantOwnershipResponse
          * @description Lets a caller (webhook-service, registering a webhook endpoint)
@@ -1094,6 +1137,11 @@ export interface components {
         /** ReviewDecisionRequest */
         ReviewDecisionRequest: {
             decision: components["schemas"]["ReviewDecision"];
+        };
+        /** SetLimitRequest */
+        SetLimitRequest: {
+            /** Daily Limit */
+            daily_limit: string | null;
         };
         /** StatsResponse */
         StatsResponse: {
@@ -1421,6 +1469,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExchangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_limit_api_v1_limits__wallet_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wallet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_limit_api_v1_limits__wallet_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wallet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetLimitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimitResponse"];
                 };
             };
             /** @description Validation Error */

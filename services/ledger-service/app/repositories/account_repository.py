@@ -53,6 +53,8 @@ class AccountRepository:
                 LedgerAccount.owner_user_id == user_id,
                 LedgerAccount.kind == AccountKind.USER_WALLET,
             )
+            # The main wallet first, then in the order they were opened.
+            .order_by(LedgerAccount.is_primary.desc(), LedgerAccount.created_at, LedgerAccount.id)
         )
         return list(result.scalars().all())
 

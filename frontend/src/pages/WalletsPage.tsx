@@ -86,9 +86,17 @@ export function WalletsPage() {
             <Link key={wallet.id} to={`/wallets/${wallet.id}`} className="card wallet-card">
               <div className="wallet-card-head">
                 <span className="muted">
-                  {t("wallet.name", { currency: wallet.currency })} <ShortId id={wallet.id} />
+                  {wallet.name ?? t("wallet.name", { currency: wallet.currency })}{" "}
+                  <ShortId id={wallet.id} />
                 </span>
-                <StatusBadge status={wallet.status} />
+                <span className="wallet-flags">
+                  {wallet.is_primary && <span className="badge">{t("card.main")}</span>}
+                  {wallet.blocked ? (
+                    <span className="badge badge-bad">{t("card.blocked")}</span>
+                  ) : (
+                    <StatusBadge status={wallet.status} />
+                  )}
+                </span>
               </div>
               <div className="card-number" aria-label={t("wallet.cardNumber")}>
                 {formatCardNumber(wallet.card_number)}

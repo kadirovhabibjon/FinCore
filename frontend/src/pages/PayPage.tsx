@@ -5,6 +5,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import * as api from "../api/endpoints";
 import { OperationOutcome } from "../components/OperationOutcome";
 import { ErrorAlert, Loading, Money } from "../components/ui";
+import { BlockedNotice } from "../components/WalletSettings";
+import { useDailyLimit } from "../lib/useDailyLimit";
 import { validateAmount, walletLabel } from "../lib/money";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
 import { useI18n } from "../i18n";
@@ -39,8 +41,10 @@ export function PayPage() {
       renewKey();
       void queryClient.invalidateQueries({ queryKey: ["wallets"] });
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["limit"] });
     },
   });
+  const dailyLimit = useDailyLimit(source);
 
   function edited<T>(setter: (value: T) => void) {
     return (value: T) => {
@@ -52,7 +56,8 @@ export function PayPage() {
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!source) return;
-    const problem = validateAmount(amount, source.currency);
+    if (source.blocked) return;
+    const problem = validateAmount(amount, source.currency) ?? dailyLimit.over(amount);
     setAmountError(problem);
     if (!problem) payment.mutate();
   }
@@ -97,6 +102,7 @@ export function PayPage() {
       <h1>{t("pay.title")}</h1>
       <form className="card form" onSubmit={onSubmit}>
         <ErrorAlert error={wallets.error ?? payment.error} />
+        <BlockedNotice wallet={source} />
         <label>
           {t("send.from")}
           <select value={source?.id} onChange={(e) => edited(setSourceId)(e.target.value)}>
@@ -137,7 +143,7 @@ export function PayPage() {
             maxLength={255}
           />
         </label>
-        <button type="submit" className="button" disabled={payment.isPending}>
+        <button type="submit" className="button" disabled={payment.isPending || !!source?.blocked}>
           {payment.isPending ? t("pay.paying") : t("pay.submit")}
         </button>
       </form>

@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import * as api from "../api/endpoints";
 import { ApiError } from "../api/client";
 import { DateTime, ErrorAlert, Loading, Money, Notice } from "../components/ui";
+import { BlockedNotice } from "../components/WalletSettings";
 import { formatMinor, validateAmount, walletLabel } from "../lib/money";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
 import { useI18n } from "../i18n";
@@ -176,6 +177,7 @@ export function ExchangePage() {
       <p className="muted">{t("exchange.subtitle")}</p>
       <form className="card form" onSubmit={onSubmit}>
         <ErrorAlert error={wallets.error ?? (rateChanged ? null : exchange.error)} />
+        <BlockedNotice wallet={source} />
         {rateChanged && (
           <div className="alert alert-warn" role="alert">
             {t("exchange.rateChanged")}
@@ -236,7 +238,11 @@ export function ExchangePage() {
             <span className="muted">{t("exchange.gettingRate")}</span>
           )}
         </div>
-        <button type="submit" className="button" disabled={!offer || exchange.isPending}>
+        <button
+          type="submit"
+          className="button"
+          disabled={!offer || exchange.isPending || source.blocked}
+        >
           {exchange.isPending
             ? t("exchange.exchanging")
             : offer

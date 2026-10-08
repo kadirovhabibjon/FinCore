@@ -10,6 +10,7 @@ from app.core.exceptions import (
     InsufficientFundsError,
     UnbalancedPostingError,
     UnknownAccountError,
+    WalletBlockedError,
 )
 from app.domain.account import AccountKind, AccountStatus
 from app.domain.posting import EntryDirection, LedgerEntry, Posting, PostingType
@@ -62,6 +63,7 @@ async def create_posting(
     type: PostingType,
     currency: str,
     entries: list[EntryInput],
+    settles_hold: bool = False,
 ) -> Posting:
     """Creates a balanced posting, or returns the existing one if this
     exact (source_service, source_id, type) was already posted.
@@ -107,6 +109,15 @@ async def create_posting(
             )
         if account.status != AccountStatus.ACTIVE:
             raise AccountNotActiveError(f"account {account.id} is {account.status.value}")
+        # The owner's block stops money leaving, never arriving. Capturing
+        # a hold is the exception: that money was committed, with the
+        # owner's consent, before they blocked the wallet.
+        if (
+            account.blocked_at is not None
+            and entry.direction is EntryDirection.DEBIT
+            and not settles_hold
+        ):
+            raise WalletBlockedError(f"wallet {account.id} is blocked by its owner")
 
         delta = signed_delta(account.kind, entry.direction, entry.amount_minor)
         net_effect[entry.account_id] = net_effect.get(entry.account_id, 0) + delta

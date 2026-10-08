@@ -4,13 +4,18 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import get_current_user_id
-from app.api.v1.schemas import LedgerEntryResponse, WalletCreateRequest, WalletResponse
+from app.api.v1.schemas import (
+    LedgerEntryResponse,
+    WalletCreateRequest,
+    WalletResponse,
+    WalletUpdateRequest,
+)
 from app.core.exceptions import WalletNotFoundError
 from app.db.session import get_db
 from app.domain.account import LedgerAccount
 from app.domain.balance import AccountBalance
 from app.repositories.account_repository import AccountRepository
-from app.services.wallets import create_wallet
+from app.services.wallets import create_wallet, make_primary, rename_wallet, set_blocked
 
 router = APIRouter(prefix="/api/v1/wallets", tags=["wallets"])
 
@@ -22,6 +27,9 @@ def _wallet_response(account: LedgerAccount, balance: AccountBalance) -> WalletR
         card_number=account.card_number,
         currency=account.currency,
         status=account.status,
+        name=account.name,
+        is_primary=account.is_primary,
+        blocked=account.blocked_at is not None,
         created_at=account.created_at,
         balance_minor=balance.balance_minor,
         held_minor=balance.held_minor,
@@ -75,6 +83,56 @@ async def get_wallet(
     balance = await session.get(AccountBalance, account.id)
     assert balance is not None
     return _wallet_response(account, balance)
+
+
+async def _respond(session: AsyncSession, account: LedgerAccount) -> WalletResponse:
+    balance = await session.get(AccountBalance, account.id)
+    assert balance is not None
+    return _wallet_response(account, balance)
+
+
+@router.patch("/{wallet_id}", response_model=WalletResponse)
+async def update_wallet(
+    wallet_id: UUID,
+    payload: WalletUpdateRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> WalletResponse:
+    account = await _get_owned_wallet_or_404(session, wallet_id, user_id)
+    return await _respond(session, await rename_wallet(session, account, payload.name))
+
+
+@router.post("/{wallet_id}/primary", response_model=WalletResponse)
+async def make_wallet_primary(
+    wallet_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> WalletResponse:
+    """Makes this the caller's main wallet, in place of whichever was."""
+    account = await _get_owned_wallet_or_404(session, wallet_id, user_id)
+    return await _respond(session, await make_primary(session, account))
+
+
+@router.post("/{wallet_id}/block", response_model=WalletResponse)
+async def block_wallet(
+    wallet_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> WalletResponse:
+    """Stops money leaving the wallet until its owner unblocks it. Money
+    can still arrive, and a payment already reserved still completes."""
+    account = await _get_owned_wallet_or_404(session, wallet_id, user_id)
+    return await _respond(session, await set_blocked(session, account, True))
+
+
+@router.post("/{wallet_id}/unblock", response_model=WalletResponse)
+async def unblock_wallet(
+    wallet_id: UUID,
+    user_id: UUID = Depends(get_current_user_id),
+    session: AsyncSession = Depends(get_db),
+) -> WalletResponse:
+    account = await _get_owned_wallet_or_404(session, wallet_id, user_id)
+    return await _respond(session, await set_blocked(session, account, False))
 
 
 @router.get("/{wallet_id}/entries", response_model=list[LedgerEntryResponse])

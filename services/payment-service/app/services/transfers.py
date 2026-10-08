@@ -10,7 +10,7 @@ from app.core.metrics import TRANSFERS_TOTAL
 from app.domain.outbox import OutboxEvent
 from app.domain.transfer import FraudDecision, Transfer, TransferStatus
 from app.repositories.transfer_repository import TransferRepository
-from app.services import fraud, ledger
+from app.services import fraud, ledger, limits
 from app.services.ledger import PostingOutcome
 
 
@@ -105,6 +105,27 @@ async def create_transfer(session: AsyncSession, data: CreateTransferInput) -> T
         recipient_name=data.recipient_name,
         recipient_card_number=data.recipient_card_number,
     )
+    # The owner's daily limit, decided in the transaction that records
+    # this transfer. Over it, the transfer is recorded as failed rather
+    # than refused: by now the request has its idempotency key, and a
+    # retry must get this same answer.
+    if not await limits.fits(session, data.source_wallet_id, data.amount_minor):
+        transfer.status = TransferStatus.FAILED
+        transfer.failure_reason = limits.OVER_LIMIT_REASON
+        session.add(transfer)
+        await session.flush()
+        session.add(
+            transfer_outbox_event(
+                transfer,
+                EventType.TRANSFER_FAILED,
+                status=TransferStatus.FAILED,
+                failure_reason=limits.OVER_LIMIT_REASON,
+            )
+        )
+        await session.commit()
+        await session.refresh(transfer)
+        return transfer
+
     session.add(transfer)
     await session.commit()
     await session.refresh(transfer)

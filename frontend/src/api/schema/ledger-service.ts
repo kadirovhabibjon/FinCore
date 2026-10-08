@@ -34,6 +34,28 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /** Update Wallet */
+        patch: operations["update_wallet_api_v1_wallets__wallet_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/wallets/{wallet_id}/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Block Wallet
+         * @description Stops money leaving the wallet until its owner unblocks it. Money
+         *     can still arrive, and a payment already reserved still completes.
+         */
+        post: operations["block_wallet_api_v1_wallets__wallet_id__block_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -48,6 +70,43 @@ export interface paths {
         get: operations["list_wallet_entries_api_v1_wallets__wallet_id__entries_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wallets/{wallet_id}/primary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make Wallet Primary
+         * @description Makes this the caller's main wallet, in place of whichever was.
+         */
+        post: operations["make_wallet_primary_api_v1_wallets__wallet_id__primary_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wallets/{wallet_id}/unblock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unblock Wallet */
+        post: operations["unblock_wallet_api_v1_wallets__wallet_id__unblock_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -519,6 +578,8 @@ export interface components {
         WalletResponse: {
             /** Balance Minor */
             balance_minor: number;
+            /** Blocked */
+            blocked: boolean;
             /** Card Number */
             card_number: string;
             /**
@@ -535,7 +596,16 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Is Primary */
+            is_primary: boolean;
+            /** Name */
+            name: string | null;
             status: components["schemas"]["AccountStatus"];
+        };
+        /** WalletUpdateRequest */
+        WalletUpdateRequest: {
+            /** Name */
+            name: string | null;
         };
     };
     responses: never;
@@ -630,6 +700,72 @@ export interface operations {
             };
         };
     };
+    update_wallet_api_v1_wallets__wallet_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wallet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalletUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    block_wallet_api_v1_wallets__wallet_id__block_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wallet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_wallet_entries_api_v1_wallets__wallet_id__entries_get: {
         parameters: {
             query?: {
@@ -651,6 +787,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LedgerEntryResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    make_wallet_primary_api_v1_wallets__wallet_id__primary_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wallet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unblock_wallet_api_v1_wallets__wallet_id__unblock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                wallet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletResponse"];
                 };
             };
             /** @description Validation Error */

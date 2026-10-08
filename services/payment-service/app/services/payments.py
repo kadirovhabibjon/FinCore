@@ -12,7 +12,7 @@ from app.domain.outbox import OutboxEvent
 from app.domain.payment import Payment, PaymentStatus
 from app.domain.transfer import FraudDecision
 from app.repositories.payment_repository import PaymentRepository
-from app.services import fraud, ledger
+from app.services import fraud, ledger, limits
 from app.services.ledger import HoldOutcome, PostingOutcome
 
 
@@ -92,6 +92,24 @@ async def create_payment(session: AsyncSession, data: CreatePaymentInput) -> Pay
         merchant_name=data.merchant_name,
         merchant_owner_user_id=data.merchant_owner_user_id,
     )
+    # The owner's daily limit: same shape as create_transfer's.
+    if not await limits.fits(session, data.source_wallet_id, data.amount_minor):
+        payment.status = PaymentStatus.FAILED
+        payment.failure_reason = limits.OVER_LIMIT_REASON
+        session.add(payment)
+        await session.flush()
+        session.add(
+            payment_outbox_event(
+                payment,
+                EventType.PAYMENT_FAILED,
+                status=PaymentStatus.FAILED,
+                failure_reason=limits.OVER_LIMIT_REASON,
+            )
+        )
+        await session.commit()
+        await session.refresh(payment)
+        return payment
+
     session.add(payment)
     await session.commit()
     await session.refresh(payment)

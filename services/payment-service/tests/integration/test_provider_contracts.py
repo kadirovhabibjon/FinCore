@@ -35,6 +35,9 @@ def _wallet(wallet_id: str) -> dict:
         "created_at": _NOW.isoformat(),
         "balance_minor": 1_000_000,
         "held_minor": 0,
+        "name": None,
+        "is_primary": True,
+        "blocked": False,
     }
 
 

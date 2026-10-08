@@ -122,3 +122,45 @@ def test_existing_wallets_are_given_card_numbers(alembic_config: Config, postgre
     # Leave the shared database empty of this test's wallets.
     command.downgrade(alembic_config, "base")
     command.upgrade(alembic_config, "head")
+
+
+def test_each_owners_oldest_wallet_becomes_their_main_one(
+    alembic_config: Config, postgres_url: str
+) -> None:
+    """Wallets opened before there was a main wallet: afterwards every
+    owner has exactly one, the one they opened first."""
+
+    async def _run(statement: str) -> list:
+        engine = create_async_engine(postgres_url)
+        try:
+            async with engine.begin() as connection:
+                result = await connection.execute(text(statement))
+                return list(result) if result.returns_rows else []
+        finally:
+            await engine.dispose()
+
+    command.downgrade(alembic_config, "base")
+    command.upgrade(alembic_config, "d2a6f9c4e8b1")
+    asyncio.run(
+        _run(
+            "WITH owners AS (SELECT gen_random_uuid() AS owner FROM generate_series(1, 10)) "
+            "INSERT INTO ledger_accounts "
+            "(id, kind, owner_user_id, currency, card_number, created_at) "
+            "SELECT gen_random_uuid(), 'USER_WALLET', owner, currency, "
+            "lpad((row_number() OVER ())::text, 16, '0'), opened "
+            "FROM owners CROSS JOIN (VALUES ('USD', now() - interval '2 days'), "
+            "('UZS', now() - interval '1 day')) AS wallets(currency, opened)"
+        )
+    )
+
+    command.upgrade(alembic_config, "head")
+
+    rows = asyncio.run(
+        _run("SELECT kind, currency, is_primary FROM ledger_accounts WHERE is_primary")
+    )
+    assert len(rows) == 10
+    assert {(row.kind, row.currency) for row in rows} == {("USER_WALLET", "USD")}
+
+    # Leave the shared database empty of this test's wallets.
+    command.downgrade(alembic_config, "base")
+    command.upgrade(alembic_config, "head")

@@ -20,6 +20,7 @@ from app.domain import (  # noqa: F401
     payment,
     refund,
     transfer,
+    wallet_limit,
 )
 
 config = context.config

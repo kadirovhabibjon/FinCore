@@ -163,9 +163,13 @@ def test_recipient_lookup_gives_nothing_away(api: FinCoreClient, user: User) -> 
 
 
 def _notifications(api: FinCoreClient, who: User) -> dict:
+    """The customer's own activity in the bell. Staff announcements are
+    left out: this stack may be someone's running demo with one
+    published, and every customer's bell shows it."""
     response = api.gateway.get("/api/v1/notifications", headers=who.auth)
     assert response.status_code == 200
-    return response.json()
+    items = [item for item in response.json()["items"] if item["type"] != "announcement"]
+    return {"items": items, "unread_count": sum(1 for item in items if not item["read"])}
 
 
 def test_both_people_see_a_transfer_in_history_and_are_notified(

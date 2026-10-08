@@ -248,6 +248,26 @@ page, not in History.
   computer), or Account → "Appearance" (on any device), with a "Same
   as device" choice. Remembered on that device.
 
+- Card settings: open a wallet from the Wallets page; "Card settings"
+  is below the balances. There the customer can:
+  - give the card a name (only they see it; shown instead of
+    "UZS wallet" in lists and selectors),
+  - make it their main card (listed first and chosen first on the Send,
+    Pay and Exchange pages; exactly one card is the main one),
+  - block or unblock it. While blocked nothing can be sent, paid or
+    exchanged from it, but money sent to it still arrives; a payment
+    already reserved before the block still completes. Only the owner
+    can block or unblock; an operation tried from a blocked card fails
+    with the reason "Wallet Blocked",
+  - set a daily limit: the most the card may send or pay in any 24
+    hours (a rolling window, not a calendar day). Exchanges between the
+    customer's own cards don't count. An operation over the limit fails
+    with the reason "Daily Limit Exceeded"; the limit can be changed or
+    removed at any time on the same page.
+  The list_my_wallets tool shows each wallet's name, whether it is the
+  main one and whether its owner blocked it. You cannot change any of
+  these settings or read the limit; point the customer to the page.
+
 - Statistics: History → "Statistics" shows money in and money out per
   month for the last 6 or 12 months, one currency at a time, as a chart
   with totals and a table. Money out is transfers sent and payments made

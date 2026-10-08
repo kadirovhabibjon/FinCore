@@ -32,19 +32,32 @@ export function formatMinor(amountMinor: number, currency: string): string {
 }
 
 /** A wallet as one line of text, for <option>s:
- * "UZS · 9955 1234 5678 9011 · 1,000.00 UZS available". */
+ * "UZS · 9955 1234 5678 9011 · 1,000.00 UZS available", led by the
+ * owner's name for it when it has one and ending in "blocked" when the
+ * owner has blocked it. */
 export function walletLabel(wallet: {
   card_number: string;
   currency: string;
   balance_minor: number;
   held_minor: number;
+  name?: string | null;
+  blocked?: boolean;
 }): string {
   const available = formatMinor(wallet.balance_minor - wallet.held_minor, wallet.currency);
-  return i18n().t("wallet.label", {
-    currency: wallet.currency,
+  const label = i18n().t("wallet.label", {
+    currency: wallet.name ? `${wallet.name} · ${wallet.currency}` : wallet.currency,
     card: formatCardNumber(wallet.card_number),
     amount: available,
   });
+  return wallet.blocked ? i18n().t("card.labelBlocked", { label }) : label;
+}
+
+/** A valid amount string as integer minor units: "12.5" UZS -> 1250.
+ * Digits only, no float arithmetic. Call after `validateAmount`. */
+export function toMinor(value: string, currency: string): number {
+  const exponent = exponentOf(currency);
+  const [whole = "0", fraction = ""] = value.trim().split(".");
+  return Number(BigInt(whole + fraction.padEnd(exponent, "0").slice(0, exponent)));
 }
 
 /**

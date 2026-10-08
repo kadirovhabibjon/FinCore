@@ -81,7 +81,13 @@ export function fakeApi(routes: Record<string, Handler>) {
     };
     requests.push(request);
     const key = `${method} ${url.pathname}`;
-    const handler = routes[key] ?? DEFAULT_ROUTES[key];
+    const handler =
+      routes[key] ??
+      DEFAULT_ROUTES[key] ??
+      // Every money form reads the chosen card's daily limit: none set.
+      (method === "GET" && url.pathname.startsWith("/api/v1/limits/")
+        ? () => json(noLimit(url.pathname.split("/").pop() ?? ""))
+        : undefined);
     if (!handler) throw new Error(`unexpected request ${method} ${url.pathname}`);
     return handler(request);
   });
@@ -108,7 +114,22 @@ export const WALLET = {
   created_at: "2026-09-01T10:00:00Z",
   balance_minor: 150_000,
   held_minor: 25_000,
+  name: null as string | null,
+  is_primary: true,
+  blocked: false,
 };
+
+/** What /api/v1/limits/{wallet} answers for a card with no limit set. */
+export function noLimit(walletId: string) {
+  return {
+    wallet_id: walletId,
+    currency: "UZS",
+    daily_limit_minor: null as number | null,
+    spent_minor: 0,
+    remaining_minor: null as number | null,
+    window_hours: 24,
+  };
+}
 
 /** Routes for a browser that already holds a valid refresh cookie. */
 export function signedInRoutes(user = USER): Record<string, Handler> {

@@ -254,6 +254,14 @@ for money (ADR-0002, spec Section 8).
   FinCore's own numbering (prefix `9955`, Luhn check digit), not a
   payment card. `GET /internal/v1/accounts/wallet-by-card` resolves one
   for payment-service.
+* What an owner sets on their own wallet: `PATCH /api/v1/wallets/{id}`
+  (a `name`), `POST .../{id}/primary` (their **main wallet** — exactly
+  one per owner, their first until they choose another, listed first)
+  and `POST .../{id}/block` / `.../unblock`. A **blocked** wallet still
+  receives money but nothing can be taken from it (`409 Wallet Blocked`
+  on a posting's debit or a new hold); capturing a hold made before the
+  block still goes through. The block is the owner's own switch,
+  separate from `status`, which is FinCore's decision about the account.
 * `POST /api/v1/wallets`, `GET /api/v1/wallets`, `GET /api/v1/wallets/{id}`,
   `GET /api/v1/wallets/{id}/entries` — protected by a bearer token that
   `ledger-service` verifies **entirely on its own**, using
@@ -371,6 +379,14 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
 * `GET /api/v1/admin/transactions` (SUPPORT, ADMIN) — every user's
   transfers and payments, filterable by type, status and user.
   Roles come from the access token's `roles` claim.
+* **Daily limit**: `GET` / `PUT /api/v1/limits/{wallet_id}` — the most
+  a customer lets one of their wallets send in any rolling 24 hours
+  (transfers and merchant payments that did not fail; exchanges between
+  their own wallets don't count). Decided in the transaction that
+  records the operation, under a per-wallet advisory lock, so requests
+  racing each other can't each be told yes; an operation over the limit
+  is recorded `FAILED` with reason `Daily Limit Exceeded`, like one the
+  ledger refuses for insufficient funds.
 * **Statistics**: `GET /api/v1/transactions/stats?months=6` — money in
   and out per calendar month (UTC), per currency, zeros included so a
   chart has every month. Out is completed transfers sent plus captured
@@ -1354,7 +1370,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 137 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 144 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1403,7 +1419,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-65 tests that run against a live `docker compose` stack, through the
+69 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit
@@ -1574,6 +1590,10 @@ before `payment-service`'s implementation and matched by it, Phase 3).
 | Login/register are hit with a burst of requests | Nginx rate-limits them (10r/s, burst 20) before they reach identity-service at all |
 | A posting's debits don't equal its credits | Rejected before any lock is taken — `422 Unbalanced Posting` |
 | Two transfers move money between the same two wallets in opposite directions, concurrently | Both complete correctly; locks are acquired one account at a time in ascending `account_id` order, so neither transaction can be waiting on a lock the other already holds |
+| The owner blocks a wallet while a payment from it is reserved but not yet captured | The capture still completes — that money was committed before the block — while any new debit or hold is refused with `409 Wallet Blocked`; money sent to the wallet keeps arriving |
+| Several operations race past a wallet's daily limit, each fitting on its own | Exactly as many as fit succeed; the rest are recorded `FAILED` (`Daily Limit Exceeded`) — the decision is made under a per-wallet lock in the transaction that records the operation |
+| A request that used the daily limit up is retried with the same `Idempotency-Key` | The original result is replayed; the limit is never checked before the idempotency key, where it would refuse the replay |
+| Two requests choose different main wallets for the same owner at once | They take turns on a lock over the owner's wallets; exactly one main wallet remains, and neither request fails |
 | A transfer would take a wallet's available balance negative | Rejected *after* the row lock, inside the same transaction — never before it (the TOCTOU fix from the spec's revision notes) — `409 Insufficient Funds` |
 | The same posting is submitted twice (retry after a timeout) | The second call returns the *existing* posting; money moves exactly once |
 | A hold is captured for less than the full held amount | The remainder is released, not left as a smaller open hold |

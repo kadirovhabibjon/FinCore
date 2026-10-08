@@ -527,6 +527,10 @@
             "title": "Balance Minor",
             "type": "integer"
           },
+          "blocked": {
+            "title": "Blocked",
+            "type": "boolean"
+          },
           "card_number": {
             "title": "Card Number",
             "type": "string"
@@ -549,6 +553,21 @@
             "title": "Id",
             "type": "string"
           },
+          "is_primary": {
+            "title": "Is Primary",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
           "status": {
             "$ref": "#/components/schemas/AccountStatus"
           }
@@ -558,11 +577,35 @@
           "card_number",
           "currency",
           "status",
+          "name",
+          "is_primary",
+          "blocked",
           "created_at",
           "balance_minor",
           "held_minor"
         ],
         "title": "WalletResponse",
+        "type": "object"
+      },
+      "WalletUpdateRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "WalletUpdateRequest",
         "type": "object"
       }
     },
@@ -699,6 +742,111 @@
         "tags": [
           "wallets"
         ]
+      },
+      "patch": {
+        "operationId": "update_wallet_api_v1_wallets__wallet_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wallet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Wallet Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Wallet",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/{wallet_id}/block": {
+      "post": {
+        "description": "Stops money leaving the wallet until its owner unblocks it. Money\ncan still arrive, and a payment already reserved still completes.",
+        "operationId": "block_wallet_api_v1_wallets__wallet_id__block_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wallet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Wallet Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Block Wallet",
+        "tags": [
+          "wallets"
+        ]
       }
     },
     "/api/v1/wallets/{wallet_id}/entries": {
@@ -771,6 +919,103 @@
           }
         ],
         "summary": "List Wallet Entries",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/{wallet_id}/primary": {
+      "post": {
+        "description": "Makes this the caller's main wallet, in place of whichever was.",
+        "operationId": "make_wallet_primary_api_v1_wallets__wallet_id__primary_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wallet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Wallet Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Make Wallet Primary",
+        "tags": [
+          "wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/{wallet_id}/unblock": {
+      "post": {
+        "operationId": "unblock_wallet_api_v1_wallets__wallet_id__unblock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "wallet_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Wallet Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unblock Wallet",
         "tags": [
           "wallets"
         ]
