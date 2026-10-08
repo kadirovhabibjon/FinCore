@@ -18,6 +18,7 @@ import { MerchantPage } from "./pages/MerchantPage";
 import { MerchantsPage } from "./pages/MerchantsPage";
 import { NewsItemPage, NewsPage } from "./pages/NewsPage";
 import { PayPage } from "./pages/PayPage";
+import { ServicesPage } from "./pages/ServicesPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { RequestsPage } from "./pages/RequestsPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -73,7 +74,8 @@ export function AppRoutes() {
           <Route index element={<WalletsPage />} />
           <Route path="wallets/:walletId" element={<WalletPage />} />
           <Route path="transfer" element={<TransferPage />} />
-          <Route path="pay" element={<PayPage />} />
+          <Route path="pay" element={<ServicesPage />} />
+          <Route path="pay/merchant" element={<PayPage />} />
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="transactions/:transactionId" element={<TransactionPage />} />
           <Route path="merchants" element={<MerchantsPage />} />

@@ -2405,3 +2405,34 @@ path.viz-out {
   color: var(--text);
   box-shadow: var(--shadow);
 }
+
+/* --- service providers ------------------------------------------------ */
+
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 0.75rem;
+}
+
+.service-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.service-tile:hover,
+.service-tile:focus-visible {
+  border-color: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .service-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -215,6 +215,24 @@ class ExchangeUnavailableError(DomainError):
     title = "Exchange Unavailable"
 
 
+class ServiceNotFoundError(DomainError):
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Service Not Found"
+
+
+class InvalidServiceAccountError(DomainError):
+    """Not what this provider identifies a customer by (a phone number,
+    a login, an account number)."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Invalid Service Account"
+
+
+class AmountOutOfRangeError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Amount Out Of Range"
+
+
 class ExchangeNotFoundError(DomainError):
     """Also covers "exists but isn't yours"."""
 

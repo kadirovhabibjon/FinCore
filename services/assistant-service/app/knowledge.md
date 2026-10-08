@@ -257,6 +257,26 @@ page, not in History.
   computer), or Account → "Appearance" (on any device), with a "Same
   as device" choice. Remembered on that device.
 
+- Paying for services: the Pay page lists providers by category -
+  mobile (Beeline, Ucell, Uzmobile, Mobiuz, Humans), internet (Uzonline,
+  Turon Telecom, Sarkor Telecom, Comnet), utilities (electricity,
+  natural gas, cold water, heating and hot water, waste collection) and
+  television (Uzdigital TV). The customer picks one, chooses their UZS
+  card, types the account (a phone number for mobile, the contract login
+  for internet, the personal account number for utilities and TV) and
+  the amount: from 1,000.00 to 5,000,000.00 UZS at a time. Only UZS
+  cards can pay; a customer with no UZS card must open one first. The
+  payment appears in History with the provider's name and the account,
+  has a PDF receipt, counts towards the card's daily limit, and can't be
+  made from a blocked card.
+  IMPORTANT, say this plainly when asked whether the money reached the
+  provider: this is a demonstration. FinCore is not connected to these
+  providers yet. The amount is taken from the card and recorded, but
+  nothing is delivered to the operator or utility, so the phone balance
+  or the bill does not change. Such a payment cannot be refunded from
+  the site; the customer should contact FinCore staff.
+  Paying a merchant by its id is still available from the Pay page
+  ("Pay a merchant by its id").
 - Card settings: open a wallet from the Wallets page; "Card settings"
   is below the balances. There the customer can:
   - give the card a name (only they see it; shown instead of

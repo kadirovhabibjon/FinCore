@@ -107,6 +107,11 @@ class Payment(Base):
     merchant_owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True
     )
+    # Set together, for a payment to a service provider
+    # (app/services/billers.py): which one, and the customer's account
+    # there - a phone number, a login or an account number.
+    service_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    service_account: Mapped[str | None] = mapped_column(String(64), nullable=True)
     idempotency_key_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("idempotency_keys.id"),
@@ -129,6 +134,10 @@ class Payment(Base):
 
     __table_args__ = (
         CheckConstraint("amount_minor > 0", name="ck_payments_amount_positive"),
+        CheckConstraint(
+            "(service_code IS NULL) = (service_account IS NULL)",
+            name="ck_payments_service_code_and_account_together",
+        ),
         CheckConstraint(
             "refunded_amount_minor >= 0 AND refunded_amount_minor <= amount_minor",
             name="ck_payments_refunded_amount_within_bounds",

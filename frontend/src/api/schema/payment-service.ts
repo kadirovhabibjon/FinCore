@@ -372,6 +372,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Services
+         * @description The service providers a customer can pay, in display order.
+         */
+        get: operations["list_services_api_v1_services_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/services/{code}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay Service
+         * @description Pays a service provider from one of the caller's wallets: a
+         *     payment like any other (same saga, same history), to the provider's
+         *     merchant, recorded with the account it was for. Same order as
+         *     payments.py: authorize -> validate -> idempotency -> saga.
+         */
+        post: operations["pay_service_api_v1_services__code__payments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transactions": {
         parameters: {
             query?: never;
@@ -643,6 +686,12 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AccountKind
+         * @description What identifies the customer at the provider.
+         * @enum {string}
+         */
+        AccountKind: "PHONE" | "LOGIN" | "ACCOUNT_NUMBER";
+        /**
          * AdminTransactionResponse
          * @description TransactionResponse plus what staff need and a user's own history
          *     doesn't show: whose operation it is, where the money was headed, and
@@ -707,6 +756,11 @@ export interface components {
              */
             updated_at: string;
         };
+        /**
+         * Category
+         * @enum {string}
+         */
+        Category: "MOBILE" | "INTERNET" | "UTILITIES" | "TV";
         /** CreateExchangeRequest */
         CreateExchangeRequest: {
             /** Amount */
@@ -972,6 +1026,18 @@ export interface components {
              */
             source_wallet_id: string;
         };
+        /** PayServiceRequest */
+        PayServiceRequest: {
+            /** Account */
+            account: string;
+            /** Amount */
+            amount: string;
+            /**
+             * Source Wallet Id
+             * Format: uuid
+             */
+            source_wallet_id: string;
+        };
         /** PaymentResponse */
         PaymentResponse: {
             /** Amount Minor */
@@ -1004,6 +1070,10 @@ export interface components {
             reference: string;
             /** Refunded Amount Minor */
             refunded_amount_minor: number;
+            /** Service Account */
+            service_account?: string | null;
+            /** Service Code */
+            service_code?: string | null;
             /**
              * Source Wallet Id
              * Format: uuid
@@ -1141,6 +1211,21 @@ export interface components {
         /** ReviewDecisionRequest */
         ReviewDecisionRequest: {
             decision: components["schemas"]["ReviewDecision"];
+        };
+        /** ServiceResponse */
+        ServiceResponse: {
+            account_kind: components["schemas"]["AccountKind"];
+            category: components["schemas"]["Category"];
+            /** Code */
+            code: string;
+            /** Currency */
+            currency: string;
+            /** Max Amount Minor */
+            max_amount_minor: number;
+            /** Min Amount Minor */
+            min_amount_minor: number;
+            /** Name */
+            name: string;
         };
         /** SetLimitRequest */
         SetLimitRequest: {
@@ -1923,6 +2008,63 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_services_api_v1_services_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceResponse"][];
+                };
+            };
+        };
+    };
+    pay_service_api_v1_services__code__payments_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayServiceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentResponse"];
                 };
             };
             /** @description Validation Error */

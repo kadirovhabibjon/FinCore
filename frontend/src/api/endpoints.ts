@@ -24,6 +24,7 @@ export type RegisterRequest = Identity["RegisterRequest"];
 export type Wallet = Ledger["WalletResponse"];
 export type LedgerEntry = Ledger["LedgerEntryResponse"];
 export type WalletLimit = Payment["LimitResponse"];
+export type Service = Payment["ServiceResponse"];
 export type Transfer = Payment["TransferResponse"];
 export type Recipient = Payment["RecipientResponse"];
 export type RecentRecipient = Payment["RecentRecipientResponse"];
@@ -204,6 +205,19 @@ export const getExchangeQuote = (
 export const createExchange = (body: Payment["CreateExchangeRequest"], idempotencyKey: string) =>
   apiRequest<Exchange>("/api/v1/exchanges", { method: "POST", body, idempotencyKey });
 
+/** The service providers a customer can pay (mobile, internet, utilities, TV). */
+export const listServices = () => apiRequest<Service[]>("/api/v1/services");
+/** Pays a provider; `account` is the customer's account there, as typed. */
+export const payService = (
+  code: string,
+  body: Payment["PayServiceRequest"],
+  idempotencyKey: string,
+) =>
+  apiRequest<PaymentRecord>(`/api/v1/services/${code}/payments`, {
+    method: "POST",
+    body,
+    idempotencyKey,
+  });
 export const createPayment = (body: Payment["CreatePaymentRequest"], idempotencyKey: string) =>
   apiRequest<PaymentRecord>("/api/v1/payments", { method: "POST", body, idempotencyKey });
 export const getPayment = (paymentId: string) =>

@@ -99,6 +99,9 @@ export function PayPage() {
 
   return (
     <section className="page narrow">
+      <p>
+        <Link to="/pay">{t("services.all")}</Link>
+      </p>
       <h1>{t("pay.title")}</h1>
       <form className="card form" onSubmit={onSubmit}>
         <ErrorAlert error={wallets.error ?? payment.error} />

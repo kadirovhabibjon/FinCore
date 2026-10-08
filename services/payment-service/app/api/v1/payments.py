@@ -31,6 +31,7 @@ from app.domain.payment import PaymentStatus
 from app.repositories.merchant_repository import MerchantRepository
 from app.repositories.payment_repository import PaymentRepository
 from app.services import ledger
+from app.services.billers import SYSTEM_OWNER_ID
 from app.services.idempotency import begin_idempotent_request, complete_idempotent_request
 from app.services.payments import CreatePaymentInput, create_payment
 from app.services.refunds import CreateRefundInput, create_refund
@@ -58,7 +59,9 @@ async def post_payment(
 
     # Validate the request.
     merchant = await MerchantRepository(session).get(payload.merchant_id)
-    if merchant is None:
+    # A service provider's merchant is paid through /api/v1/services,
+    # which knows what account the payment is for; here it doesn't exist.
+    if merchant is None or merchant.owner_user_id == SYSTEM_OWNER_ID:
         raise MerchantNotFoundError(str(payload.merchant_id))
     if merchant.status != MerchantStatus.ACTIVE:
         raise MerchantNotActiveError(f"merchant is {merchant.status.value}")

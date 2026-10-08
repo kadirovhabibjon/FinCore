@@ -389,6 +389,18 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
 * `GET /api/v1/admin/transactions` (SUPPORT, ADMIN) — every user's
   transfers and payments, filterable by type, status and user.
   Roles come from the access token's `roles` claim.
+* **Service payments**: `GET /api/v1/services` lists providers a
+  customer can pay (mobile operators, internet, utilities, TV) and
+  `POST /api/v1/services/{code}/payments` pays one from a UZS wallet,
+  for an account there (a phone number, a login, an account number -
+  each checked and stored in one form). Every provider is a merchant
+  that belongs to FinCore rather than a customer, so this is an ordinary
+  payment: same saga, history, receipts, notifications, daily limit and
+  card block, plus `service_code` / `service_account` on the payment.
+  A provider's merchant can't be paid through `/api/v1/payments`.
+  **FinCore is not connected to any provider**: the payment is taken
+  and recorded and delivered nowhere, and the web app says so.
+  Delivering it would be a consumer of `payment.completed`.
 * **Daily limit**: `GET` / `PUT /api/v1/limits/{wallet_id}` — the most
   a customer lets one of their wallets send in any rolling 24 hours
   (transfers and merchant payments that did not fail; exchanges between
@@ -1380,7 +1392,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 149 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 158 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1429,7 +1441,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-70 tests that run against a live `docker compose` stack, through the
+73 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

@@ -1,6 +1,16 @@
 {
   "components": {
     "schemas": {
+      "AccountKind": {
+        "description": "What identifies the customer at the provider.",
+        "enum": [
+          "PHONE",
+          "LOGIN",
+          "ACCOUNT_NUMBER"
+        ],
+        "title": "AccountKind",
+        "type": "string"
+      },
       "AdminTransactionResponse": {
         "description": "TransactionResponse plus what staff need and a user's own history\ndoesn't show: whose operation it is, where the money was headed, and\nthe fraud/review trail (the admin panel, ADR-0005).",
         "properties": {
@@ -181,6 +191,16 @@
         ],
         "title": "AdminTransactionResponse",
         "type": "object"
+      },
+      "Category": {
+        "enum": [
+          "MOBILE",
+          "INTERNET",
+          "UTILITIES",
+          "TV"
+        ],
+        "title": "Category",
+        "type": "string"
       },
       "CreateExchangeRequest": {
         "properties": {
@@ -801,6 +821,34 @@
         "title": "PayMoneyRequest",
         "type": "object"
       },
+      "PayServiceRequest": {
+        "properties": {
+          "account": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Account",
+            "type": "string"
+          },
+          "amount": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Amount",
+            "type": "string"
+          },
+          "source_wallet_id": {
+            "format": "uuid",
+            "title": "Source Wallet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_wallet_id",
+          "account",
+          "amount"
+        ],
+        "title": "PayServiceRequest",
+        "type": "object"
+      },
       "PaymentResponse": {
         "properties": {
           "amount_minor": {
@@ -877,6 +925,28 @@
           "refunded_amount_minor": {
             "title": "Refunded Amount Minor",
             "type": "integer"
+          },
+          "service_account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Account"
+          },
+          "service_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Code"
           },
           "source_wallet_id": {
             "format": "uuid",
@@ -1149,6 +1219,47 @@
           "decision"
         ],
         "title": "ReviewDecisionRequest",
+        "type": "object"
+      },
+      "ServiceResponse": {
+        "properties": {
+          "account_kind": {
+            "$ref": "#/components/schemas/AccountKind"
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "max_amount_minor": {
+            "title": "Max Amount Minor",
+            "type": "integer"
+          },
+          "min_amount_minor": {
+            "title": "Min Amount Minor",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "category",
+          "name",
+          "account_kind",
+          "currency",
+          "min_amount_minor",
+          "max_amount_minor"
+        ],
+        "title": "ServiceResponse",
         "type": "object"
       },
       "SetLimitRequest": {
@@ -2649,6 +2760,106 @@
         "summary": "Post Refund",
         "tags": [
           "payments"
+        ]
+      }
+    },
+    "/api/v1/services": {
+      "get": {
+        "description": "The service providers a customer can pay, in display order.",
+        "operationId": "list_services_api_v1_services_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceResponse"
+                  },
+                  "title": "Response List Services Api V1 Services Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Services",
+        "tags": [
+          "services"
+        ]
+      }
+    },
+    "/api/v1/services/{code}/payments": {
+      "post": {
+        "description": "Pays a service provider from one of the caller's wallets: a\npayment like any other (same saga, same history), to the provider's\nmerchant, recorded with the account it was for. Same order as\npayments.py: authorize -> validate -> idempotency -> saga.",
+        "operationId": "pay_service_api_v1_services__code__payments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayServiceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Pay Service",
+        "tags": [
+          "services"
         ]
       }
     },

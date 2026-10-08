@@ -100,6 +100,10 @@ class PaymentResponse(BaseModel):
     fraud_decision: FraudDecision | None
     refunded_amount_minor: int
     description: str | None
+    # Set for a payment to a service provider: which one, and the
+    # customer's account there.
+    service_code: str | None = None
+    service_account: str | None = None
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None

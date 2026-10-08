@@ -64,6 +64,9 @@ class CreatePaymentInput:
     description: str | None = None
     merchant_name: str | None = None
     merchant_owner_user_id: UUID | None = None
+    # A payment to a service provider: see app/services/billers.py.
+    service_code: str | None = None
+    service_account: str | None = None
 
 
 async def create_payment(session: AsyncSession, data: CreatePaymentInput) -> Payment:
@@ -91,6 +94,8 @@ async def create_payment(session: AsyncSession, data: CreatePaymentInput) -> Pay
         idempotency_key_id=data.idempotency_key_id,
         merchant_name=data.merchant_name,
         merchant_owner_user_id=data.merchant_owner_user_id,
+        service_code=data.service_code,
+        service_account=data.service_account,
     )
     # The owner's daily limit: same shape as create_transfer's.
     if not await limits.fits(session, data.source_wallet_id, data.amount_minor):
