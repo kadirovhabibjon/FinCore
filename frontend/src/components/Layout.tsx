@@ -6,6 +6,7 @@ import { ChatWidget } from "./ChatWidget";
 import { NotificationBell } from "./NotificationBell";
 import { useI18n, type MessageKey } from "../i18n";
 import { LanguageSwitch } from "./LanguageSwitch";
+import { ThemeButton } from "./ThemeSwitch";
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -111,6 +112,7 @@ export function Layout() {
         </nav>
         <div className="topbar-user">
           <NotificationBell />
+          <ThemeButton />
           <LanguageSwitch />
           <NavLink to="/settings" className="nav-link account-link" title={t("nav.account")}>
             <span className="avatar" aria-hidden="true">

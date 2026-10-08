@@ -244,6 +244,10 @@ page, not in History.
   language is. Notifications that arrived before a language was chosen
   may stay in English.
 
+- Light or dark theme: the sun/moon button in the top bar (on a
+  computer), or Account → "Appearance" (on any device), with a "Same
+  as device" choice. Remembered on that device.
+
 - Statistics: History → "Statistics" shows money in and money out per
   month for the last 6 or 12 months, one currency at a time, as a chart
   with totals and a table. Money out is transfers sent and payments made

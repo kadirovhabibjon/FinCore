@@ -477,6 +477,12 @@ export const en = {
   "reason.hold rejected": "hold rejected",
   "reason.capture rejected": "capture rejected",
   "notif.personAsked": "The person you asked",
+  "theme.title": "Appearance",
+  "theme.system": "Same as device",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "theme.toLight": "Switch to light theme",
+  "theme.toDark": "Switch to dark theme",
 } as const;
 
 export type MessageKey = keyof typeof en;

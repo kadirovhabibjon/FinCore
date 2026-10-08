@@ -477,4 +477,10 @@ export const ru: Record<MessageKey, string> = {
   "reason.hold rejected": "не удалось заблокировать средства",
   "reason.capture rejected": "не удалось списать средства",
   "notif.personAsked": "Тот, кого вы просили",
+  "theme.title": "Оформление",
+  "theme.system": "Как на устройстве",
+  "theme.light": "Светлая",
+  "theme.dark": "Тёмная",
+  "theme.toLight": "Включить светлую тему",
+  "theme.toDark": "Включить тёмную тему",
 };

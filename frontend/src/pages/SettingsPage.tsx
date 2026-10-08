@@ -5,6 +5,7 @@ import { useAuth } from "../auth/context";
 import { ChangePasswordForm } from "../components/ChangePasswordForm";
 import { EditProfileForm } from "../components/EditProfileForm";
 import { DateTime, Empty, ErrorAlert, Loading, StatusBadge } from "../components/ui";
+import { ThemeChoice } from "../components/ThemeSwitch";
 import { useI18n } from "../i18n";
 
 export function SettingsPage() {
@@ -48,6 +49,9 @@ export function SettingsPage() {
 
       <h2>{t("settings.details")}</h2>
       <EditProfileForm user={user} />
+
+      <h2>{t("theme.title")}</h2>
+      <ThemeChoice />
 
       <h2>{t("settings.sessions")}</h2>
       <p className="muted">{t("settings.sessionsIntro")}</p>

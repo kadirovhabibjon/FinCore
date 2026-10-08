@@ -906,6 +906,11 @@ refresh cookie.
   fails on any diff, so a backend API change breaks the frontend build,
   not the running app.
 
+**Theme.** Light, dark, or the device's own (`frontend/src/lib/theme.ts`):
+a forced theme is a `data-theme` attribute on `<html>`, applied before
+first paint by `public/theme-boot.js` (a file, since the CSP allows no
+inline script).
+
 **Languages.** The customer site is in Uzbek, Russian and English
 (`frontend/src/i18n/`): a UZ / RU / EN switch in the top bar and on the
 sign-in pages, remembered per device, defaulting to the browser's
@@ -1349,7 +1354,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 134 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 137 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 

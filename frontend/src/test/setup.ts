@@ -4,6 +4,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 
 import { authTiming } from "../auth/tokenStore";
 import { resetLang } from "../i18n";
+import { resetTheme } from "../lib/theme";
 
 afterEach(() => {
   cleanup();
@@ -19,4 +20,5 @@ beforeEach(() => {
   localStorage.clear();
   // Every test starts in the language a fresh visitor gets: English.
   resetLang();
+  resetTheme();
 });

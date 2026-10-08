@@ -24,7 +24,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0f141d;
     --surface: #171e2b;
     --surface-muted: #1f2837;
@@ -41,6 +41,24 @@
     --info-bg: #1a2744;
     --shadow: none;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f141d;
+  --surface: #171e2b;
+  --surface-muted: #1f2837;
+  --border: #2b3547;
+  --text: #e6eaf2;
+  --text-muted: #97a3b8;
+  --accent: #5b8cff;
+  --good: #5fd49a;
+  --good-bg: #133626;
+  --warn: #f2c14e;
+  --warn-bg: #3a2e10;
+  --bad: #ff8a80;
+  --bad-bg: #3d1b19;
+  --info-bg: #1a2744;
+  --shadow: none;
 }
 
 * {
@@ -1282,7 +1300,7 @@ body {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0a0f1c;
     --surface: rgb(26 34 54 / 58%);
     --surface-strong: rgb(22 29 46 / 84%);
@@ -1296,6 +1314,21 @@ body {
       radial-gradient(60vmax 60vmax at 85% 105%, rgb(20 140 170 / 30%), transparent 60%),
       radial-gradient(50vmax 50vmax at 0% 100%, rgb(170 50 110 / 20%), transparent 60%);
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0a0f1c;
+  --surface: rgb(26 34 54 / 58%);
+  --surface-strong: rgb(22 29 46 / 84%);
+  --surface-muted: rgb(50 62 92 / 50%);
+  --border: rgb(255 255 255 / 10%);
+  --hairline: rgb(255 255 255 / 9%);
+  --shadow: 0 10px 32px rgb(0 0 0 / 38%);
+  --backdrop:
+    radial-gradient(60vmax 60vmax at 8% -5%, rgb(50 90 220 / 42%), transparent 60%),
+    radial-gradient(55vmax 55vmax at 100% 10%, rgb(120 70 220 / 32%), transparent 60%),
+    radial-gradient(60vmax 60vmax at 85% 105%, rgb(20 140 170 / 30%), transparent 60%),
+    radial-gradient(50vmax 50vmax at 0% 100%, rgb(170 50 110 / 20%), transparent 60%);
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -2089,6 +2122,12 @@ textarea:focus {
   }
 }
 
+:root[data-theme="dark"] .viz-root {
+  --series-in: #3987e5;
+  --series-out: #d95926;
+  --viz-grid: rgb(255 255 255 / 10%);
+}
+
 .viz-stale {
   opacity: 0.55;
 }
@@ -2260,4 +2299,41 @@ path.viz-out {
   top: 1rem;
   right: 1rem;
   width: auto;
+}
+
+/* --- theme ------------------------------------------------------------ */
+
+/* A chosen theme also decides how the browser draws its own controls
+   (select lists, scrollbars); without one they follow the system. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+.theme-button {
+  display: inline-grid;
+  place-items: center;
+  padding: 0.45rem 0.55rem;
+}
+
+.theme-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.theme-choice button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The top bar is full on a phone; the same choice is on the Account page. */
+@media (max-width: 720px) {
+  .theme-button {
+    display: none;
+  }
 }

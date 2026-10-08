@@ -477,4 +477,10 @@ export const uz: Record<MessageKey, string> = {
   "reason.hold rejected": "mablag‘ni band qilib bo‘lmadi",
   "reason.capture rejected": "mablag‘ni yechib bo‘lmadi",
   "notif.personAsked": "Siz so‘ragan odam",
+  "theme.title": "Ko‘rinish",
+  "theme.system": "Qurilmadagidek",
+  "theme.light": "Yorug‘",
+  "theme.dark": "Qorong‘i",
+  "theme.toLight": "Yorug‘ mavzuga o‘tish",
+  "theme.toDark": "Qorong‘i mavzuga o‘tish",
 };
