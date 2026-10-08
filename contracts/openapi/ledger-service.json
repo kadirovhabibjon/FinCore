@@ -1161,6 +1161,70 @@
         ]
       }
     },
+    "/internal/v1/accounts/wallet-of/{user_id}": {
+      "get": {
+        "description": "A user's wallet in one currency (there is at most one), whatever\nits status - for payment-service, which sends money to a person\nfound by their phone number.",
+        "operationId": "get_wallet_of_user_internal_v1_accounts_wallet_of__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "required": true,
+            "schema": {
+              "maxLength": 3,
+              "minLength": 3,
+              "title": "Currency",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-internal-token",
+            "required": true,
+            "schema": {
+              "title": "X-Internal-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletByCardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Wallet Of User",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
     "/internal/v1/accounts/wallets/{wallet_id}": {
       "get": {
         "description": "Whose wallet this is - for payment-service, which records the\nrecipient of a transfer so they can be told about it.",

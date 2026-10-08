@@ -1364,6 +1364,60 @@
         "summary": "Health"
       }
     },
+    "/internal/v1/users/by-phone": {
+      "get": {
+        "description": "Whose phone number this is - for payment-service, which lets a\ncustomer send money to a phone number. The number may be typed any\nof the ways sign-in accepts; it is put in the stored form here, so\nthere is one definition of that form.",
+        "operationId": "get_user_by_phone_internal_v1_users_by_phone_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "phone",
+            "required": true,
+            "schema": {
+              "maxLength": 32,
+              "minLength": 5,
+              "title": "Phone",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-internal-token",
+            "required": true,
+            "schema": {
+              "title": "X-Internal-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalUserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get User By Phone",
+        "tags": [
+          "internal"
+        ]
+      }
+    },
     "/internal/v1/users/{user_id}": {
       "get": {
         "operationId": "get_user_internal_v1_users__user_id__get",

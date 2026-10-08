@@ -361,6 +361,36 @@ class LedgerClient:
         )
 
 
+    async def find_wallet_of(self, user_id: UUID, currency: str) -> CardWallet | None:
+        """A user's wallet in one currency, or None when they have none.
+        Raises LedgerUnavailableError if ledger-service can't say."""
+        try:
+            async with async_client(
+                base_url=self._base_url,
+                timeout=self._timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = await client.get(
+                    f"/internal/v1/accounts/wallet-of/{user_id}",
+                    params={"currency": currency},
+                    headers={"X-Internal-Token": self._internal_token},
+                )
+        except httpx.RequestError as exc:
+            raise LedgerUnavailableError(str(exc)) from exc
+
+        if response.status_code == 404:
+            return None
+        if response.status_code != 200:
+            raise LedgerUnavailableError(f"ledger-service returned {response.status_code}")
+        data = response.json()
+        return CardWallet(
+            id=UUID(data["id"]),
+            owner_user_id=UUID(data["owner_user_id"]),
+            currency=data["currency"],
+            status=data["status"],
+            card_number=data.get("card_number"),
+        )
+
     async def find_wallet_owner(self, wallet_id: UUID) -> CardWallet | None:
         """Whose wallet this is, or None when there is no such wallet.
         Raises LedgerUnavailableError if ledger-service can't say."""

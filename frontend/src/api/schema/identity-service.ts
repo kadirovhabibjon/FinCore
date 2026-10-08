@@ -294,6 +294,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/users/by-phone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User By Phone
+         * @description Whose phone number this is - for payment-service, which lets a
+         *     customer send money to a phone number. The number may be typed any
+         *     of the ways sign-in accepts; it is put in the stored form here, so
+         *     there is one definition of that form.
+         */
+        get: operations["get_user_by_phone_internal_v1_users_by_phone_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/users/{user_id}": {
         parameters: {
             query?: never;
@@ -1056,6 +1079,39 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    get_user_by_phone_internal_v1_users_by_phone_get: {
+        parameters: {
+            query: {
+                phone: string;
+            };
+            header: {
+                "x-internal-token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalUserResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

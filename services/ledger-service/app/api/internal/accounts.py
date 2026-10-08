@@ -48,6 +48,22 @@ async def get_wallet_by_card(
     return WalletByCardResponse.model_validate(account)
 
 
+@router.get("/wallet-of/{user_id}", response_model=WalletByCardResponse)
+async def get_wallet_of_user(
+    user_id: UUID,
+    currency: str = Query(..., min_length=3, max_length=3),
+    session: AsyncSession = Depends(get_db),
+) -> WalletByCardResponse:
+    """A user's wallet in one currency (there is at most one), whatever
+    its status - for payment-service, which sends money to a person
+    found by their phone number."""
+    wallets = await AccountRepository(session).get_wallets_for_user(user_id)
+    for account in wallets:
+        if account.currency == currency:
+            return WalletByCardResponse.model_validate(account)
+    raise WalletNotFoundError(f"this user has no {currency} wallet")
+
+
 @router.get("/wallets/{wallet_id}", response_model=WalletByCardResponse)
 async def get_wallet_owner(
     wallet_id: UUID, session: AsyncSession = Depends(get_db)

@@ -82,13 +82,40 @@ than refusing to start (signing in doesn't depend on it).
 
 ## Alternatives Considered
 
-* **Send to a phone number.** Familiar, but a phone number identifies a
-  person, not a wallet: the sender couldn't choose or even see the
-  currency, and it would let anyone test whether a phone number has a
-  FinCore account.
+* **Send to a phone number instead.** Familiar, but a phone number
+  identifies a person, not a wallet: the sender couldn't choose or even
+  see the currency, and it would let anyone test whether a phone number
+  has a FinCore account. Rejected as the *only* way; added later as a
+  second way - see the update below.
 * **Keep the UUID and add a name preview.** Fixes "who am I paying" but
   not "I can't type this".
 * **Let the browser call ledger and identity itself.** Would expose user
   ids to the browser and need a public "user by id" endpoint.
 * **Real card numbers through a processing partner.** Out of scope: it
   needs a licence, PCI DSS and a partner contract, not code.
+
+## Update (2026-10-08): phone numbers as a second way
+
+Customers asked for what every local payment app has: sending to a phone
+number. It is now offered next to the card number, not instead of it.
+
+* `GET /api/v1/transfers/recipient?phone=…&currency=…` leads to the
+  wallet its owner holds **in the currency being sent**. A customer has
+  at most one wallet per currency, so the phone number plus the sender's
+  own currency does identify a wallet - which answers the first
+  objection above. The reply names the card's last four digits, so the
+  sender sees which card the money will reach.
+* identity-service owns the stored form of a phone number, so the number
+  is passed to it as typed (`GET /internal/v1/users/by-phone`);
+  ledger-service answers "this user's wallet in this currency"
+  (`GET /internal/v1/accounts/wallet-of/{user_id}`). payment-service
+  still never sees an email or a phone number it wasn't given.
+* The second objection stands and is accepted: a signed-in customer can
+  learn that a phone number has a FinCore account, and its owner's first
+  name and last initial. What limits it is what limits the card lookup:
+  sign-in, 30 lookups a minute per client at the gateway, and one `404`
+  for "nobody", "account not active" and "no wallet in this currency".
+  A customer who wants not to be found this way has no switch yet; that
+  would be the next thing to add.
+* The transfer itself is unchanged: it is still created with the wallet
+  id the lookup returned.

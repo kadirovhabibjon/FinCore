@@ -1002,8 +1002,19 @@
         "type": "object"
       },
       "RecipientResponse": {
-        "description": "Who a card number belongs to, for the sender to confirm.",
+        "description": "Who a card number or phone number leads to, for the sender to confirm.",
         "properties": {
+          "card_last4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Last4"
+          },
           "currency": {
             "title": "Currency",
             "type": "string"
@@ -2936,18 +2947,61 @@
     },
     "/api/v1/transfers/recipient": {
       "get": {
-        "description": "Who would receive a transfer sent to this card number: the wallet\nto send to, its currency, and the owner's first name and last\ninitial. Signed-in customers only, and rate-limited at the gateway,\nsince it turns a card number into a name.",
+        "description": "Who would receive a transfer: the wallet to send to, its\ncurrency, and the owner's first name and last initial. Found by\n`card_number`, or by `phone` and the `currency` being sent - a phone\nnumber leads to its owner's wallet in that currency. Signed-in\ncustomers only, and rate-limited at the gateway, since it turns a\nnumber into a name.",
         "operationId": "get_recipient_api_v1_transfers_recipient_get",
         "parameters": [
           {
             "in": "query",
             "name": "card_number",
-            "required": true,
+            "required": false,
             "schema": {
-              "maxLength": 32,
-              "minLength": 16,
-              "title": "Card Number",
-              "type": "string"
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "minLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Card Number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "phone",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "minLength": 5,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Phone"
+            }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 3,
+                  "minLength": 3,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Currency"
             }
           }
         ],

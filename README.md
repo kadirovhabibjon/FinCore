@@ -341,6 +341,16 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
   mistyped number is a `422` before any lookup; an unknown card, a
   frozen wallet and a blocked owner are the same `404`. Signed-in
   customers only, 30 lookups a minute per client at the gateway.
+* `GET /api/v1/transfers/recipient?phone=…&currency=…` — the same
+  answer found by **phone number**: the owner's wallet in the currency
+  being sent (a customer has one per currency), with the card's last
+  four digits. identity-service resolves the number as typed
+  (`GET /internal/v1/users/by-phone`), ledger-service the wallet
+  (`GET /internal/v1/accounts/wallet-of/{user_id}`). An unknown number,
+  an inactive account and "no wallet in that currency" are the same
+  `404`; a malformed number is `422 Invalid Phone Number`. The cost -
+  a signed-in customer can learn a phone number has an account - is
+  recorded in ADR-0008's update.
 * `GET /api/v1/transfers/recipients` — the cards the caller has sent
   money to, most recent first, one entry per card, with the name
   recorded when the money was sent. The Send page offers them as
@@ -1370,7 +1380,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 144 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 149 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1419,7 +1429,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-69 tests that run against a live `docker compose` stack, through the
+70 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

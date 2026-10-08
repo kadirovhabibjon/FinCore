@@ -39,6 +39,7 @@ class User:
     password: str
     access_token: str
     refresh_token: str
+    phone: str = ""
 
     @property
     def auth(self) -> dict[str, str]:
@@ -126,6 +127,7 @@ class FinCoreClient:
             password=password,
             access_token=tokens["access_token"],
             refresh_token=tokens["refresh_token"],
+            phone=phone,
         )
 
     def grant_role(self, user: User, role: str) -> User:

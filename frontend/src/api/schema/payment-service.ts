@@ -518,10 +518,12 @@ export interface paths {
         };
         /**
          * Get Recipient
-         * @description Who would receive a transfer sent to this card number: the wallet
-         *     to send to, its currency, and the owner's first name and last
-         *     initial. Signed-in customers only, and rate-limited at the gateway,
-         *     since it turns a card number into a name.
+         * @description Who would receive a transfer: the wallet to send to, its
+         *     currency, and the owner's first name and last initial. Found by
+         *     `card_number`, or by `phone` and the `currency` being sent - a phone
+         *     number leads to its owner's wallet in that currency. Signed-in
+         *     customers only, and rate-limited at the gateway, since it turns a
+         *     number into a name.
          */
         get: operations["get_recipient_api_v1_transfers_recipient_get"];
         put?: never;
@@ -1066,9 +1068,11 @@ export interface components {
         };
         /**
          * RecipientResponse
-         * @description Who a card number belongs to, for the sender to confirm.
+         * @description Who a card number or phone number leads to, for the sender to confirm.
          */
         RecipientResponse: {
+            /** Card Last4 */
+            card_last4?: string | null;
             /** Currency */
             currency: string;
             /** Display Name */
@@ -2114,8 +2118,10 @@ export interface operations {
     };
     get_recipient_api_v1_transfers_recipient_get: {
         parameters: {
-            query: {
-                card_number: string;
+            query?: {
+                card_number?: string | null;
+                phone?: string | null;
+                currency?: string | null;
             };
             header?: never;
             path?: never;

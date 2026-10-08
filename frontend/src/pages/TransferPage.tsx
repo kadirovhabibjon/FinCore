@@ -16,7 +16,9 @@ import {
   isValidCardNumber,
 } from "../lib/card";
 import { validateAmount, walletLabel } from "../lib/money";
+import { isCompletePhone } from "../lib/phone";
 import { cardFromScan } from "../lib/qr";
+import { useDebounced } from "../lib/useDebounced";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
 import { useI18n } from "../i18n";
 
@@ -29,6 +31,9 @@ export function TransferPage() {
   // ?to= is what a FinCore QR code links to: the card arrives filled in.
   // Anything in it that is not a well-formed card is ignored.
   const [cardNumber, setCardNumber] = useState(() => cardFromScan(params.get("to") ?? "") ?? "");
+  // Who to send to is found by their card number or their phone number.
+  const [by, setBy] = useState<"card" | "phone">("card");
+  const [phone, setPhone] = useState("");
   const [scanning, setScanning] = useState(false);
   const [scanProblem, setScanProblem] = useState(false);
   const [amount, setAmount] = useState("");
@@ -55,25 +60,45 @@ export function TransferPage() {
   // is typed, so the sender sees a name before anything is sent.
   const cardComplete = cardNumber.length === CARD_NUMBER_LENGTH;
   const cardValid = isValidCardNumber(cardNumber);
+  // A phone number has no check digit to say it is finished, so it is
+  // looked up once it is long enough and the typing has paused. It
+  // leads to its owner's wallet in the currency being sent.
+  const settledPhone = useDebounced(phone.trim(), 400);
+  const phoneReady =
+    by === "phone" &&
+    !!source &&
+    isCompletePhone(phone) &&
+    settledPhone === phone.trim();
+  const ready = by === "card" ? cardValid : phoneReady;
   const lookup = useQuery({
-    queryKey: ["recipient", cardNumber],
-    queryFn: () => api.findRecipient(cardNumber),
-    enabled: cardValid,
+    queryKey:
+      by === "card"
+        ? ["recipient", cardNumber]
+        : ["recipient", "phone", settledPhone, source?.currency],
+    queryFn: () =>
+      by === "card"
+        ? api.findRecipient(cardNumber)
+        : api.findRecipientByPhone(settledPhone, source!.currency),
+    enabled: ready,
     retry: false,
     staleTime: 60_000,
   });
-  const recipient = cardValid ? lookup.data : undefined;
-  const notFound =
-    lookup.error instanceof ApiError && lookup.error.status === 404;
+  const recipient = ready ? lookup.data : undefined;
+  const lookupStatus =
+    ready && lookup.error instanceof ApiError ? lookup.error.status : null;
   let recipientProblem: string | null = null;
-  if (cardComplete && !cardValid) {
+  if (by === "card" && cardComplete && !cardValid) {
     recipientProblem = t("send.badDigit");
-  } else if (cardValid && notFound) {
+  } else if (lookupStatus === 404) {
     recipientProblem =
-      t("send.noSuchCard");
-  } else if (cardValid && lookup.error) {
+      by === "card"
+        ? t("send.noSuchCard")
+        : t("send.noSuchPhone", { currency: source?.currency ?? "" });
+  } else if (by === "phone" && lookupStatus === 422) {
+    recipientProblem = t("send.badPhone");
+  } else if (ready && lookup.error) {
     recipientProblem =
-      t("send.lookupFailed");
+      by === "card" ? t("send.lookupFailed") : t("send.phoneLookupFailed");
   } else if (recipient && source && recipient.wallet_id === source.id) {
     recipientProblem = t("send.ownWallet");
   } else if (recipient && source && recipient.currency !== source.currency) {
@@ -150,10 +175,15 @@ export function TransferPage() {
         />
         {recipient && (
           <p className="muted">
-            {t("send.toLine", {
-              name: recipient.display_name,
-              card: formatCardNumber(cardNumber),
-            })}
+            {by === "card"
+              ? t("send.toLine", {
+                  name: recipient.display_name,
+                  card: formatCardNumber(cardNumber),
+                })
+              : t("send.toLinePhone", {
+                  name: recipient.display_name,
+                  phone: phone.trim(),
+                })}
           </p>
         )}
         <div className="actions">
@@ -170,6 +200,7 @@ export function TransferPage() {
               // A fresh form: the previous recipient and amount must not
               // be one accidental click away from being sent again.
               setCardNumber("");
+              setPhone("");
               setAmount("");
               setDescription("");
               transfer.reset();
@@ -219,7 +250,10 @@ export function TransferPage() {
                   aria-pressed={item.card_number === cardNumber}
                   // Fills the card in; the lookup below still runs, so a
                   // card that stopped accepting money is caught as usual.
-                  onClick={() => edited(setCardNumber)(item.card_number)}
+                  onClick={() => {
+                    setBy("card");
+                    edited(setCardNumber)(item.card_number);
+                  }}
                 >
                   <span className="recipient-avatar" aria-hidden="true">
                     {(item.display_name ?? "•").slice(0, 1).toUpperCase()}
@@ -237,6 +271,25 @@ export function TransferPage() {
           </div>
         )}
         <div className="field">
+          <div className="segmented" role="group" aria-label={t("send.by")}>
+            <button
+              type="button"
+              aria-pressed={by === "card"}
+              onClick={() => edited(setBy)("card")}
+            >
+              {t("send.byCard")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={by === "phone"}
+              onClick={() => {
+                setScanning(false);
+                edited(setBy)("phone");
+              }}
+            >
+              {t("send.byPhone")}
+            </button>
+          </div>
           {scanning && (
             <QrScanner
               onRead={(text) => {
@@ -244,6 +297,7 @@ export function TransferPage() {
                 // Something else's QR code: keep looking, but say so.
                 setScanProblem(card === null);
                 if (card === null) return;
+                setBy("card");
                 edited(setCardNumber)(card);
                 setScanning(false);
               }}
@@ -256,22 +310,42 @@ export function TransferPage() {
           {scanning && scanProblem && (
             <span className="field-error">{t("send.notFincoreQr")}</span>
           )}
-          <label>
-            {t("send.toCard")}
-            <input
-              value={formatCardNumber(cardNumber)}
-              onChange={(e) =>
-                edited(setCardNumber)(cardDigits(e.target.value))
-              }
-              placeholder="9955 0000 0000 0000"
-              inputMode="numeric"
-              autoComplete="off"
-              required
-              aria-invalid={!!recipientProblem}
-              aria-describedby="recipient-status"
-            />
-          </label>
-          {!scanning && (
+          {by === "card" ? (
+            <label>
+              {t("send.toCard")}
+              <input
+                key="card"
+                value={formatCardNumber(cardNumber)}
+                onChange={(e) =>
+                  edited(setCardNumber)(cardDigits(e.target.value))
+                }
+                placeholder="9955 0000 0000 0000"
+                inputMode="numeric"
+                autoComplete="off"
+                required
+                aria-invalid={!!recipientProblem}
+                aria-describedby="recipient-status"
+              />
+            </label>
+          ) : (
+            <label>
+              {t("send.toPhone")}
+              <input
+                key="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => edited(setPhone)(e.target.value)}
+                placeholder="+998 90 123 45 67"
+                inputMode="tel"
+                autoComplete="off"
+                maxLength={32}
+                required
+                aria-invalid={!!recipientProblem}
+                aria-describedby="recipient-status"
+              />
+            </label>
+          )}
+          {!scanning && by === "card" && (
             <button
               type="button"
               className="button button-small button-ghost scan-button"
@@ -294,14 +368,19 @@ export function TransferPage() {
                   <span className="muted small">
                     {" "}
                     · {t("wallet.name", { currency: recipient.currency })}
+                    {by === "phone" &&
+                      recipient.card_last4 &&
+                      ` · ${t("send.cardEnding", { last4: recipient.card_last4 })}`}
                   </span>
                 </span>
               </span>
-            ) : cardValid ? (
+            ) : ready ? (
               <span className="muted small">{t("send.lookingUp")}</span>
             ) : (
               <span className="muted small">
-                {t("send.cardHint")}
+                {by === "card"
+                  ? t("send.cardHint")
+                  : t("send.phoneHint", { currency: source?.currency ?? "" })}
               </span>
             )}
           </span>

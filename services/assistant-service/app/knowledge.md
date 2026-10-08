@@ -116,6 +116,15 @@ balances inside FinCore only.
 
 ## Sending money (transfers)
 
+- Sending to a phone number: on the Send page choose "Phone number"
+  instead of "Card number" and type the number the recipient registered
+  with FinCore (for example +998 90 123 45 67; nine digits without the
+  country code are taken as an Uzbek number). The recipient's name and
+  the last four digits of their card appear; the money goes to their
+  card in the same currency as the card being sent from. "Nobody can
+  receive UZS at this phone number" means the person does not use
+  FinCore, their account is not active, or they have no card in that
+  currency - ask them for a card number or to open one.
 - Every wallet has its own 16-digit FinCore card number starting with
   9955 (shown on the wallet, with a "Copy number" button on the wallet's
   page). It is what a customer gives someone to receive money. It is a

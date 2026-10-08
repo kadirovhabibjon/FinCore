@@ -127,6 +127,7 @@ def test_money_is_sent_to_a_card_number_after_seeing_who_it_belongs_to(
         # First name and last initial only: never the full name, email or phone.
         "display_name": f"{profile['first_name']} {profile['last_name'][0].upper()}.",
         "own": False,
+        "card_last4": card_number[-4:],
     }
 
     response = api.transfer(
@@ -135,6 +136,51 @@ def test_money_is_sent_to_a_card_number_after_seeing_who_it_belongs_to(
 
     assert response.json()["status"] == "COMPLETED"
     assert api.wallet(other_user, destination)["balance_minor"] == 12_000
+
+
+def test_send_money_to_a_phone_number(
+    api: FinCoreClient, user: User, other_user: User
+) -> None:
+    """The recipient gives only the phone number they registered with:
+    it leads to their wallet in the currency being sent."""
+    source = api.funded_wallet(user, 50_000)
+    destination = api.create_wallet(other_user)
+    # Typed the way people type them, not the way they are stored.
+    typed = f"{other_user.phone[4:6]} {other_user.phone[6:9]}-{other_user.phone[9:]}"
+
+    lookup = api.gateway.get(
+        "/api/v1/transfers/recipient",
+        params={"phone": typed, "currency": "UZS"},
+        headers=user.auth,
+    )
+    no_dollars = api.gateway.get(
+        "/api/v1/transfers/recipient",
+        params={"phone": other_user.phone, "currency": "USD"},
+        headers=user.auth,
+    )
+    nobody = api.gateway.get(
+        "/api/v1/transfers/recipient",
+        params={"phone": "+998900000001", "currency": "UZS"},
+        headers=user.auth,
+    )
+
+    assert lookup.status_code == 200
+    recipient = lookup.json()
+    card = api.wallet(other_user, destination)["card_number"]
+    assert recipient == {
+        "wallet_id": destination,
+        "currency": "UZS",
+        "display_name": "E2E U.",
+        "own": False,
+        "card_last4": card[-4:],
+    }
+    # No wallet in that currency and no such person look the same.
+    assert no_dollars.status_code == nobody.status_code == 404
+    assert no_dollars.json()["title"] == nobody.json()["title"] == "Recipient Not Found"
+
+    sent = api.transfer(user, source=source, destination=recipient["wallet_id"], amount="70.00")
+    assert sent.json()["status"] == "COMPLETED"
+    assert api.wallet(other_user, destination)["balance_minor"] == 7_000
 
 
 def test_recipient_lookup_gives_nothing_away(api: FinCoreClient, user: User) -> None:

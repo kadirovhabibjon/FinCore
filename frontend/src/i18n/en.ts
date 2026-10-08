@@ -516,6 +516,17 @@ export const en = {
   "limit.over": "This is over your daily limit for this card: you can still send {remaining} in the next 24 hours.",
   "error.Wallet Blocked": "Wallet Blocked",
   "error.Daily Limit Exceeded": "Daily Limit Exceeded",
+  "send.by": "Send to",
+  "send.byCard": "Card number",
+  "send.byPhone": "Phone number",
+  "send.toPhone": "To phone number",
+  "send.phoneHint": "The phone number the recipient registered with FinCore. The money goes to their {currency} card.",
+  "send.noSuchPhone": "Nobody can receive {currency} at this phone number. They may not use FinCore, or have no {currency} card.",
+  "send.badPhone": "Check the phone number: for example +998 90 123 45 67.",
+  "send.phoneLookupFailed": "Couldn't look up this phone number right now. Try again shortly.",
+  "send.cardEnding": "card ···· {last4}",
+  "send.toLinePhone": "To {name} · {phone}",
+  "error.Invalid Phone Number": "Invalid Phone Number",
 } as const;
 
 export type MessageKey = keyof typeof en;

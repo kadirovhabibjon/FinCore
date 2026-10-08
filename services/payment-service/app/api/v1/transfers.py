@@ -18,6 +18,7 @@ from app.api.v1.schemas import (
 from app.core.amounts import parse_positive_amount
 from app.core.exceptions import (
     CurrencyMismatchError,
+    InvalidRecipientQueryError,
     SameWalletTransferError,
     TransferNotFoundError,
     WalletNotFoundError,
@@ -27,7 +28,7 @@ from app.repositories.transfer_repository import TransferRepository
 from app.services import ledger
 from app.services.idempotency import begin_idempotent_request, complete_idempotent_request
 from app.services.parties import resolve_parties
-from app.services.recipients import find_recipient
+from app.services.recipients import find_recipient, find_recipient_by_phone
 from app.services.transfers import CreateTransferInput, create_transfer
 
 router = APIRouter(prefix="/api/v1/transfers", tags=["transfers"])
@@ -134,19 +135,29 @@ async def list_recent_recipients(
 # Declared before /{transfer_id}, which would otherwise capture "recipient".
 @router.get("/recipient", response_model=RecipientResponse)
 async def get_recipient(
-    card_number: str = Query(..., min_length=16, max_length=32),
+    card_number: str | None = Query(default=None, min_length=16, max_length=32),
+    phone: str | None = Query(default=None, min_length=5, max_length=32),
+    currency: str | None = Query(default=None, min_length=3, max_length=3),
     user: AuthenticatedUser = Depends(get_authenticated_user),
 ) -> RecipientResponse:
-    """Who would receive a transfer sent to this card number: the wallet
-    to send to, its currency, and the owner's first name and last
-    initial. Signed-in customers only, and rate-limited at the gateway,
-    since it turns a card number into a name."""
-    recipient = await find_recipient(card_number, caller_user_id=user.user_id)
+    """Who would receive a transfer: the wallet to send to, its
+    currency, and the owner's first name and last initial. Found by
+    `card_number`, or by `phone` and the `currency` being sent - a phone
+    number leads to its owner's wallet in that currency. Signed-in
+    customers only, and rate-limited at the gateway, since it turns a
+    number into a name."""
+    if card_number is not None and phone is None:
+        recipient = await find_recipient(card_number, caller_user_id=user.user_id)
+    elif phone is not None and card_number is None and currency is not None:
+        recipient = await find_recipient_by_phone(phone, currency, caller_user_id=user.user_id)
+    else:
+        raise InvalidRecipientQueryError("pass card_number, or phone and currency")
     return RecipientResponse(
         wallet_id=recipient.wallet_id,
         currency=recipient.currency,
         display_name=recipient.display_name,
         own=recipient.own,
+        card_last4=recipient.card_last4,
     )
 
 

@@ -1,13 +1,14 @@
 import hmac
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 from fincore_common import InvalidInternalTokenError
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.exceptions import UserNotFoundError
+from app.core.exceptions import InvalidPhoneNumberError, UserNotFoundError
+from app.core.phone import InvalidPhoneError, normalize_phone
 from app.db.session import get_db
 from app.domain.user import UserStatus
 from app.repositories.user_repository import UserRepository
@@ -38,6 +39,26 @@ class InternalUserResponse(BaseModel):
     first_name: str
     last_name: str
     status: UserStatus
+
+
+# Declared before /{user_id}, which would otherwise capture "by-phone".
+@router.get("/by-phone", response_model=InternalUserResponse)
+async def get_user_by_phone(
+    phone: str = Query(..., min_length=5, max_length=32),
+    session: AsyncSession = Depends(get_db),
+) -> InternalUserResponse:
+    """Whose phone number this is - for payment-service, which lets a
+    customer send money to a phone number. The number may be typed any
+    of the ways sign-in accepts; it is put in the stored form here, so
+    there is one definition of that form."""
+    try:
+        normalized = normalize_phone(phone)
+    except InvalidPhoneError as exc:
+        raise InvalidPhoneNumberError(str(exc)) from exc
+    user = await UserRepository(session).get_by_phone(normalized)
+    if user is None:
+        raise UserNotFoundError("no user has this phone number")
+    return InternalUserResponse.model_validate(user)
 
 
 @router.get("/{user_id}", response_model=InternalUserResponse)

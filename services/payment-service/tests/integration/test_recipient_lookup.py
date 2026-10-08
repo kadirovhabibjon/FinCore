@@ -109,6 +109,7 @@ async def test_finds_the_recipient_and_shows_only_a_first_name_and_initial(
         "currency": "UZS",
         "display_name": "Aziza K.",
         "own": False,
+        "card_last4": _CARD[-4:],
     }
     assert seen == [_CARD]  # spaces dropped before asking ledger-service
 

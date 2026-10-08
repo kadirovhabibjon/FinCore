@@ -129,6 +129,19 @@ class InvalidCardNumberError(DomainError):
     title = "Invalid Card Number"
 
 
+class InvalidPhoneNumberError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Invalid Phone Number"
+
+
+class InvalidRecipientQueryError(DomainError):
+    """A recipient is looked up by a card number or by a phone number
+    and currency - one or the other."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Invalid Recipient Query"
+
+
 class RecipientNotFoundError(DomainError):
     """No wallet can receive money at this card number. One answer for
     "no such card", "wallet frozen or closed" and "owner's account not

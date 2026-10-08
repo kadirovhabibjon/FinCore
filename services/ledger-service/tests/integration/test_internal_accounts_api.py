@@ -127,3 +127,36 @@ async def test_finds_a_wallets_owner_by_wallet_id(issue_access_token) -> None:
     assert found.json()["card_number"] == wallet["card_number"]
     assert unknown.status_code == 404
     assert unauthorized.status_code == 403
+
+
+async def test_finds_a_users_wallet_in_one_currency(issue_access_token) -> None:
+    owner = uuid.uuid4()
+    headers = {"Authorization": f"Bearer {issue_access_token(owner)}"}
+    async with await _client() as client:
+        opened = await client.post("/api/v1/wallets", json={"currency": "USD"}, headers=headers)
+        usd = opened.json()
+        found = await client.get(
+            f"/internal/v1/accounts/wallet-of/{owner}", params={"currency": "USD"}, headers=_HEADERS
+        )
+        other_currency = await client.get(
+            f"/internal/v1/accounts/wallet-of/{owner}", params={"currency": "UZS"}, headers=_HEADERS
+        )
+        stranger = await client.get(
+            f"/internal/v1/accounts/wallet-of/{uuid.uuid4()}",
+            params={"currency": "USD"},
+            headers=_HEADERS,
+        )
+        no_token = await client.get(
+            f"/internal/v1/accounts/wallet-of/{owner}", params={"currency": "USD"}
+        )
+
+    assert found.status_code == 200
+    assert found.json() == {
+        "id": usd["id"],
+        "owner_user_id": str(owner),
+        "card_number": usd["card_number"],
+        "currency": "USD",
+        "status": "ACTIVE",
+    }
+    assert other_currency.status_code == stranger.status_code == 404
+    assert no_token.status_code == 422

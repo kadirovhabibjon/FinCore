@@ -178,6 +178,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/v1/accounts/wallet-of/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Wallet Of User
+         * @description A user's wallet in one currency (there is at most one), whatever
+         *     its status - for payment-service, which sends money to a person
+         *     found by their phone number.
+         */
+        get: operations["get_wallet_of_user_internal_v1_accounts_wallet_of__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/v1/accounts/wallets/{wallet_id}": {
         parameters: {
             query?: never;
@@ -927,6 +949,41 @@ export interface operations {
                 "x-internal-token": string;
             };
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletByCardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_wallet_of_user_internal_v1_accounts_wallet_of__user_id__get: {
+        parameters: {
+            query: {
+                currency: string;
+            };
+            header: {
+                "x-internal-token": string;
+            };
+            path: {
+                user_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

@@ -40,7 +40,7 @@ class TransferResponse(BaseModel):
 
 
 class RecipientResponse(BaseModel):
-    """Who a card number belongs to, for the sender to confirm."""
+    """Who a card number or phone number leads to, for the sender to confirm."""
 
     # What to send as `destination_wallet_id` when creating the transfer.
     wallet_id: UUID
@@ -49,6 +49,8 @@ class RecipientResponse(BaseModel):
     display_name: str
     # True when the card is one of the caller's own wallets.
     own: bool
+    # The last four digits of the card the money would go to.
+    card_last4: str | None = None
 
 
 class RecentRecipientResponse(BaseModel):

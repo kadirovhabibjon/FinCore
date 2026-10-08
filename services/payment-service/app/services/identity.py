@@ -15,6 +15,12 @@ class UserInfo:
     first_name: str
     last_name: str
     status: str
+    # None only from an identity-service older than this field.
+    id: UUID | None = None
+
+
+class InvalidPhoneError(ValueError):
+    """identity-service says this is not a phone number."""
 
 
 class IdentityUnavailableError(Exception):
@@ -58,10 +64,42 @@ class IdentityClient:
             # deployment fault, reported as "unavailable", not as "no
             # such recipient".
             raise IdentityUnavailableError(f"identity-service returned {response.status_code}")
-        data = response.json()
-        return UserInfo(
-            first_name=data["first_name"], last_name=data["last_name"], status=data["status"]
-        )
+        return _user(response.json())
+
+    async def find_user_by_phone(self, phone: str) -> UserInfo | None:
+        """Whose phone number this is, or None when it is nobody's.
+        identity-service puts the number in its stored form, so it may
+        be passed as typed; InvalidPhoneError if it is not a number."""
+        try:
+            async with async_client(
+                base_url=self._base_url,
+                timeout=self._timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = await client.get(
+                    "/internal/v1/users/by-phone",
+                    params={"phone": phone},
+                    headers={"X-Internal-Token": self._internal_token},
+                )
+        except httpx.RequestError as exc:
+            raise IdentityUnavailableError(str(exc)) from exc
+
+        if response.status_code == 404:
+            return None
+        if response.status_code == 422:
+            raise InvalidPhoneError(response.json().get("detail") or "not a phone number")
+        if response.status_code != 200:
+            raise IdentityUnavailableError(f"identity-service returned {response.status_code}")
+        return _user(response.json())
+
+
+def _user(data: dict) -> UserInfo:
+    return UserInfo(
+        id=UUID(data["id"]) if data.get("id") else None,
+        first_name=data["first_name"],
+        last_name=data["last_name"],
+        status=data["status"],
+    )
 
 
 identity_client = IdentityClient(

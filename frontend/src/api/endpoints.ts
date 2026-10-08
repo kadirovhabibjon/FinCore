@@ -163,6 +163,10 @@ export const listRecentRecipients = () =>
 /** Who a transfer to this card number (16 digits) would go to. */
 export const findRecipient = (cardNumber: string) =>
   apiRequest<Recipient>("/api/v1/transfers/recipient", { query: { card_number: cardNumber } });
+/** Who a transfer to this phone number would go to: its owner's wallet
+ * in `currency`. The number is sent as typed. */
+export const findRecipientByPhone = (phone: string, currency: string) =>
+  apiRequest<Recipient>("/api/v1/transfers/recipient", { query: { phone, currency } });
 export const getTransfer = (transferId: string) =>
   apiRequest<Transfer>(`/api/v1/transfers/${transferId}`);
 

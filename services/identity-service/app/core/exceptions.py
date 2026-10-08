@@ -55,6 +55,11 @@ class InsufficientRoleError(DomainError):
     title = "Insufficient Role"
 
 
+class InvalidPhoneNumberError(DomainError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Invalid Phone Number"
+
+
 class UserNotFoundError(DomainError):
     status_code = status.HTTP_404_NOT_FOUND
     title = "User Not Found"
