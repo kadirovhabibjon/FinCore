@@ -22,6 +22,18 @@ class AnnouncementNotFoundError(DomainError):
     title = "Announcement Not Found"
 
 
+class SupportThreadNotFoundError(DomainError):
+    """This customer has never written to support."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Support Thread Not Found"
+
+
+class TooManyMessagesError(DomainError):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    title = "Too Many Messages"
+
+
 class InsufficientRoleError(DomainError):
     """Authenticated, but without a role the endpoint requires."""
 

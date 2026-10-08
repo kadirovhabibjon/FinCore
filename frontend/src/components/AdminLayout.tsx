@@ -8,6 +8,7 @@ const LINKS = [
   { to: "/admin/transactions", label: "Transactions" },
   { to: "/admin/webhooks", label: "Webhooks" },
   { to: "/admin/announcements", label: "Announcements" },
+  { to: "/admin/support", label: "Support" },
 ];
 
 /** The admin console (ADR-0005): its own app at /admin, with its own

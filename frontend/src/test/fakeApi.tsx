@@ -52,6 +52,8 @@ const DEFAULT_ROUTES: Record<string, Handler> = {
   "GET /api/v1/news": () => json({ unread_count: 0, items: [] }),
   // The Send page offers recent recipients when there are any.
   "GET /api/v1/transfers/recipients": () => json([]),
+  // The chat launcher shows how many replies from staff are unread.
+  "GET /api/v1/support/messages": () => json({ status: "OPEN", unread_count: 0, items: [] }),
   // The wallets page shows how many people are asking for money.
   "GET /api/v1/money-requests": () => json([]),
 };

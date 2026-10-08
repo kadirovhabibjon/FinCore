@@ -37,6 +37,32 @@
         "title": "AnnouncementResponse",
         "type": "object"
       },
+      "ConversationResponse": {
+        "description": "The caller's conversation with staff. Before they have written\nanything: OPEN, nothing unread, no messages.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MessageResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SupportStatus"
+          },
+          "unread_count": {
+            "title": "Unread Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "unread_count",
+          "items"
+        ],
+        "title": "ConversationResponse",
+        "type": "object"
+      },
       "CreateAnnouncementRequest": {
         "properties": {
           "body": {
@@ -124,6 +150,56 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InboxResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "waiting_count": {
+            "title": "Waiting Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "waiting_count",
+          "items"
+        ],
+        "title": "InboxResponse",
+        "type": "object"
+      },
+      "MessageResponse": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "sender": {
+            "$ref": "#/components/schemas/SupportSender"
+          }
+        },
+        "required": [
+          "id",
+          "sender",
+          "body",
+          "created_at"
+        ],
+        "title": "MessageResponse",
         "type": "object"
       },
       "NewsListResponse": {
@@ -265,6 +341,122 @@
           "read"
         ],
         "title": "NotificationResponse",
+        "type": "object"
+      },
+      "PostMessageRequest": {
+        "properties": {
+          "body": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "PostMessageRequest",
+        "type": "object"
+      },
+      "SupportSender": {
+        "enum": [
+          "CUSTOMER",
+          "STAFF"
+        ],
+        "title": "SupportSender",
+        "type": "string"
+      },
+      "SupportStatus": {
+        "enum": [
+          "OPEN",
+          "RESOLVED"
+        ],
+        "title": "SupportStatus",
+        "type": "string"
+      },
+      "ThreadDetailResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MessageResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "last_body": {
+            "title": "Last Body",
+            "type": "string"
+          },
+          "last_message_at": {
+            "format": "date-time",
+            "title": "Last Message At",
+            "type": "string"
+          },
+          "last_sender": {
+            "$ref": "#/components/schemas/SupportSender"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SupportStatus"
+          },
+          "unread_count": {
+            "title": "Unread Count",
+            "type": "integer"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "status",
+          "last_message_at",
+          "last_sender",
+          "last_body",
+          "unread_count",
+          "items"
+        ],
+        "title": "ThreadDetailResponse",
+        "type": "object"
+      },
+      "ThreadResponse": {
+        "description": "A conversation as staff see it in the inbox.",
+        "properties": {
+          "last_body": {
+            "title": "Last Body",
+            "type": "string"
+          },
+          "last_message_at": {
+            "format": "date-time",
+            "title": "Last Message At",
+            "type": "string"
+          },
+          "last_sender": {
+            "$ref": "#/components/schemas/SupportSender"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SupportStatus"
+          },
+          "unread_count": {
+            "title": "Unread Count",
+            "type": "integer"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "status",
+          "last_message_at",
+          "last_sender",
+          "last_body",
+          "unread_count"
+        ],
+        "title": "ThreadResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -458,6 +650,337 @@
           }
         ],
         "summary": "Withdraw Announcement",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/support/threads": {
+      "get": {
+        "description": "Every customer's conversation: open ones first, then by latest\nmessage. SUPPORT and ADMIN.",
+        "operationId": "list_threads_api_v1_admin_support_threads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SupportStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Threads",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/support/threads/{user_id}": {
+      "get": {
+        "operationId": "get_thread_api_v1_admin_support_threads__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Thread",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/support/threads/{user_id}/messages": {
+      "post": {
+        "description": "Replies to a customer who has written; they are told in their\nbell. A customer who never wrote can't be written to from here.",
+        "operationId": "reply_api_v1_admin_support_threads__user_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reply",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/support/threads/{user_id}/read": {
+      "post": {
+        "description": "A staff member has opened the conversation. Idempotent.",
+        "operationId": "mark_thread_read_api_v1_admin_support_threads__user_id__read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Thread Read",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/support/threads/{user_id}/reopen": {
+      "post": {
+        "operationId": "reopen_thread_api_v1_admin_support_threads__user_id__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reopen Thread",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/support/threads/{user_id}/resolve": {
+      "post": {
+        "description": "Nothing left to answer. The customer writing again reopens it.",
+        "operationId": "resolve_thread_api_v1_admin_support_threads__user_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resolve Thread",
         "tags": [
           "admin"
         ]
@@ -672,6 +1195,98 @@
         "summary": "Mark My Notifications Read",
         "tags": [
           "notifications"
+        ]
+      }
+    },
+    "/api/v1/support/messages": {
+      "get": {
+        "description": "The caller's conversation with staff, oldest message first.",
+        "operationId": "get_my_conversation_api_v1_support_messages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get My Conversation",
+        "tags": [
+          "support"
+        ]
+      },
+      "post": {
+        "description": "Writes to staff. At most 20 messages in ten minutes.",
+        "operationId": "write_to_support_api_v1_support_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Write To Support",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/support/read": {
+      "post": {
+        "description": "The customer has opened the conversation. Idempotent.",
+        "operationId": "mark_replies_read_api_v1_support_read_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Replies Read",
+        "tags": [
+          "support"
         ]
       }
     },

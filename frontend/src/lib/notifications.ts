@@ -48,6 +48,10 @@ function bodyKey(type: string, facts: Facts): MessageKey | undefined {
 }
 
 export function localize(item: Notification, i18n: I18n): { title: string; body: string } {
+  // A reply from staff: their own words, under a title we can translate.
+  if (item.type === "support.reply") {
+    return { title: i18n.t("notif.support.reply.title"), body: item.body };
+  }
   const facts = item.params as Facts | null | undefined;
   const key = facts ? bodyKey(item.type, facts) : undefined;
   if (i18n.lang === "en" || !facts || !key) return { title: item.title, body: item.body };

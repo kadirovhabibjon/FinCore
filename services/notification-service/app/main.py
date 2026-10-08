@@ -19,6 +19,8 @@ from app.api.internal.dead_letters import router as dead_letters_router
 from app.api.v1.announcements import router as announcements_router
 from app.api.v1.news import router as news_router
 from app.api.v1.notifications import router as notifications_router
+from app.api.v1.support import admin_router as support_admin_router
+from app.api.v1.support import router as support_router
 from app.core import kafka as kafka_module
 from app.core.config import settings
 from app.db import session as db_session
@@ -116,6 +118,8 @@ app.include_router(dead_letters_router)
 app.include_router(notifications_router)
 app.include_router(news_router)
 app.include_router(announcements_router)
+app.include_router(support_router)
+app.include_router(support_admin_router)
 
 
 @app.get("/health")

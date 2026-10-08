@@ -295,6 +295,21 @@ export const listWebhookDeliveries = (endpointId: string, page: Page) =>
     query: { ...page },
   });
 
+// --- writing to FinCore's staff (notification-service) ------------------
+
+export type SupportMessage = Notifications["MessageResponse"];
+export type SupportConversation = Notifications["ConversationResponse"];
+export type SupportThread = Notifications["ThreadResponse"];
+export type SupportInbox = Notifications["InboxResponse"];
+export type SupportThreadDetail = Notifications["ThreadDetailResponse"];
+
+export const getSupportConversation = () =>
+  apiRequest<SupportConversation>("/api/v1/support/messages");
+export const writeToSupport = (body: string) =>
+  apiRequest<SupportMessage>("/api/v1/support/messages", { method: "POST", body: { body } });
+export const markSupportRead = () =>
+  apiRequest<void>("/api/v1/support/read", { method: "POST" });
+
 // --- admin panel (ADR-0005) --------------------------------------------
 
 export const adminSearchUsers = (q: string, page: Page) =>
@@ -350,6 +365,20 @@ export const askAssistant = (messages: ChatMessage[]) =>
   });
 
 /** Messages from staff to every customer; they appear in each bell. */
+export const adminSupportInbox = () =>
+  apiRequest<SupportInbox>("/api/v1/admin/support/threads");
+export const adminSupportThread = (userId: string) =>
+  apiRequest<SupportThreadDetail>(`/api/v1/admin/support/threads/${userId}`);
+export const adminSupportAct = (userId: string, action: "read" | "resolve" | "reopen") =>
+  apiRequest<SupportThread>(`/api/v1/admin/support/threads/${userId}/${action}`, {
+    method: "POST",
+  });
+export const adminSupportReply = (userId: string, body: string) =>
+  apiRequest<SupportMessage>(`/api/v1/admin/support/threads/${userId}/messages`, {
+    method: "POST",
+    body: { body },
+  });
+
 export const adminListAnnouncements = () =>
   apiRequest<Announcement[]>("/api/v1/admin/announcements");
 export const adminPublishAnnouncement = (body: Notifications["CreateAnnouncementRequest"]) =>

@@ -8,6 +8,7 @@ import { AdminLayout } from "./components/AdminLayout";
 import { Layout } from "./components/Layout";
 import { AdminAnnouncementsPage } from "./pages/admin/AdminAnnouncementsPage";
 import { AdminReviewsPage } from "./pages/admin/AdminReviewsPage";
+import { AdminSupportPage } from "./pages/admin/AdminSupportPage";
 import { AdminTransactionsPage } from "./pages/admin/AdminTransactionsPage";
 import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
 import { AdminWebhooksPage } from "./pages/admin/AdminWebhooksPage";
@@ -58,6 +59,7 @@ export function AppRoutes() {
             <Route path="transactions" element={<AdminTransactionsPage />} />
             <Route path="webhooks" element={<AdminWebhooksPage />} />
             <Route path="announcements" element={<AdminAnnouncementsPage />} />
+            <Route path="support" element={<AdminSupportPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Route>

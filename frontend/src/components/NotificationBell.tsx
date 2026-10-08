@@ -6,6 +6,7 @@ import * as api from "../api/endpoints";
 import { DateTime } from "./ui";
 import { useI18n } from "../i18n";
 import { localize } from "../lib/notifications";
+import { openSupportChat } from "../lib/support";
 
 const POLL_INTERVAL_MS = 15_000;
 
@@ -21,6 +22,7 @@ const KIND: Record<string, { mark: string; className: string }> = {
   "exchange.failed": { mark: "!", className: "notification-failed" },
   "money_request.created": { mark: "?", className: "notification-request" },
   "money_request.declined": { mark: "✕", className: "notification-failed" },
+  "support.reply": { mark: "✉", className: "notification-request" },
   announcement: { mark: "i", className: "notification-announcement" },
 };
 
@@ -190,7 +192,20 @@ export function NotificationBell() {
                       </span>
                       <span className="notification-text">
                         <strong>
-                          {item.type.startsWith("money_request.") ? (
+                          {item.type === "support.reply" ? (
+                            // Where it can be read whole and answered.
+                            <button
+                              type="button"
+                              className="link-button"
+                              title={t("bell.openChat")}
+                              onClick={() => {
+                                setOpen(false);
+                                openSupportChat();
+                              }}
+                            >
+                              {shown.title}
+                            </button>
+                          ) : item.type.startsWith("money_request.") ? (
                             // Where it can be answered.
                             <Link to="/requests" onClick={() => setOpen(false)}>
                               {shown.title}

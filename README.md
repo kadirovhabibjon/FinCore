@@ -650,6 +650,21 @@ Sections 15 and 16 — and keeps them for the bell in the web app.
 notification_db: notifications, dead_letters
 ```
 
+* **Support chat**: a customer's conversation with FinCore's staff,
+  one per customer. Customers: `GET` / `POST /api/v1/support/messages`
+  and `POST /api/v1/support/read`. Staff (SUPPORT, ADMIN):
+  `GET /api/v1/admin/support/threads` (the inbox: open conversations
+  first, with how many are waiting for an answer), `GET .../{user_id}`,
+  and `POST .../{user_id}/messages | read | resolve | reopen`. A staff
+  reply and the `support.reply` notification that tells the customer
+  are one transaction. Every write locks the conversation's row, so
+  messages arriving together are all counted; a customer may send 20
+  messages in ten minutes (`429 Too Many Messages`); staff can answer
+  only someone who has written. Messages are plain text. In the web app
+  it is the "Operator" side of the chat widget, next to the AI
+  assistant, which offers "Write to an operator" and carries the
+  question over; staff answer on the console's Support page.
+
 ### `fraud-service`
 
 A rule-based risk engine (spec Section 12) — `payment-service`'s
@@ -1392,7 +1407,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 158 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 165 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1441,7 +1456,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-73 tests that run against a live `docker compose` stack, through the
+74 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

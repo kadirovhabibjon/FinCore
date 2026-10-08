@@ -11,7 +11,13 @@ from app.db.base import Base
 
 # Import every ORM model module here so Base.metadata is fully populated
 # before autogenerate compares it against the database.
-from app.domain import announcement, dead_letter, news, notification  # noqa: F401
+from app.domain import (  # noqa: F401
+    announcement,
+    dead_letter,
+    news,
+    notification,
+    support,
+)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
