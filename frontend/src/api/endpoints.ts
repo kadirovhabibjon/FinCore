@@ -241,8 +241,18 @@ export const createRefund = (
     idempotencyKey,
   });
 
-export const listTransactions = (page: Page) =>
-  apiRequest<Transaction[]>("/api/v1/transactions", { query: { ...page } });
+/** What narrows the history: a kind of operation, a direction, words
+ * to find, and a range of days ("2026-10-09"). */
+export interface HistoryFilter {
+  type?: TransactionType;
+  direction?: "IN" | "OUT" | "SELF";
+  q?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+export const listTransactions = (page: Page, filter: HistoryFilter = {}) =>
+  apiRequest<Transaction[]>("/api/v1/transactions", { query: { ...filter, ...page } });
 export const getTransaction = (transactionId: string) =>
   apiRequest<Transaction>(`/api/v1/transactions/${transactionId}`);
 
@@ -268,8 +278,21 @@ export const getStats = (months: number) =>
 export const downloadReceipt = (transactionId: string) =>
   apiDownload(`/api/v1/transactions/${transactionId}/receipt.pdf`, "fincore-receipt.pdf");
 /** The whole history as a CSV file for a spreadsheet. */
-export const downloadStatement = () =>
-  apiDownload("/api/v1/transactions/export.csv", "fincore-history.csv");
+export const downloadStatement = (filter: HistoryFilter = {}) => {
+  const query = new URLSearchParams(
+    Object.entries(filter).filter((entry): entry is [string, string] => !!entry[1]),
+  ).toString();
+  return apiDownload(
+    `/api/v1/transactions/export.csv${query ? `?${query}` : ""}`,
+    "fincore-history.csv",
+  );
+};
+
+export type Spending = Payment["SpendingResponse"];
+export type CurrencySpending = Payment["CurrencySpending"];
+/** What money out went on over the last `months` months, per currency. */
+export const getSpending = (months: number) =>
+  apiRequest<Spending>("/api/v1/transactions/stats/categories", { query: { months } });
 
 export const listMerchants = () => apiRequest<Merchant[]>("/api/v1/merchants");
 export const getMerchant = (merchantId: string) =>

@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -16,13 +17,15 @@ class PaymentRepository:
     async def get(self, payment_id: UUID) -> Payment | None:
         return await self._session.get(Payment, payment_id)
 
-    async def list_for_user(self, user_id: UUID, *, limit: int, offset: int) -> list[Payment]:
+    async def list_for_user(
+        self, user_id: UUID, *, limit: int, offset: int, where: Sequence[Any] = ()
+    ) -> list[Payment]:
         """Newest first — the user's own transaction history (spec
         Section 20's `GET /api/v1/transactions`).
         """
         result = await self._session.execute(
             select(Payment)
-            .where(Payment.initiator_user_id == user_id)
+            .where(Payment.initiator_user_id == user_id, *where)
             .order_by(Payment.created_at.desc())
             .limit(limit)
             .offset(offset)

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import * as api from "../api/endpoints";
+import { SpendingByCategory } from "../components/SpendingByCategory";
 import { Empty, ErrorAlert, Loading, Money } from "../components/ui";
 import { columnPath, compact, monthLabel, niceTicks } from "../lib/chart";
 import { formatMinor } from "../lib/money";
@@ -109,6 +110,7 @@ export function StatsPage() {
               </table>
             </details>
           </div>
+          <SpendingByCategory months={months} currency={shown.currency} />
         </div>
       )}
     </section>

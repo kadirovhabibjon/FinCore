@@ -1,4 +1,6 @@
+from collections.abc import Sequence
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -17,10 +19,12 @@ class ExchangeRepository:
     async def get(self, exchange_id: UUID) -> Exchange | None:
         return await self._session.get(Exchange, exchange_id)
 
-    async def list_for_user(self, user_id: UUID, *, limit: int, offset: int) -> list[Exchange]:
+    async def list_for_user(
+        self, user_id: UUID, *, limit: int, offset: int, where: Sequence[Any] = ()
+    ) -> list[Exchange]:
         result = await self._session.execute(
             select(Exchange)
-            .where(Exchange.initiator_user_id == user_id)
+            .where(Exchange.initiator_user_id == user_id, *where)
             .order_by(Exchange.created_at.desc())
             .limit(limit)
             .offset(offset)

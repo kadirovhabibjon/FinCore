@@ -513,15 +513,10 @@ export interface paths {
          * List Transactions
          * @description The caller's own business-operation history (spec Section 20),
          *     newest first across Transfer, Payment and Exchange: everything they
-         *     started (`direction: OUT`) and every transfer that reached them
-         *     (`direction: IN`). A merchant's received payments are on the
-         *     merchant's own endpoints, not here.
-         *
-         *     Merged and sorted in Python rather than a single SQL query, since
-         *     Transfer and Payment are two separate tables (each operation type
-         *     gets its own table, spec Section 7.1) — a reasonable v1 approach at
-         *     this scale; a UNION query would be the next step if this list ever
-         *     needs to paginate over a serious volume of rows.
+         *     started (`direction: OUT`, or `SELF` for an exchange) and every
+         *     transfer that reached them (`direction: IN`). A merchant's received
+         *     payments are on the merchant's own endpoints, not here. Optionally
+         *     narrowed - see the query parameters.
          */
         get: operations["list_transactions_api_v1_transactions_get"];
         put?: never;
@@ -542,8 +537,9 @@ export interface paths {
         /**
          * Export Transactions
          * @description The caller's history as a CSV file for a spreadsheet: the same
-         *     operations `GET /api/v1/transactions` lists (newest first, up to
-         *     5,000), one per row, amounts as decimal strings.
+         *     operations `GET /api/v1/transactions` lists under the same filters
+         *     (newest first, up to 5,000), one per row, amounts as decimal
+         *     strings.
          */
         get: operations["export_transactions_api_v1_transactions_export_csv_get"];
         put?: never;
@@ -570,6 +566,29 @@ export interface paths {
          *     top-ups or a merchant's received payments.
          */
         get: operations["get_statistics_api_v1_transactions_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transactions/stats/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Spending By Category
+         * @description What the caller's money out went on over the last `months`
+         *     calendar months (UTC), per currency, largest first: the same money
+         *     `GET /api/v1/transactions/stats` reports as out, split by what it
+         *     paid for.
+         */
+        get: operations["get_spending_by_category_api_v1_transactions_stats_categories_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -848,6 +867,15 @@ export interface components {
          * @enum {string}
          */
         Category: "MOBILE" | "INTERNET" | "UTILITIES" | "TV";
+        /** CategorySpending */
+        CategorySpending: {
+            /** Amount Minor */
+            amount_minor: number;
+            /** Category */
+            category: string;
+            /** Count */
+            count: number;
+        };
         /** CreateExchangeRequest */
         CreateExchangeRequest: {
             /** Amount */
@@ -949,6 +977,15 @@ export interface components {
             currency: string;
             /** Days */
             days: components["schemas"]["DayStats"][];
+        };
+        /** CurrencySpending */
+        CurrencySpending: {
+            /** Categories */
+            categories: components["schemas"]["CategorySpending"][];
+            /** Currency */
+            currency: string;
+            /** Total Minor */
+            total_minor: number;
         };
         /** CurrencyStats */
         CurrencyStats: {
@@ -1369,6 +1406,13 @@ export interface components {
         SetLimitRequest: {
             /** Daily Limit */
             daily_limit: string | null;
+        };
+        /** SpendingResponse */
+        SpendingResponse: {
+            /** Currencies */
+            currencies: components["schemas"]["CurrencySpending"][];
+            /** Months */
+            months: string[];
         };
         /** StatsResponse */
         StatsResponse: {
@@ -2400,6 +2444,11 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
+                type?: components["schemas"]["TransactionType"] | null;
+                direction?: components["schemas"]["TransactionDirection"] | null;
+                q?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
             };
             header?: never;
             path?: never;
@@ -2429,7 +2478,13 @@ export interface operations {
     };
     export_transactions_api_v1_transactions_export_csv_get: {
         parameters: {
-            query?: never;
+            query?: {
+                type?: components["schemas"]["TransactionType"] | null;
+                direction?: components["schemas"]["TransactionDirection"] | null;
+                q?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2443,6 +2498,15 @@ export interface operations {
                 };
                 content: {
                     "text/csv": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2465,6 +2529,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_spending_by_category_api_v1_transactions_stats_categories_get: {
+        parameters: {
+            query?: {
+                months?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpendingResponse"];
                 };
             };
             /** @description Validation Error */

@@ -308,6 +308,17 @@ page, not in History.
   main one and whether its owner blocked it. You cannot change any of
   these settings or read the limit; point the customer to the page.
 
+- Finding something in History: above the list there is a search box
+  (a name, a note, a reference, a merchant or a phone/account number
+  paid), a "Show" choice (everything, money received, transfers sent,
+  payments, exchanges) and a date range. "Clear filters" shows
+  everything again. With filters on, the CSV download contains only
+  what is listed.
+- Where the money went: the Statistics page also shows spending by
+  category for the chosen period and currency - mobile, internet,
+  utilities, television, shops, transfers to people - each with its
+  amount and share. Refunds are taken off. You cannot compute these
+  yourself from the tools; point the customer to that page.
 - Statistics: History → "Statistics" shows money in and money out per
   month for the last 6 or 12 months, one currency at a time, as a chart
   with totals and a table. Money out is transfers sent and payments made

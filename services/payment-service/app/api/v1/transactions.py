@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -6,57 +6,91 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import AuthenticatedUser, get_authenticated_user
-from app.api.v1.schemas import TransactionResponse
+from app.api.v1.schemas import TransactionDirection, TransactionResponse, TransactionType
 from app.core.exceptions import TransactionNotFoundError
 from app.db.session import get_db
 from app.domain.transfer import TransferStatus
 from app.repositories.exchange_repository import ExchangeRepository
 from app.repositories.payment_repository import PaymentRepository
 from app.repositories.transfer_repository import TransferRepository
-from app.services import receipts, statistics
+from app.services import history, receipts, statistics
+from app.services.history import HistoryFilter
 
 router = APIRouter(prefix="/api/v1/transactions", tags=["transactions"])
+
+
+def history_filter(
+    type: TransactionType | None = Query(default=None),
+    direction: TransactionDirection | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=64),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+) -> HistoryFilter:
+    """The query parameters that narrow a history listing: the kind of
+    operation, its direction (IN received, OUT sent or paid, SELF an
+    exchange), words to find in the reference, the note or the other
+    side's name, and a range of calendar days (UTC, both included)."""
+    return HistoryFilter(type=type, direction=direction, q=q, date_from=date_from, date_to=date_to)
+
+
+async def _history(
+    session: AsyncSession, user_id: UUID, wanted: HistoryFilter, *, count: int
+) -> tuple[list[TransactionResponse], dict[UUID, str | None]]:
+    """The caller's newest `count` operations matching the filter,
+    newest first, and the merchants' names of the payments among them.
+
+    Merged and sorted in Python rather than a single SQL query, since
+    each operation type has its own table (spec Section 7.1) - a
+    reasonable v1 approach at this scale; a UNION query would be the
+    next step if this list ever pages over a serious volume of rows.
+    """
+    listed: list[TransactionResponse] = []
+    merchants: dict[UUID, str | None] = {}
+
+    where = history.for_exchanges(wanted)
+    if where is not None:
+        exchanges = await ExchangeRepository(session).list_for_user(
+            user_id, limit=count, offset=0, where=where
+        )
+        listed += [TransactionResponse.from_exchange(exchange) for exchange in exchanges]
+    where = history.for_transfers(wanted, user_id)
+    if where is not None:
+        transfers = await TransferRepository(session).list_for_user(
+            user_id, limit=count, offset=0, where=where
+        )
+        listed += [
+            TransactionResponse.from_transfer(transfer, viewer_user_id=user_id)
+            for transfer in transfers
+        ]
+    where = history.for_payments(wanted)
+    if where is not None:
+        payments = await PaymentRepository(session).list_for_user(
+            user_id, limit=count, offset=0, where=where
+        )
+        listed += [TransactionResponse.from_payment(payment) for payment in payments]
+        merchants = {payment.id: payment.merchant_name for payment in payments}
+
+    listed.sort(key=lambda item: item.created_at, reverse=True)
+    return listed[:count], merchants
 
 
 @router.get("", response_model=list[TransactionResponse])
 async def list_transactions(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    wanted: HistoryFilter = Depends(history_filter),
     user: AuthenticatedUser = Depends(get_authenticated_user),
     session: AsyncSession = Depends(get_db),
 ) -> list[TransactionResponse]:
     """The caller's own business-operation history (spec Section 20),
     newest first across Transfer, Payment and Exchange: everything they
-    started (`direction: OUT`) and every transfer that reached them
-    (`direction: IN`). A merchant's received payments are on the
-    merchant's own endpoints, not here.
-
-    Merged and sorted in Python rather than a single SQL query, since
-    Transfer and Payment are two separate tables (each operation type
-    gets its own table, spec Section 7.1) — a reasonable v1 approach at
-    this scale; a UNION query would be the next step if this list ever
-    needs to paginate over a serious volume of rows.
+    started (`direction: OUT`, or `SELF` for an exchange) and every
+    transfer that reached them (`direction: IN`). A merchant's received
+    payments are on the merchant's own endpoints, not here. Optionally
+    narrowed - see the query parameters.
     """
-    fetch_count = limit + offset
-    transfers = await TransferRepository(session).list_for_user(
-        user.user_id, limit=fetch_count, offset=0
-    )
-    payments = await PaymentRepository(session).list_for_user(
-        user.user_id, limit=fetch_count, offset=0
-    )
-
-    exchanges = await ExchangeRepository(session).list_for_user(
-        user.user_id, limit=fetch_count, offset=0
-    )
-
-    combined = [TransactionResponse.from_exchange(exchange) for exchange in exchanges] + [
-        TransactionResponse.from_transfer(transfer, viewer_user_id=user.user_id)
-        for transfer in transfers
-    ] + [
-        TransactionResponse.from_payment(payment) for payment in payments
-    ]
-    combined.sort(key=lambda item: item.created_at, reverse=True)
-    return combined[offset : offset + limit]
+    listed, _ = await _history(session, user.user_id, wanted, count=limit + offset)
+    return listed[offset:]
 
 
 class MonthStats(BaseModel):
@@ -110,6 +144,61 @@ async def get_statistics(
     )
 
 
+class CategorySpending(BaseModel):
+    # MOBILE, INTERNET, UTILITIES, TV (payments to service providers),
+    # SHOPS (payments to merchants), TRANSFERS (money sent to people),
+    # or OTHER.
+    category: str
+    amount_minor: int
+    # How many operations that is.
+    count: int
+
+
+class CurrencySpending(BaseModel):
+    currency: str
+    total_minor: int
+    # Largest first.
+    categories: list[CategorySpending]
+
+
+class SpendingResponse(BaseModel):
+    # The calendar months covered, oldest first, "YYYY-MM".
+    months: list[str]
+    # Only currencies in which something was spent.
+    currencies: list[CurrencySpending]
+
+
+@router.get("/stats/categories", response_model=SpendingResponse)
+async def get_spending_by_category(
+    months: int = Query(default=1, ge=1, le=24),
+    user: AuthenticatedUser = Depends(get_authenticated_user),
+    session: AsyncSession = Depends(get_db),
+) -> SpendingResponse:
+    """What the caller's money out went on over the last `months`
+    calendar months (UTC), per currency, largest first: the same money
+    `GET /api/v1/transactions/stats` reports as out, split by what it
+    paid for."""
+    spending = await statistics.spending_by_category(session, user.user_id, months=months)
+    return SpendingResponse(
+        months=statistics.month_keys(datetime.now(UTC), months),
+        currencies=[
+            CurrencySpending(
+                currency=currency,
+                total_minor=sum(total.amount_minor for total in totals),
+                categories=[
+                    CategorySpending(
+                        category=total.category,
+                        amount_minor=total.amount_minor,
+                        count=total.count,
+                    )
+                    for total in totals
+                ],
+            )
+            for currency, totals in spending.items()
+        ],
+    )
+
+
 # How much history one statement holds. Enough for years of a person's
 # use; a real system would page or generate it in the background.
 _STATEMENT_ROWS = 5000
@@ -122,31 +211,15 @@ _STATEMENT_ROWS = 5000
     responses={200: {"content": {"text/csv": {}}, "description": "The statement as a CSV file."}},
 )
 async def export_transactions(
+    wanted: HistoryFilter = Depends(history_filter),
     user: AuthenticatedUser = Depends(get_authenticated_user),
     session: AsyncSession = Depends(get_db),
 ) -> Response:
     """The caller's history as a CSV file for a spreadsheet: the same
-    operations `GET /api/v1/transactions` lists (newest first, up to
-    5,000), one per row, amounts as decimal strings."""
-    transfers = await TransferRepository(session).list_for_user(
-        user.user_id, limit=_STATEMENT_ROWS, offset=0
-    )
-    payments = await PaymentRepository(session).list_for_user(
-        user.user_id, limit=_STATEMENT_ROWS, offset=0
-    )
-    exchanges = await ExchangeRepository(session).list_for_user(
-        user.user_id, limit=_STATEMENT_ROWS, offset=0
-    )
-    listed = (
-        [TransactionResponse.from_exchange(exchange) for exchange in exchanges]
-        + [
-            TransactionResponse.from_transfer(transfer, viewer_user_id=user.user_id)
-            for transfer in transfers
-        ]
-        + [TransactionResponse.from_payment(payment) for payment in payments]
-    )
-    listed.sort(key=lambda item: item.created_at, reverse=True)
-    merchants = {payment.id: payment.merchant_name for payment in payments}
+    operations `GET /api/v1/transactions` lists under the same filters
+    (newest first, up to 5,000), one per row, amounts as decimal
+    strings."""
+    listed, merchants = await _history(session, user.user_id, wanted, count=_STATEMENT_ROWS)
     body = receipts.render_csv(
         [
             receipts.StatementRow(
@@ -162,7 +235,7 @@ async def export_transactions(
                 counterparty=item.counterparty_name or merchants.get(item.id),
                 note=item.description,
             )
-            for item in listed[:_STATEMENT_ROWS]
+            for item in listed
         ]
     )
     filename = f"fincore-history-{datetime.now(UTC):%Y-%m-%d}.csv"

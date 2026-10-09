@@ -401,6 +401,21 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
   **FinCore is not connected to any provider**: the payment is taken
   and recorded and delivered nowhere, and the web app says so.
   Delivering it would be a consumer of `payment.completed`.
+* **History filters**: `GET /api/v1/transactions` (and its
+  `export.csv`) take `type`, `direction` (`IN` received, `OUT` sent or
+  paid, `SELF` an exchange), `q` (words in the reference, the note, the
+  other side's name, a merchant or a service account - matched as text,
+  never as a pattern), and `date_from` / `date_to` (UTC days, both
+  included). Each operation type has its own table, so a filter becomes
+  extra conditions for each table's query, or the knowledge that a
+  table has nothing to contribute.
+* **Spending by category**: `GET /api/v1/transactions/stats/categories`
+  - what money out went on over the last N calendar months, per
+  currency, largest first: `MOBILE`, `INTERNET`, `UTILITIES`, `TV`
+  (payments to service providers, by the provider's category), `SHOPS`
+  (payments to merchants, net of refunds) and `TRANSFERS`. It is the
+  same money the monthly statistics call "out", so the two totals
+  agree.
 * **Templates**: `GET` / `POST /api/v1/templates`, `DELETE .../{id}` -
   a payment to make again: a service provider and account, or a
   recipient's card, optionally with an amount (at most 30 per
@@ -1444,7 +1459,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 192 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 200 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1493,7 +1508,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-78 tests that run against a live `docker compose` stack, through the
+79 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

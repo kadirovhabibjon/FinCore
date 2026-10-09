@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -15,7 +16,9 @@ class TransferRepository:
     async def get(self, transfer_id: UUID) -> Transfer | None:
         return await self._session.get(Transfer, transfer_id)
 
-    async def list_for_user(self, user_id: UUID, *, limit: int, offset: int) -> list[Transfer]:
+    async def list_for_user(
+        self, user_id: UUID, *, limit: int, offset: int, where: Sequence[Any] = ()
+    ) -> list[Transfer]:
         """Newest first - the user's own transaction history (spec
         Section 20's `GET /api/v1/transactions`): every transfer they
         started, whatever became of it, and every transfer that reached
@@ -31,7 +34,9 @@ class TransferRepository:
                         Transfer.recipient_user_id == user_id,
                         Transfer.status == TransferStatus.COMPLETED,
                     ),
-                )
+                ),
+                # A narrower view of the same history (app/services/history.py).
+                *where,
             )
             .order_by(Transfer.created_at.desc())
             .limit(limit)

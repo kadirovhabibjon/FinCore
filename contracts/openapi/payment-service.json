@@ -202,6 +202,29 @@
         "title": "Category",
         "type": "string"
       },
+      "CategorySpending": {
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "amount_minor",
+          "count"
+        ],
+        "title": "CategorySpending",
+        "type": "object"
+      },
       "CreateExchangeRequest": {
         "properties": {
           "amount": {
@@ -495,6 +518,32 @@
           "days"
         ],
         "title": "CurrencyDayStats",
+        "type": "object"
+      },
+      "CurrencySpending": {
+        "properties": {
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CategorySpending"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "total_minor": {
+            "title": "Total Minor",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency",
+          "total_minor",
+          "categories"
+        ],
+        "title": "CurrencySpending",
         "type": "object"
       },
       "CurrencyStats": {
@@ -1435,6 +1484,30 @@
           "daily_limit"
         ],
         "title": "SetLimitRequest",
+        "type": "object"
+      },
+      "SpendingResponse": {
+        "properties": {
+          "currencies": {
+            "items": {
+              "$ref": "#/components/schemas/CurrencySpending"
+            },
+            "title": "Currencies",
+            "type": "array"
+          },
+          "months": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Months",
+            "type": "array"
+          }
+        },
+        "required": [
+          "months",
+          "currencies"
+        ],
+        "title": "SpendingResponse",
         "type": "object"
       },
       "StatsResponse": {
@@ -3374,7 +3447,7 @@
     },
     "/api/v1/transactions": {
       "get": {
-        "description": "The caller's own business-operation history (spec Section 20),\nnewest first across Transfer, Payment and Exchange: everything they\nstarted (`direction: OUT`) and every transfer that reached them\n(`direction: IN`). A merchant's received payments are on the\nmerchant's own endpoints, not here.\n\nMerged and sorted in Python rather than a single SQL query, since\nTransfer and Payment are two separate tables (each operation type\ngets its own table, spec Section 7.1) \u2014 a reasonable v1 approach at\nthis scale; a UNION query would be the next step if this list ever\nneeds to paginate over a serious volume of rows.",
+        "description": "The caller's own business-operation history (spec Section 20),\nnewest first across Transfer, Payment and Exchange: everything they\nstarted (`direction: OUT`, or `SELF` for an exchange) and every\ntransfer that reached them (`direction: IN`). A merchant's received\npayments are on the merchant's own endpoints, not here. Optionally\nnarrowed - see the query parameters.",
         "operationId": "list_transactions_api_v1_transactions_get",
         "parameters": [
           {
@@ -3398,6 +3471,89 @@
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TransactionType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TransactionDirection"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Direction"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
             }
           }
         ],
@@ -3440,14 +3596,109 @@
     },
     "/api/v1/transactions/export.csv": {
       "get": {
-        "description": "The caller's history as a CSV file for a spreadsheet: the same\noperations `GET /api/v1/transactions` lists (newest first, up to\n5,000), one per row, amounts as decimal strings.",
+        "description": "The caller's history as a CSV file for a spreadsheet: the same\noperations `GET /api/v1/transactions` lists under the same filters\n(newest first, up to 5,000), one per row, amounts as decimal\nstrings.",
         "operationId": "export_transactions_api_v1_transactions_export_csv_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TransactionType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TransactionDirection"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Direction"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "text/csv": {}
             },
             "description": "The statement as a CSV file."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -3507,6 +3758,57 @@
           }
         ],
         "summary": "Get Statistics",
+        "tags": [
+          "transactions"
+        ]
+      }
+    },
+    "/api/v1/transactions/stats/categories": {
+      "get": {
+        "description": "What the caller's money out went on over the last `months`\ncalendar months (UTC), per currency, largest first: the same money\n`GET /api/v1/transactions/stats` reports as out, split by what it\npaid for.",
+        "operationId": "get_spending_by_category_api_v1_transactions_stats_categories_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Months",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpendingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Spending By Category",
         "tags": [
           "transactions"
         ]
