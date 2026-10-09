@@ -2686,3 +2686,93 @@ path.viz-out {
   background: transparent;
   border-color: #374151;
 }
+
+/* --- home: quick actions, templates, recent activity ------------------- */
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin: 1.25rem 0 0;
+}
+
+.quick-action {
+  padding: 0.9rem 1rem;
+  color: var(--text);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+.quick-action:hover,
+.quick-action:focus-visible {
+  border-color: var(--accent);
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+a.service-tile {
+  text-decoration: none;
+}
+
+.template-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.template-text .small {
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.activity {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity li + li {
+  border-top: 1px solid var(--hairline, var(--border));
+}
+
+.activity-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.activity-row > span:first-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.activity-row > span:last-child {
+  flex: none;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-status {
+  display: block;
+}
+
+.save-template {
+  margin-top: 1rem;
+}
+
+@media (max-width: 720px) {
+  .quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

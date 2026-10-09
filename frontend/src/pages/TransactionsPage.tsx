@@ -5,24 +5,10 @@ import { Link } from "react-router-dom";
 import * as api from "../api/endpoints";
 import { DownloadButton } from "../components/DownloadButton";
 import { DateTime, Empty, ErrorAlert, Loading, Money, Pager, StatusBadge } from "../components/ui";
-import { useI18n, type MessageKey } from "../i18n";
+import { useI18n } from "../i18n";
+import { describe, sign } from "../lib/history";
 
 const PAGE_SIZE = 25;
-
-function describe(item: api.Transaction): MessageKey {
-  if (item.type === "PAYMENT") return "history.payment";
-  if (item.type === "EXCHANGE") return "history.exchanged";
-  return item.direction === "IN" ? "history.received" : "history.sent";
-}
-
-const NOT_MOVED = new Set(["FAILED", "EXPIRED", "CANCELLED"]);
-
-/** "+" for money in, "−" for money out, nothing when none moved. */
-function sign(item: api.Transaction): string {
-  // An exchange is the customer's own money changing currency: neither in nor out.
-  if (NOT_MOVED.has(item.status) || item.direction === "SELF") return "";
-  return item.direction === "IN" ? "+" : "−";
-}
 
 export function TransactionsPage() {
   const [offset, setOffset] = useState(0);

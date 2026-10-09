@@ -277,6 +277,17 @@ page, not in History.
   the site; the customer should contact FinCore staff.
   Paying a merchant by its id is still available from the Pay page
   ("Pay a merchant by its id").
+- Templates: after a service payment or a transfer made by card number
+  succeeds, "Save as template" keeps it under a name, with or without
+  the amount. Saved templates appear as tiles on the Wallets (home)
+  page and all of them are on the Templates page ("All templates"),
+  where one can be deleted. Opening a template only fills the form in -
+  the customer still chooses the card and presses Pay or Send, so
+  nothing is ever paid automatically. At most 30 templates. There are
+  no automatic or scheduled payments.
+- The Wallets (home) page also has quick actions (Send, Pay, Request,
+  Exchange) and "Recent activity": the latest five operations, each
+  opening its details.
 - Card settings: open a wallet from the Wallets page; "Card settings"
   is below the balances. There the customer can:
   - give the card a name (only they see it; shown instead of

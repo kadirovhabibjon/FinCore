@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 
 import * as api from "../../api/endpoints";
 import { hasAnyRole, useAuth } from "../../auth/context";
-import { ConfirmButton } from "../../components/admin/ConfirmButton";
+import { ConfirmButton } from "../../components/ConfirmButton";
 import { useI18n } from "../../i18n";
 import { DateTime, Empty, ErrorAlert, Loading, Notice } from "../../components/ui";
 

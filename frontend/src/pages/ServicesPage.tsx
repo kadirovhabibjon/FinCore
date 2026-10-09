@@ -4,10 +4,11 @@ import { Link, Navigate, useSearchParams } from "react-router-dom";
 
 import * as api from "../api/endpoints";
 import { OperationOutcome } from "../components/OperationOutcome";
+import { SaveTemplate } from "../components/SaveTemplate";
 import { BlockedNotice } from "../components/WalletSettings";
 import { ErrorAlert, Loading, Money, Notice } from "../components/ui";
 import { useI18n, type I18n } from "../i18n";
-import { formatMinor, toMinor, validateAmount, walletLabel } from "../lib/money";
+import { formatMinor, minorToInput, toMinor, validateAmount, walletLabel } from "../lib/money";
 import { CATEGORY_ORDER, isValidAccount } from "../lib/services";
 import { useDailyLimit } from "../lib/useDailyLimit";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
@@ -98,8 +99,10 @@ function ServiceForm({ service }: { service: api.Service }) {
   const { currency, account_kind: kind } = service;
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: api.listWallets });
   const [sourceId, setSourceId] = useState("");
-  const [account, setAccount] = useState("");
-  const [amount, setAmount] = useState("");
+  // A template's link carries the account and, if saved, the amount.
+  const [params] = useSearchParams();
+  const [account, setAccount] = useState(params.get("account") ?? "");
+  const [amount, setAmount] = useState(params.get("amount") ?? "");
   const [accountError, setAccountError] = useState<string | null>(null);
   const [amountError, setAmountError] = useState<string | null>(null);
   const [idempotencyKey, renewKey] = useIdempotencyKey();
@@ -196,6 +199,18 @@ function ServiceForm({ service }: { service: api.Service }) {
             {t("services.another")}
           </Link>
         </div>
+        {payment.data.status !== "FAILED" && payment.data.service_account && (
+          <SaveTemplate
+            suggestedName={name}
+            what={{
+              kind: "SERVICE",
+              service_code: service.code,
+              account: payment.data.service_account,
+            }}
+            amount={minorToInput(payment.data.amount_minor, payment.data.currency)}
+            amountText={formatMinor(payment.data.amount_minor, payment.data.currency)}
+          />
+        )}
       </>
     );
   }

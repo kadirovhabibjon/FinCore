@@ -458,6 +458,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Templates
+         * @description The caller's saved payments, newest first.
+         */
+        get: operations["list_my_templates_api_v1_templates_get"];
+        put?: never;
+        /**
+         * Save Template
+         * @description Saves a payment to make again: a service provider and an account
+         *     there, or a recipient's card - checked now the way the payment
+         *     itself would check them. Saving moves nothing; using a template
+         *     only fills the form in.
+         */
+        post: operations["save_template_api_v1_templates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Template */
+        delete: operations["delete_template_api_v1_templates__template_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transactions": {
         parameters: {
             query?: never;
@@ -865,6 +909,20 @@ export interface components {
             amount: string;
             /** Reason */
             reason?: string | null;
+        };
+        /** CreateTemplateRequest */
+        CreateTemplateRequest: {
+            /** Account */
+            account?: string | null;
+            /** Amount */
+            amount?: string | null;
+            /** Card Number */
+            card_number?: string | null;
+            kind: components["schemas"]["TemplateKind"];
+            /** Name */
+            name: string;
+            /** Service Code */
+            service_code?: string | null;
         };
         /** CreateTransferRequest */
         CreateTransferRequest: {
@@ -1318,6 +1376,39 @@ export interface components {
             currencies: components["schemas"]["CurrencyStats"][];
             /** Months */
             months: string[];
+        };
+        /**
+         * TemplateKind
+         * @enum {string}
+         */
+        TemplateKind: "SERVICE" | "TRANSFER";
+        /** TemplateResponse */
+        TemplateResponse: {
+            /** Amount Minor */
+            amount_minor: number | null;
+            /** Card Number */
+            card_number: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["TemplateKind"];
+            /** Name */
+            name: string;
+            /** Recipient Name */
+            recipient_name: string | null;
+            /** Service Account */
+            service_account: string | null;
+            /** Service Code */
+            service_code: string | null;
         };
         /**
          * TransactionDirection
@@ -2210,6 +2301,88 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PaymentResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_templates_api_v1_templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateResponse"][];
+                };
+            };
+        };
+    };
+    save_template_api_v1_templates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTemplateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_template_api_v1_templates__template_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

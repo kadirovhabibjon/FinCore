@@ -19,6 +19,7 @@ from app.domain import (  # noqa: F401
     outbox,
     payment,
     refund,
+    template,
     transfer,
     wallet_limit,
 )

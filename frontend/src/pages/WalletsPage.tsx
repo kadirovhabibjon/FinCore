@@ -5,10 +5,23 @@ import { Link } from "react-router-dom";
 import * as api from "../api/endpoints";
 import { useAuth } from "../auth/context";
 import { ExchangeRates } from "../components/ExchangeRates";
-import { Empty, ErrorAlert, Loading, Money, ShortId, StatusBadge } from "../components/ui";
+import { TemplateTiles } from "../components/TemplateTiles";
+import {
+  DateTime,
+  Empty,
+  ErrorAlert,
+  Loading,
+  Money,
+  ShortId,
+  StatusBadge,
+} from "../components/ui";
 import { formatCardNumber } from "../lib/card";
+import { describe, sign } from "../lib/history";
 import { SUPPORTED_CURRENCIES } from "../lib/money";
 import { useI18n } from "../i18n";
+
+const HOME_TEMPLATES = 6;
+const HOME_RECENT = 5;
 
 export function WalletsPage() {
   const { user } = useAuth();
@@ -25,6 +38,13 @@ export function WalletsPage() {
   const waiting =
     requests.data?.filter((item) => item.direction === "INCOMING" && item.status === "PENDING")
       .length ?? 0;
+  // The page's extras. Each fails quietly: the wallets are the page.
+  const templates = useQuery({ queryKey: ["templates"], queryFn: api.listTemplates, retry: false });
+  const recent = useQuery({
+    queryKey: ["transactions", "recent"],
+    queryFn: () => api.listTransactions({ limit: HOME_RECENT, offset: 0 }),
+    retry: false,
+  });
   const create = useMutation({
     mutationFn: api.createWallet,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["wallets"] }),
@@ -59,23 +79,16 @@ export function WalletsPage() {
         </form>
       </header>
       <ErrorAlert error={create.error ?? wallets.error} />
-      <p className="requests-bar">
-        {waiting > 0 ? (
+      {waiting > 0 && (
+        <p className="requests-bar">
           <Link to="/requests" className="requests-waiting">
             {waiting === 1
               ? t("wallets.oneAsking")
               : t("wallets.manyAsking", { count: waiting })}{" "}
             →
           </Link>
-        ) : (
-          <Link to="/requests">{t("wallets.request")}</Link>
-        )}
-        {(wallets.data?.length ?? 0) > 1 && (
-          <Link to="/exchange" className="requests-bar-link">
-            {t("wallets.exchange")}
-          </Link>
-        )}
-      </p>
+        </p>
+      )}
       {wallets.isPending ? (
         <Loading what={t("wallets.loading")} />
       ) : wallets.data?.length === 0 ? (
@@ -120,6 +133,73 @@ export function WalletsPage() {
           ))}
         </div>
       )}
+      {(wallets.data?.length ?? 0) > 0 && (
+        <nav className="quick-actions" aria-label={t("home.quick")}>
+          <Link to="/transfer" className="card quick-action">
+            {t("home.send")}
+          </Link>
+          <Link to="/pay" className="card quick-action">
+            {t("home.pay")}
+          </Link>
+          <Link to="/requests" className="card quick-action" title={t("wallets.request")}>
+            {t("home.request")}
+          </Link>
+          {(wallets.data?.length ?? 0) > 1 && (
+            <Link to="/exchange" className="card quick-action" title={t("wallets.exchange")}>
+              {t("home.exchange")}
+            </Link>
+          )}
+        </nav>
+      )}
+
+      {(templates.data?.length ?? 0) > 0 && (
+        <section aria-labelledby="home-templates">
+          <div className="section-head">
+            <h2 id="home-templates">{t("tpl.title")}</h2>
+            <Link to="/templates">{t("tpl.all")}</Link>
+          </div>
+          <TemplateTiles templates={(templates.data ?? []).slice(0, HOME_TEMPLATES)} />
+        </section>
+      )}
+
+      {(wallets.data?.length ?? 0) > 0 && (
+        <section aria-labelledby="home-recent">
+          <div className="section-head">
+            <h2 id="home-recent">{t("home.recent")}</h2>
+            <Link to="/transactions">{t("home.allHistory")}</Link>
+          </div>
+          {recent.data && recent.data.length > 0 ? (
+            <ul className="card activity">
+              {recent.data.map((item) => (
+                <li key={item.id}>
+                  <Link to={`/transactions/${item.id}`} className="activity-row">
+                    <span>
+                      <strong>
+                        {item.counterparty_name ?? item.description ?? t(describe(item))}
+                      </strong>
+                      <span className="muted small">
+                        {t(describe(item))} · <DateTime value={item.created_at} />
+                      </span>
+                    </span>
+                    <span className={item.direction === "IN" ? "amount-in" : undefined}>
+                      {sign(item)}
+                      <Money minor={item.amount_minor} currency={item.currency} />
+                      {item.status !== "COMPLETED" && item.status !== "SUCCESS" && (
+                        <span className="activity-status">
+                          <StatusBadge status={item.status} />
+                        </span>
+                      )}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            !recent.isPending && !recent.error && <Empty>{t("home.noActivity")}</Empty>
+          )}
+        </section>
+      )}
+
       <ExchangeRates />
     </section>
   );

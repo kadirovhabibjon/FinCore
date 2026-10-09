@@ -59,6 +59,9 @@ const DEFAULT_ROUTES: Record<string, Handler> = {
   "GET /api/v1/admin/stats": () =>
     json({ generated_at: "2026-10-08T10:00:00Z", awaiting_review: 0, currencies: [] }),
   "GET /api/v1/admin/users/stats": () => json({ total: 0, by_status: {}, days: [] }),
+  // The home page offers saved payments and the latest operations.
+  "GET /api/v1/templates": () => json([]),
+  "GET /api/v1/transactions": () => json([]),
   // The chat launcher shows how many replies from staff are unread.
   "GET /api/v1/support/messages": () => json({ status: "OPEN", unread_count: 0, items: [] }),
   // The wallets page shows how many people are asking for money.

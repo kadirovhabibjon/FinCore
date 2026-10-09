@@ -205,6 +205,14 @@ export const getExchangeQuote = (
 export const createExchange = (body: Payment["CreateExchangeRequest"], idempotencyKey: string) =>
   apiRequest<Exchange>("/api/v1/exchanges", { method: "POST", body, idempotencyKey });
 
+// Saved payments: a service and account, or a recipient's card.
+export type Template = Payment["TemplateResponse"];
+export const listTemplates = () => apiRequest<Template[]>("/api/v1/templates");
+export const saveTemplate = (body: Payment["CreateTemplateRequest"]) =>
+  apiRequest<Template>("/api/v1/templates", { method: "POST", body });
+export const deleteTemplate = (templateId: string) =>
+  apiRequest<void>(`/api/v1/templates/${templateId}`, { method: "DELETE" });
+
 /** The service providers a customer can pay (mobile, internet, utilities, TV). */
 export const listServices = () => apiRequest<Service[]>("/api/v1/services");
 /** Pays a provider; `account` is the customer's account there, as typed. */

@@ -52,6 +52,12 @@ export function walletLabel(wallet: {
   return wallet.blocked ? i18n().t("card.labelBlocked", { label }) : label;
 }
 
+/** Minor units as the decimal string an amount field takes and the API
+ * accepts: 5000000 UZS -> "50000.00". No grouping, no currency. */
+export function minorToInput(amountMinor: number, currency: string): string {
+  return formatMinor(amountMinor, currency).split(" ")[0]!.replace(/,/g, "");
+}
+
 /** A valid amount string as integer minor units: "12.5" UZS -> 1250.
  * Digits only, no float arithmetic. Call after `validateAmount`. */
 export function toMinor(value: string, currency: string): number {

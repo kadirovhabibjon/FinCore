@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import * as api from "../../api/endpoints";
 import { hasAnyRole, useAuth } from "../../auth/context";
-import { ConfirmButton } from "../../components/admin/ConfirmButton";
+import { ConfirmButton } from "../../components/ConfirmButton";
 import { CustomerLink } from "../../components/admin/Customer";
 import { useI18n } from "../../i18n";
 import { DeliveriesTable } from "../../components/DeliveriesTable";

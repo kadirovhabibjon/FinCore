@@ -215,6 +215,26 @@ class ExchangeUnavailableError(DomainError):
     title = "Exchange Unavailable"
 
 
+class TemplateNotFoundError(DomainError):
+    """Also covers a template that is someone else's."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Template Not Found"
+
+
+class TooManyTemplatesError(DomainError):
+    status_code = status.HTTP_409_CONFLICT
+    title = "Too Many Templates"
+
+
+class InvalidTemplateError(DomainError):
+    """A template is for a service (provider and account) or for a
+    transfer (a card number) - one or the other."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Invalid Template"
+
+
 class ServiceNotFoundError(DomainError):
     status_code = status.HTTP_404_NOT_FOUND
     title = "Service Not Found"

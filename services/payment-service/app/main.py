@@ -22,6 +22,7 @@ from app.api.v1.merchants import router as merchants_router
 from app.api.v1.money_requests import router as money_requests_router
 from app.api.v1.payments import router as payments_router
 from app.api.v1.services import router as services_router
+from app.api.v1.templates import router as templates_router
 from app.api.v1.transactions import router as transactions_router
 from app.api.v1.transfers import router as transfers_router
 from app.core import kafka as kafka_module
@@ -169,6 +170,7 @@ app.include_router(money_requests_router)
 app.include_router(exchanges_router)
 app.include_router(limits_router)
 app.include_router(services_router)
+app.include_router(templates_router)
 app.include_router(admin_router)
 app.include_router(internal_merchants_router)
 

@@ -7,6 +7,7 @@ import { ApiError } from "../api/client";
 import { ErrorAlert, Loading, Money } from "../components/ui";
 import { OperationOutcome } from "../components/OperationOutcome";
 import { QrScanner } from "../components/QrScanner";
+import { SaveTemplate } from "../components/SaveTemplate";
 import { BlockedNotice } from "../components/WalletSettings";
 import { useDailyLimit } from "../lib/useDailyLimit";
 import {
@@ -15,7 +16,12 @@ import {
   formatCardNumber,
   isValidCardNumber,
 } from "../lib/card";
-import { validateAmount, walletLabel } from "../lib/money";
+import {
+  formatMinor,
+  minorToInput,
+  validateAmount,
+  walletLabel,
+} from "../lib/money";
 import { isCompletePhone } from "../lib/phone";
 import { cardFromScan } from "../lib/qr";
 import { useDebounced } from "../lib/useDebounced";
@@ -36,7 +42,8 @@ export function TransferPage() {
   const [phone, setPhone] = useState("");
   const [scanning, setScanning] = useState(false);
   const [scanProblem, setScanProblem] = useState(false);
-  const [amount, setAmount] = useState("");
+  // ?amount= comes with a template that remembers how much.
+  const [amount, setAmount] = useState(params.get("amount") ?? "");
   const [description, setDescription] = useState("");
   const [amountError, setAmountError] = useState<string | null>(null);
   const [idempotencyKey, renewKey] = useIdempotencyKey();
@@ -185,6 +192,21 @@ export function TransferPage() {
                   phone: phone.trim(),
                 })}
           </p>
+        )}
+        {/* Only what went to a card typed here can be saved by its card. */}
+        {recipient && by === "card" && transfer.data.status !== "FAILED" && (
+          <SaveTemplate
+            suggestedName={recipient.display_name}
+            what={{ kind: "TRANSFER", card_number: cardNumber }}
+            amount={minorToInput(
+              transfer.data.amount_minor,
+              transfer.data.currency,
+            )}
+            amountText={formatMinor(
+              transfer.data.amount_minor,
+              transfer.data.currency,
+            )}
+          />
         )}
         <div className="actions">
           <Link
