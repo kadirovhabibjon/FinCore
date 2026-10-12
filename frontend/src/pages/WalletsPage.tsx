@@ -156,7 +156,10 @@ export function WalletsPage() {
         <section aria-labelledby="home-templates">
           <div className="section-head">
             <h2 id="home-templates">{t("tpl.title")}</h2>
-            <Link to="/templates">{t("tpl.all")}</Link>
+            <span className="section-links">
+              <Link to="/templates">{t("tpl.all")}</Link>
+              <Link to="/autopay">{t("auto.link")}</Link>
+            </span>
           </div>
           <TemplateTiles templates={(templates.data ?? []).slice(0, HOME_TEMPLATES)} />
         </section>

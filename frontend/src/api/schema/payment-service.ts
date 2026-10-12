@@ -415,6 +415,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/scheduled-payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Scheduled Payments
+         * @description The caller's scheduled payments, soonest first.
+         */
+        get: operations["list_my_scheduled_payments_api_v1_scheduled_payments_get"];
+        put?: never;
+        /**
+         * Schedule Payment
+         * @description A payment FinCore will make for the caller every week or month,
+         *     at 04:00 UTC, from one of their wallets: a service provider and
+         *     account, or a recipient's card. Checked now the way the payment
+         *     itself would be; each run is then an ordinary operation, with every
+         *     rule of one. Nothing is paid by creating it.
+         */
+        post: operations["schedule_payment_api_v1_scheduled_payments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scheduled-payments/{scheduled_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Scheduled Payment
+         * @description Stops it for good. Operations it already made stay in the history.
+         */
+        delete: operations["delete_scheduled_payment_api_v1_scheduled_payments__scheduled_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Pause Or Resume
+         * @description Pauses a scheduled payment, or resumes it. Resuming schedules the
+         *     next occurrence from now: runs missed while paused are not made up.
+         */
+        patch: operations["pause_or_resume_api_v1_scheduled_payments__scheduled_id__patch"];
+        trace?: never;
+    };
     "/api/v1/services": {
         parameters: {
             query?: never;
@@ -938,6 +991,28 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /** CreateScheduledPaymentRequest */
+        CreateScheduledPaymentRequest: {
+            /** Account */
+            account?: string | null;
+            /** Amount */
+            amount: string;
+            /** Card Number */
+            card_number?: string | null;
+            /** Day */
+            day: number;
+            interval: components["schemas"]["ScheduleInterval"];
+            kind: components["schemas"]["TemplateKind"];
+            /** Name */
+            name: string;
+            /** Service Code */
+            service_code?: string | null;
+            /**
+             * Source Wallet Id
+             * Format: uuid
+             */
+            source_wallet_id: string;
+        };
         /** CreateTemplateRequest */
         CreateTemplateRequest: {
             /** Account */
@@ -1387,6 +1462,66 @@ export interface components {
         ReviewDecisionRequest: {
             decision: components["schemas"]["ReviewDecision"];
         };
+        /**
+         * ScheduleInterval
+         * @enum {string}
+         */
+        ScheduleInterval: "WEEKLY" | "MONTHLY";
+        /**
+         * ScheduleStatus
+         * @enum {string}
+         */
+        ScheduleStatus: "ACTIVE" | "PAUSED";
+        /** ScheduledPaymentResponse */
+        ScheduledPaymentResponse: {
+            /** Amount Minor */
+            amount_minor: number;
+            /** Card Number */
+            card_number: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /** Day */
+            day: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            interval: components["schemas"]["ScheduleInterval"];
+            kind: components["schemas"]["TemplateKind"];
+            /** Last Error */
+            last_error: string | null;
+            /** Last Operation Id */
+            last_operation_id: string | null;
+            /** Last Run At */
+            last_run_at: string | null;
+            /** Last Status */
+            last_status: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Next Run At
+             * Format: date-time
+             */
+            next_run_at: string;
+            /** Recipient Name */
+            recipient_name: string | null;
+            /** Service Account */
+            service_account: string | null;
+            /** Service Code */
+            service_code: string | null;
+            /**
+             * Source Wallet Id
+             * Format: uuid
+             */
+            source_wallet_id: string;
+            status: components["schemas"]["ScheduleStatus"];
+        };
         /** ServiceResponse */
         ServiceResponse: {
             account_kind: components["schemas"]["AccountKind"];
@@ -1564,6 +1699,10 @@ export interface components {
          * @enum {string}
          */
         TransferStatus: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
+        /** UpdateScheduledPaymentRequest */
+        UpdateScheduledPaymentRequest: {
+            status: components["schemas"]["ScheduleStatus"];
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -2287,6 +2426,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_scheduled_payments_api_v1_scheduled_payments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledPaymentResponse"][];
+                };
+            };
+        };
+    };
+    schedule_payment_api_v1_scheduled_payments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateScheduledPaymentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledPaymentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_scheduled_payment_api_v1_scheduled_payments__scheduled_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduled_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_or_resume_api_v1_scheduled_payments__scheduled_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scheduled_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateScheduledPaymentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledPaymentResponse"];
                 };
             };
             /** @description Validation Error */

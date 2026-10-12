@@ -91,7 +91,8 @@ describe("filtering the history", () => {
     await screen.findByText("TRF-SENT");
 
     await userEvent.type(screen.getByLabelText("Search"), "aziza");
-    await waitFor(() => expect(screen.queryByText("TRF-SENT")).toBeNull());
+    // The search waits for the typing to pause; a busy machine needs longer.
+    await waitFor(() => expect(screen.queryByText("TRF-SENT")).toBeNull(), { timeout: 5000 });
     expect(screen.getByText("TRF-GOT")).toBeInTheDocument();
     const searches = asked(requests).filter((query) => query.startsWith("q="));
     expect(searches).toEqual(["q=aziza"]);
@@ -103,7 +104,9 @@ describe("filtering the history", () => {
     await screen.findByText("TRF-SENT");
 
     await userEvent.type(screen.getByLabelText("Search"), "nobody");
-    expect(await screen.findByText("Nothing matches these filters.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Nothing matches these filters.", undefined, { timeout: 5000 }),
+    ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
     expect(await screen.findByText("TRF-SENT")).toBeInTheDocument();

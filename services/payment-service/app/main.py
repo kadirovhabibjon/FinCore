@@ -21,6 +21,7 @@ from app.api.v1.limits import router as limits_router
 from app.api.v1.merchants import router as merchants_router
 from app.api.v1.money_requests import router as money_requests_router
 from app.api.v1.payments import router as payments_router
+from app.api.v1.scheduled_payments import router as scheduled_payments_router
 from app.api.v1.services import router as services_router
 from app.api.v1.templates import router as templates_router
 from app.api.v1.transactions import router as transactions_router
@@ -29,6 +30,7 @@ from app.core import kafka as kafka_module
 from app.core.config import settings
 from app.core.metrics import STUCK_PROCESSING
 from app.db import session as db_session
+from app.services.autopay import run_due
 from app.services.expiration import expire_stale_payments
 from app.services.idempotency import IdempotentReplayResponse
 from app.services.outbox import drain_outbox
@@ -108,6 +110,20 @@ async def _expiration_worker_loop() -> None:
             logger.exception("expiration worker iteration failed")
 
 
+async def _autopay_worker_loop() -> None:
+    """Makes the scheduled payments that are due (app/services/autopay.py)
+    on a fixed interval for the life of the process."""
+    while True:
+        await asyncio.sleep(settings.autopay_worker_interval_seconds)
+        try:
+            async with db_session.async_session_factory() as session:
+                made = await run_due(session)
+            if made:
+                logger.info("autopay worker made %d scheduled payment(s)", made)
+        except Exception:
+            logger.exception("autopay worker iteration failed")
+
+
 async def _outbox_relay_loop() -> None:
     """Drains the outbox (spec Section 14.1), then sleeps — for the life
     of the process. Same failure handling as the recovery worker: one
@@ -129,8 +145,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     recovery_task = asyncio.create_task(_recovery_worker_loop())
     outbox_task = asyncio.create_task(_outbox_relay_loop())
     expiration_task = asyncio.create_task(_expiration_worker_loop())
+    autopay_task = asyncio.create_task(_autopay_worker_loop())
     yield
-    for task in (recovery_task, outbox_task, expiration_task):
+    for task in (recovery_task, outbox_task, expiration_task, autopay_task):
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
@@ -171,6 +188,7 @@ app.include_router(exchanges_router)
 app.include_router(limits_router)
 app.include_router(services_router)
 app.include_router(templates_router)
+app.include_router(scheduled_payments_router)
 app.include_router(admin_router)
 app.include_router(internal_merchants_router)
 

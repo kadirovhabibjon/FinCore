@@ -283,8 +283,21 @@ page, not in History.
   page and all of them are on the Templates page ("All templates"),
   where one can be deleted. Opening a template only fills the form in -
   the customer still chooses the card and presses Pay or Send, so
-  nothing is ever paid automatically. At most 30 templates. There are
-  no automatic or scheduled payments.
+  nothing is paid by opening one. At most 30 templates.
+- Scheduled payments (autopay): the "Scheduled payments" page (from the
+  Templates page, or "Schedule" next to a template) makes a template's
+  payment automatically every week (on a chosen weekday) or every month
+  (on a day from 1 to 28), at 09:00 Tashkent time, from a chosen card.
+  The amount is fixed when it is scheduled. Each run is an ordinary
+  payment or transfer: it needs enough money on the card, counts
+  towards the daily limit, fails if the card is blocked, appears in
+  History and is announced in the bell. The page shows when each one
+  runs next and how the last run ended ("could not be made" with the
+  reason, if the card or the recipient no longer exists). A run that
+  failed is not retried until its next date. A schedule can be paused,
+  resumed (runs missed while paused are not made up) or deleted. At
+  most 20. You cannot create, pause or run one; point the customer to
+  that page.
 - The Wallets (home) page also has quick actions (Send, Pay, Request,
   Exchange) and "Recent activity": the latest five operations, each
   opening its details.

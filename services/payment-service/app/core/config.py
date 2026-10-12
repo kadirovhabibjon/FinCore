@@ -59,6 +59,11 @@ class Settings(BaseServiceSettings):
     # payments stuck in CREATED — most likely awaiting a fraud REVIEW
     # that was never resolved — past this window.
     expiration_worker_interval_seconds: float = 60.0
+    # Scheduled payments (app/services/autopay.py): how often the worker
+    # looks for due runs, and the hour (UTC) runs are made at - 04:00
+    # UTC is 09:00 in Tashkent.
+    autopay_worker_interval_seconds: float = 60.0
+    autopay_hour_utc: int = 4
     payment_review_ttl_seconds: float = 900.0
 
     # How long a payment's ledger hold reserves funds before it can be

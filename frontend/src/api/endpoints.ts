@@ -253,6 +253,20 @@ export const saveTemplate = (body: Payment["CreateTemplateRequest"]) =>
 export const deleteTemplate = (templateId: string) =>
   apiRequest<void>(`/api/v1/templates/${templateId}`, { method: "DELETE" });
 
+// Payments FinCore makes for the customer every week or month.
+export type ScheduledPayment = Payment["ScheduledPaymentResponse"];
+export const listScheduledPayments = () =>
+  apiRequest<ScheduledPayment[]>("/api/v1/scheduled-payments");
+export const schedulePayment = (body: Payment["CreateScheduledPaymentRequest"]) =>
+  apiRequest<ScheduledPayment>("/api/v1/scheduled-payments", { method: "POST", body });
+export const setScheduledPaymentStatus = (id: string, status: ScheduledPayment["status"]) =>
+  apiRequest<ScheduledPayment>(`/api/v1/scheduled-payments/${id}`, {
+    method: "PATCH",
+    body: { status },
+  });
+export const deleteScheduledPayment = (id: string) =>
+  apiRequest<void>(`/api/v1/scheduled-payments/${id}`, { method: "DELETE" });
+
 /** The service providers a customer can pay (mobile, internet, utilities, TV). */
 export const listServices = () => apiRequest<Service[]>("/api/v1/services");
 /** Pays a provider; `account` is the customer's account there, as typed. */

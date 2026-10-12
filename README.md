@@ -416,6 +416,19 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
   **FinCore is not connected to any provider**: the payment is taken
   and recorded and delivered nowhere, and the web app says so.
   Delivering it would be a consumer of `payment.completed`.
+* **Scheduled payments**: `GET` / `POST /api/v1/scheduled-payments`,
+  `PATCH .../{id}` (pause, resume), `DELETE .../{id}` - the same
+  service payment or transfer made for the customer every week or
+  month at 04:00 UTC. A worker makes the due ones, **at most once**:
+  it claims a run by moving `next_run_at` on in one compare-and-set
+  statement before making it, so two workers can't both make it and
+  one that dies mid-run leaves that occurrence unpaid rather than paid
+  twice. Whose wallet it is and where the money goes are looked up
+  before claiming: while a service can't answer nothing is claimed;
+  a definite "no such recipient" uses the occurrence up, recorded as
+  `NOT_RUN` with the reason. Each run is an ordinary operation (same
+  saga, limits, history, notification) with an idempotency key of its
+  own. A schedule overdue by a month runs once, not once per day.
 * **History filters**: `GET /api/v1/transactions` (and its
   `export.csv`) take `type`, `direction` (`IN` received, `OUT` sent or
   paid, `SELF` an exchange), `q` (words in the reference, the note, the
@@ -1474,7 +1487,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 207 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 214 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1523,7 +1536,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-81 tests that run against a live `docker compose` stack, through the
+82 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

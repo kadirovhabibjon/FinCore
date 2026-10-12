@@ -215,6 +215,25 @@ class ExchangeUnavailableError(DomainError):
     title = "Exchange Unavailable"
 
 
+class ScheduledPaymentNotFoundError(DomainError):
+    """Also covers a scheduled payment that is someone else's."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Scheduled Payment Not Found"
+
+
+class TooManyScheduledPaymentsError(DomainError):
+    status_code = status.HTTP_409_CONFLICT
+    title = "Too Many Scheduled Payments"
+
+
+class InvalidScheduleError(DomainError):
+    """WEEKLY takes a weekday 1-7, MONTHLY a day of the month 1-28."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    title = "Invalid Schedule"
+
+
 class TemplateNotFoundError(DomainError):
     """Also covers a template that is someone else's."""
 

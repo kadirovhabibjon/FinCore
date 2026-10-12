@@ -31,6 +31,9 @@ export function TemplatesPage() {
           <h1>{t("tpl.title")}</h1>
           <p className="muted">{t("tpl.subtitle")}</p>
         </div>
+        <Link to="/autopay" className="button button-ghost">
+          {t("auto.link")}
+        </Link>
       </header>
       <ErrorAlert error={templates.error ?? remove.error} />
       {templates.isPending ? (
@@ -51,6 +54,12 @@ export function TemplatesPage() {
                 <div className="actions">
                   <Link to={templateLink(template)} className="button button-small">
                     {t("tpl.use")}
+                  </Link>
+                  <Link
+                    to={`/autopay?template=${template.id}`}
+                    className="button button-small button-ghost"
+                  >
+                    {t("auto.schedule")}
                   </Link>
                   <ConfirmButton
                     confirm={t("tpl.confirmDelete")}

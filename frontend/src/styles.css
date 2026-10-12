@@ -2857,3 +2857,9 @@ a.service-tile {
   border-top: 1px solid var(--hairline, var(--border));
   text-align: right;
 }
+
+.section-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
