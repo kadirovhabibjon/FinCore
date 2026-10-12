@@ -2941,3 +2941,13 @@ a.service-tile {
 .goal-history li + li {
   border-top: 1px solid var(--hairline, var(--border));
 }
+
+/* The console's sidebar is dark in both themes: its buttons are drawn
+   for that, not for the page's light surface. */
+.admin-account-actions .button,
+.admin-account-actions .theme-button {
+  background: transparent;
+  color: #e5e7eb;
+  border-color: #374151;
+  box-shadow: none;
+}

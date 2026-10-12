@@ -19,24 +19,60 @@ after a crash or a reboot. To give your own copy a public link, see
 A digital wallet and payment platform built as a microservices system, in
 the style of a real core-banking backend: database-per-service,
 double-entry ledger, sagas for distributed consistency, transactional
-outbox, and asymmetric-JWT auth with JWKS.
+outbox, and asymmetric-JWT auth with JWKS. In Uzbek, Russian and English.
+
+| | |
+|---|---|
+| ![Home: wallets, quick actions, recent activity](docs/screenshots/wallets.png) | ![Paying service providers](docs/screenshots/pay.png) |
+| ![Statistics: money in and out, spending by category](docs/screenshots/stats.png) | ![Admin dashboard](docs/screenshots/admin-dashboard.png) |
+
+**What a customer can do**
+
+* Open UZS and USD wallets, each with its own card number; name them,
+  pick a main one, block one, set a daily limit.
+* Send money by card number, phone number or QR code, with the
+  recipient's name shown first; ask someone for money; exchange between
+  their own wallets at a quoted rate.
+* Pay service providers (mobile, internet, utilities, TV) and merchants,
+  by id or by the merchant's QR code; save a payment as a template and
+  have it made automatically every week or month.
+* Set money aside in savings goals.
+* See a searchable history, PDF receipts, a CSV statement, monthly
+  statistics and spending by category.
+* Sign in with a password and, optionally, a code sent by email; reset
+  a forgotten password; see and end their sessions.
+* Get notifications, bank news and staff announcements in one bell; ask
+  an AI assistant, or write to a human operator.
+
+**What staff can do** (a separate console at `/admin`): a dashboard of
+what is waiting and what happened, the fraud review queue, users and a
+page per customer, every transaction with CSV export, webhook
+endpoints, announcements, and the support inbox.
+
+**What is underneath**: eight Python services behind an Nginx gateway,
+each with its own PostgreSQL database, talking over internal REST and
+Kafka. Money is integers in a double-entry ledger; every money movement
+is a saga with an idempotency key and a recovery path; every event
+leaves through a transactional outbox. Each non-obvious decision is an
+[ADR](docs/adr/) - ten so far - and
+[Failure scenarios handled today](#failure-scenarios-handled-today)
+lists what happens when things go wrong, each backed by a test.
 
 This is a learning-driven, production-oriented portfolio project — not a
-tutorial. Every non-obvious decision is recorded as an [ADR](docs/adr/)
-rather than left implicit, and the full design rationale lives in
+tutorial. The full design rationale lives in
 [`docs/spec.md`](docs/spec.md).
 
-**Status: Phases 0–7 complete.** All eight services — identity,
-ledger, payment, fraud, notification, webhook, audit and the AI
-assistant — are built,
-tested and run together via Docker Compose with the gateway, Kafka,
-Jaeger, Prometheus and Grafana, plus a React + TypeScript web app (user
-dashboard and support/admin panel) served through the same gateway.
-Every package has unit and integration tests against real
-PostgreSQL/Kafka, every API and event is covered by a committed
-contract, a 48-test end-to-end suite runs against the live stack in CI,
-and a load test gates on ledger reconciliation. Integrations designed but not yet built are listed
-in [`docs/context-map.md`](docs/context-map.md); the table in
+**Status.** All eight services — identity, ledger, payment, fraud,
+notification, webhook, audit and the AI assistant — are built, tested
+and run together via Docker Compose with the gateway, Kafka, Jaeger,
+Prometheus and Grafana, plus a React + TypeScript web app (customer
+site and admin console) served through the same gateway. Every package
+has unit and integration tests against real PostgreSQL/Kafka, every API
+and event is covered by a committed contract, an 84-test end-to-end
+suite runs against the live stack in CI, and a load test gates on
+ledger reconciliation. Service payments are a demonstration: FinCore is
+not connected to any provider. Integrations designed but not yet built
+are listed in [`docs/context-map.md`](docs/context-map.md); the table in
 [Roadmap](#roadmap) tracks status precisely — nothing here is described
 as done unless it's tested and running.
 
@@ -962,18 +998,22 @@ money or change anything.
 
 ### Web app (`frontend/`)
 
-| Wallets | Merchant: received payments, refunds, webhooks |
+| Sending money | History, searched and filtered |
 |---|---|
-| ![Wallets](docs/screenshots/wallets.png) | ![Merchant](docs/screenshots/merchant.png) |
-| **Admin: fraud review queue** | **Admin: all transactions** |
-| ![Review queue](docs/screenshots/admin-reviews.png) | ![All transactions](docs/screenshots/admin-transactions.png) |
+| ![Send](docs/screenshots/send.png) | ![History](docs/screenshots/history.png) |
+| **Merchant: received payments, refunds, webhooks** | **Admin: fraud review queue** |
+| ![Merchant](docs/screenshots/merchant.png) | ![Review queue](docs/screenshots/admin-reviews.png) |
 
-More: [wallet ledger entries](docs/screenshots/wallet.png),
-[history](docs/screenshots/history.png),
+More: [home](docs/screenshots/wallets.png) and the same in
+[dark mode](docs/screenshots/wallets-dark.png),
+[service payments](docs/screenshots/pay.png),
+[statistics](docs/screenshots/stats.png),
+[wallet ledger entries](docs/screenshots/wallet.png),
 [account and sessions](docs/screenshots/settings.png),
-[admin user search](docs/screenshots/admin-users.png),
-[dark mode](docs/screenshots/wallets-dark.png). Captured from the running
-stack with demo data seeded through the public API.
+[admin dashboard](docs/screenshots/admin-dashboard.png),
+[all transactions](docs/screenshots/admin-transactions.png),
+[user search](docs/screenshots/admin-users.png). Captured from the
+running stack with demo data.
 
 React 19 + TypeScript + Vite single-page app
 ([ADR-0005](docs/adr/0005-frontend-addition.md)), served by its own
