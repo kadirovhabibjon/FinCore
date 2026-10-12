@@ -141,6 +141,9 @@ export function WalletsPage() {
           <Link to="/pay" className="card quick-action">
             {t("home.pay")}
           </Link>
+          <Link to="/goals" className="card quick-action">
+            {t("home.goals")}
+          </Link>
           <Link to="/requests" className="card quick-action" title={t("wallets.request")}>
             {t("home.request")}
           </Link>

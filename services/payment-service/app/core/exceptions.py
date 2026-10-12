@@ -215,6 +215,34 @@ class ExchangeUnavailableError(DomainError):
     title = "Exchange Unavailable"
 
 
+class SavingsGoalNotFoundError(DomainError):
+    """Also covers a goal that is someone else's, or closed."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    title = "Savings Goal Not Found"
+
+
+class TooManySavingsGoalsError(DomainError):
+    status_code = status.HTTP_409_CONFLICT
+    title = "Too Many Savings Goals"
+
+
+class GoalNotEmptyError(DomainError):
+    """A goal with money in it, or on its way in or out, can't be
+    closed: take the money back first."""
+
+    status_code = status.HTTP_409_CONFLICT
+    title = "Goal Not Empty"
+
+
+class SavingsUnavailableError(DomainError):
+    """ledger-service could not be asked for the account savings are
+    kept in. Nothing was moved."""
+
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    title = "Savings Unavailable"
+
+
 class ScheduledPaymentNotFoundError(DomainError):
     """Also covers a scheduled payment that is someone else's."""
 

@@ -119,7 +119,8 @@ async def _find_negative_available_wallets(session: AsyncSession) -> list[UUID]:
     bypassed it.
     """
     stmt = select(AccountBalance.account_id).where(
-        AccountBalance.kind == AccountKind.USER_WALLET,
+        # ...and the savings pool, the other account that never owes.
+        AccountBalance.kind.in_((AccountKind.USER_WALLET, AccountKind.SAVINGS)),
         AccountBalance.balance_minor - AccountBalance.held_minor < 0,
     )
     result = await session.execute(stmt)

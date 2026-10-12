@@ -17,6 +17,7 @@ class AccountKind(enum.StrEnum):
     EXTERNAL_PAYOUT                           -> CREDIT-normal (clearing)
     SUSPENSE                                  -> no normal side; must net to zero
     EXCHANGE                                  -> CREDIT-normal; may be negative
+    SAVINGS                                   -> CREDIT-normal; never negative
     """
 
     USER_WALLET = "USER_WALLET"
@@ -29,6 +30,12 @@ class AccountKind(enum.StrEnum):
     # customers have sold to it net of what they have bought (see
     # app/services/postings.py's NORMAL_SIDE).
     EXCHANGE = "EXCHANGE"
+    # What customers have set aside in savings goals, pooled, one per
+    # currency: money that is still the customers', out of their wallets
+    # until they take it back. Which goal holds how much is
+    # payment-service's to know, as it knows which merchant a payment
+    # was for (ADR-0002's pooled accounts).
+    SAVINGS = "SAVINGS"
 
 
 class AccountStatus(enum.StrEnum):

@@ -258,6 +258,35 @@
         "title": "CreateExchangeRequest",
         "type": "object"
       },
+      "CreateGoalRequest": {
+        "properties": {
+          "currency": {
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "target": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "currency",
+          "target"
+        ],
+        "title": "CreateGoalRequest",
+        "type": "object"
+      },
       "CreateMerchantRequest": {
         "properties": {
           "name": {
@@ -805,6 +834,46 @@
         "title": "FraudDecision",
         "type": "string"
       },
+      "GoalResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "saved_minor": {
+            "title": "Saved Minor",
+            "type": "integer"
+          },
+          "target_minor": {
+            "title": "Target Minor",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "currency",
+          "target_minor",
+          "saved_minor",
+          "created_at"
+        ],
+        "title": "GoalResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1084,6 +1153,125 @@
         ],
         "title": "MonthStats",
         "type": "object"
+      },
+      "MoveRequest": {
+        "properties": {
+          "amount": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Amount",
+            "type": "string"
+          },
+          "wallet_id": {
+            "format": "uuid",
+            "title": "Wallet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet_id",
+          "amount"
+        ],
+        "title": "MoveRequest",
+        "type": "object"
+      },
+      "MovementDirection": {
+        "enum": [
+          "DEPOSIT",
+          "WITHDRAW"
+        ],
+        "title": "MovementDirection",
+        "type": "string"
+      },
+      "MovementResponse": {
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/MovementDirection"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "goal_id": {
+            "format": "uuid",
+            "title": "Goal Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MovementStatus"
+          },
+          "wallet_id": {
+            "format": "uuid",
+            "title": "Wallet Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "goal_id",
+          "wallet_id",
+          "direction",
+          "amount_minor",
+          "currency",
+          "status",
+          "failure_reason",
+          "created_at",
+          "completed_at"
+        ],
+        "title": "MovementResponse",
+        "type": "object"
+      },
+      "MovementStatus": {
+        "description": "PENDING -> COMPLETED | FAILED, each by an atomic\n`UPDATE ... WHERE status = 'PENDING'`. PENDING also covers \"the\nledger did not answer\": the recovery worker asks again.",
+        "enum": [
+          "PENDING",
+          "COMPLETED",
+          "FAILED"
+        ],
+        "title": "MovementStatus",
+        "type": "string"
       },
       "PayMoneyRequest": {
         "properties": {
@@ -3566,6 +3754,340 @@
         "summary": "Post Refund",
         "tags": [
           "payments"
+        ]
+      }
+    },
+    "/api/v1/savings-goals": {
+      "get": {
+        "description": "The caller's open savings goals, oldest first.",
+        "operationId": "list_my_goals_api_v1_savings_goals_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GoalResponse"
+                  },
+                  "title": "Response List My Goals Api V1 Savings Goals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List My Goals",
+        "tags": [
+          "savings"
+        ]
+      },
+      "post": {
+        "description": "Something to save towards: a name and a target, in one currency.\nEmpty until money is put in.",
+        "operationId": "create_goal_api_v1_savings_goals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGoalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Goal",
+        "tags": [
+          "savings"
+        ]
+      }
+    },
+    "/api/v1/savings-goals/{goal_id}": {
+      "delete": {
+        "description": "Closes an empty goal. One with money in it, or on its way in or\nout, is `409 Goal Not Empty`: take the money back first.",
+        "operationId": "close_goal_api_v1_savings_goals__goal_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Goal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Close Goal",
+        "tags": [
+          "savings"
+        ]
+      }
+    },
+    "/api/v1/savings-goals/{goal_id}/deposit": {
+      "post": {
+        "description": "Moves money from one of the caller's wallets into the goal. Needs\nan Idempotency-Key like any money movement.",
+        "operationId": "put_money_in_api_v1_savings_goals__goal_id__deposit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Goal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Money In",
+        "tags": [
+          "savings"
+        ]
+      }
+    },
+    "/api/v1/savings-goals/{goal_id}/movements": {
+      "get": {
+        "description": "What went into and out of the goal, newest first.",
+        "operationId": "list_movements_api_v1_savings_goals__goal_id__movements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Goal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MovementResponse"
+                  },
+                  "title": "Response List Movements Api V1 Savings Goals  Goal Id  Movements Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Movements",
+        "tags": [
+          "savings"
+        ]
+      }
+    },
+    "/api/v1/savings-goals/{goal_id}/withdraw": {
+      "post": {
+        "description": "Moves money from the goal back to one of the caller's wallets.\nMore than the goal holds is a FAILED movement (`Insufficient\nSavings`), like a transfer the ledger refuses.",
+        "operationId": "take_money_out_api_v1_savings_goals__goal_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Goal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Take Money Out",
+        "tags": [
+          "savings"
         ]
       }
     },

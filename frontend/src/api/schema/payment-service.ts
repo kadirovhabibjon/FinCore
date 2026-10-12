@@ -438,6 +438,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/savings-goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Goals
+         * @description The caller's open savings goals, oldest first.
+         */
+        get: operations["list_my_goals_api_v1_savings_goals_get"];
+        put?: never;
+        /**
+         * Create Goal
+         * @description Something to save towards: a name and a target, in one currency.
+         *     Empty until money is put in.
+         */
+        post: operations["create_goal_api_v1_savings_goals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/savings-goals/{goal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Close Goal
+         * @description Closes an empty goal. One with money in it, or on its way in or
+         *     out, is `409 Goal Not Empty`: take the money back first.
+         */
+        delete: operations["close_goal_api_v1_savings_goals__goal_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/savings-goals/{goal_id}/deposit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put Money In
+         * @description Moves money from one of the caller's wallets into the goal. Needs
+         *     an Idempotency-Key like any money movement.
+         */
+        post: operations["put_money_in_api_v1_savings_goals__goal_id__deposit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/savings-goals/{goal_id}/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Movements
+         * @description What went into and out of the goal, newest first.
+         */
+        get: operations["list_movements_api_v1_savings_goals__goal_id__movements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/savings-goals/{goal_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take Money Out
+         * @description Moves money from the goal back to one of the caller's wallets.
+         *     More than the goal holds is a FAILED movement (`Insufficient
+         *     Savings`), like a transfer the ledger refuses.
+         */
+        post: operations["take_money_out_api_v1_savings_goals__goal_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/scheduled-payments": {
         parameters: {
             query?: never;
@@ -969,6 +1078,15 @@ export interface components {
              */
             source_wallet_id: string;
         };
+        /** CreateGoalRequest */
+        CreateGoalRequest: {
+            /** Currency */
+            currency: string;
+            /** Name */
+            name: string;
+            /** Target */
+            target: string;
+        };
         /** CreateMerchantRequest */
         CreateMerchantRequest: {
             /** Name */
@@ -1167,6 +1285,27 @@ export interface components {
          * @enum {string}
          */
         FraudDecision: "ALLOW" | "REVIEW" | "BLOCK";
+        /** GoalResponse */
+        GoalResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Saved Minor */
+            saved_minor: number;
+            /** Target Minor */
+            target_minor: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1296,6 +1435,64 @@ export interface components {
             /** Out Minor */
             out_minor: number;
         };
+        /** MoveRequest */
+        MoveRequest: {
+            /** Amount */
+            amount: string;
+            /**
+             * Wallet Id
+             * Format: uuid
+             */
+            wallet_id: string;
+        };
+        /**
+         * MovementDirection
+         * @enum {string}
+         */
+        MovementDirection: "DEPOSIT" | "WITHDRAW";
+        /** MovementResponse */
+        MovementResponse: {
+            /** Amount Minor */
+            amount_minor: number;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            direction: components["schemas"]["MovementDirection"];
+            /** Failure Reason */
+            failure_reason: string | null;
+            /**
+             * Goal Id
+             * Format: uuid
+             */
+            goal_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reference */
+            reference: string;
+            status: components["schemas"]["MovementStatus"];
+            /**
+             * Wallet Id
+             * Format: uuid
+             */
+            wallet_id: string;
+        };
+        /**
+         * MovementStatus
+         * @description PENDING -> COMPLETED | FAILED, each by an atomic
+         *     `UPDATE ... WHERE status = 'PENDING'`. PENDING also covers "the
+         *     ledger did not answer": the recovery worker asks again.
+         * @enum {string}
+         */
+        MovementStatus: "PENDING" | "COMPLETED" | "FAILED";
         /** PayMoneyRequest */
         PayMoneyRequest: {
             /**
@@ -2497,6 +2694,196 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_goals_api_v1_savings_goals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"][];
+                };
+            };
+        };
+    };
+    create_goal_api_v1_savings_goals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGoalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_goal_api_v1_savings_goals__goal_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_money_in_api_v1_savings_goals__goal_id__deposit_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovementResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_movements_api_v1_savings_goals__goal_id__movements_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovementResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    take_money_out_api_v1_savings_goals__goal_id__withdraw_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovementResponse"];
                 };
             };
             /** @description Validation Error */

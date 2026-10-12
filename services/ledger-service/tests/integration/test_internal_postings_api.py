@@ -244,3 +244,64 @@ async def test_an_exchange_is_two_balanced_postings_against_the_exchange_account
     # Shared across the test database, so compared as "moved by", not "equals".
     assert balances[uzs_position] >= 1_200_000_00
     assert balances[usd_position] <= -100_00
+
+
+async def test_savings_move_between_a_wallet_and_the_pool_which_never_owes() -> None:
+    """Setting 300.00 aside moves it from the wallet to the currency's
+    SAVINGS account; taking it back moves it home. The pool holds only
+    what was set aside: asked for more, it refuses."""
+    from sqlalchemy import select
+
+    from app.db import session as db_session
+    from app.domain.balance import AccountBalance
+
+    wallet = await _create_wallet("UZS")
+    funding = await _system_account_id(AccountKind.EXTERNAL_FUNDING)
+    pool = await _system_account_id(AccountKind.SAVINGS, "UZS")
+
+    async def pool_balance() -> int:
+        async with db_session.async_session_factory() as session:
+            result = await session.execute(
+                select(AccountBalance.balance_minor).where(AccountBalance.account_id == pool)
+            )
+            return result.scalar_one()
+
+    def posting(
+        source_id: str, type_: str, debit: uuid.UUID, credit: uuid.UUID, amount: int
+    ) -> dict:
+        return {
+            "source_service": "test",
+            "source_id": source_id,
+            "type": type_,
+            "currency": "UZS",
+            "entries": [
+                {"account_id": str(debit), "direction": "DEBIT", "amount_minor": amount},
+                {"account_id": str(credit), "direction": "CREDIT", "amount_minor": amount},
+            ],
+        }
+
+    run = uuid.uuid4().hex
+    before = await pool_balance()
+    async with await _client() as client:
+        post = lambda body: client.post(  # noqa: E731
+            "/internal/v1/postings", json=body, headers=_HEADERS
+        )
+        funded = await post(posting(f"fund-{run}", "DEPOSIT", funding, wallet.id, 500_00))
+        aside = await post(posting(f"{run}:in", "SAVINGS", wallet.id, pool, 300_00))
+        aside_again = await post(posting(f"{run}:in", "SAVINGS", wallet.id, pool, 300_00))
+        too_much_aside = await post(posting(f"{run}:in2", "SAVINGS", wallet.id, pool, 200_01))
+        held = await pool_balance()
+        back = await post(posting(f"{run}:out", "SAVINGS", pool, wallet.id, 100_00))
+        # More than the whole pool holds: refused, whoever asks.
+        drained = await post(
+            posting(f"{run}:drain", "SAVINGS", pool, wallet.id, held + 1_000_000_00)
+        )
+        after = await pool_balance()
+
+    assert (funded.status_code, aside.status_code, back.status_code) == (201, 201, 201)
+    # The same request again is the same posting, not a second one.
+    assert aside_again.status_code in (200, 201) and aside_again.json()["id"] == aside.json()["id"]
+    assert too_much_aside.status_code == 409
+    assert held == before + 300_00
+    assert drained.status_code == 409 and drained.json()["title"] == "Insufficient Funds"
+    assert after == before + 200_00

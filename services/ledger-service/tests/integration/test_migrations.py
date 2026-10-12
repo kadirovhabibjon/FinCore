@@ -61,8 +61,9 @@ def test_upgrade_seeds_one_system_account_per_kind_and_currency(
 
     rows = _system_account_rows(postgres_url)
 
-    assert len(rows) == 12  # 6 system kinds x 2 currencies
+    assert len(rows) == 14  # 7 system kinds x 2 currencies
     assert ("EXCHANGE", "UZS") in rows and ("EXCHANGE", "USD") in rows
+    assert ("SAVINGS", "UZS") in rows and ("SAVINGS", "USD") in rows
     assert ("FEES", "UZS") in rows
     assert ("FEES", "USD") in rows
     assert ("SUSPENSE", "UZS") in rows
@@ -83,7 +84,7 @@ def test_downgrade_then_upgrade_is_repeatable(
     command.upgrade(alembic_config, "head")
 
     assert "ledger_accounts" in _table_names(postgres_url)
-    assert len(_system_account_rows(postgres_url)) == 12
+    assert len(_system_account_rows(postgres_url)) == 14
 
 
 def test_existing_wallets_are_given_card_numbers(alembic_config: Config, postgres_url: str) -> None:

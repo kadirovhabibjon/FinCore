@@ -23,6 +23,7 @@ import { NewsItemPage, NewsPage } from "./pages/NewsPage";
 import { PayPage } from "./pages/PayPage";
 import { ServicesPage } from "./pages/ServicesPage";
 import { AutopayPage } from "./pages/AutopayPage";
+import { GoalsPage } from "./pages/GoalsPage";
 import { TemplatesPage } from "./pages/TemplatesPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { RequestsPage } from "./pages/RequestsPage";
@@ -84,6 +85,7 @@ export function AppRoutes() {
           <Route path="pay" element={<ServicesPage />} />
           <Route path="templates" element={<TemplatesPage />} />
           <Route path="autopay" element={<AutopayPage />} />
+          <Route path="goals" element={<GoalsPage />} />
           <Route path="pay/merchant" element={<PayPage />} />
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="transactions/:transactionId" element={<TransactionPage />} />

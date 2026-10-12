@@ -284,6 +284,19 @@ page, not in History.
   amount filled in. The customer still chooses a card and presses Pay.
   If the page says there is no merchant with that id, or that the
   merchant can't take payments, the payment cannot be made.
+- Savings goals: the "Goals" button on the Wallets page opens "Savings
+  goals". A goal has a name, a currency and a target. "Add money" moves
+  money from the customer's card in that currency into the goal; it
+  really leaves the card (the card's balance goes down) and cannot be
+  sent, paid or exchanged until "Take money out" moves it back. Taking
+  out is instant and free, any amount up to what the goal holds. A goal
+  can be closed only when it is empty. If a movement shows as "on its
+  way" (PENDING), nothing is lost: it settles by itself within a minute
+  or two. Goal movements do not appear in History or Statistics and do
+  not count towards the daily limit; they are listed under the goal
+  ("Latest movements"). There is no interest. A blocked card cannot add
+  money to a goal. At most 20 goals. The list_my_wallets tool shows
+  card balances only, not goals: you cannot see or move goal money.
 - Templates: after a service payment or a transfer made by card number
   succeeds, "Save as template" keeps it under a name, with or without
   the amount. Saved templates appear as tiles on the Wallets (home)

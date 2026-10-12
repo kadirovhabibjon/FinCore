@@ -40,7 +40,12 @@ NORMAL_SIDE: dict[AccountKind, EntryDirection] = {
     # bought more of it than they sold - a position, not a wallet, so
     # nothing requires it to stay above zero.
     AccountKind.EXCHANGE: EntryDirection.CREDIT,
+    # Setting money aside credits the pool, taking it back debits it.
+    AccountKind.SAVINGS: EntryDirection.CREDIT,
 }
+
+# Accounts that hold customers' own money: neither may ever owe.
+_NEVER_NEGATIVE = (AccountKind.USER_WALLET, AccountKind.SAVINGS)
 
 
 @dataclass(frozen=True)
@@ -125,7 +130,9 @@ async def create_posting(
     for account_id, delta in net_effect.items():
         balance = locked_balances[account_id]
         account = accounts[account_id]
-        if account.kind == AccountKind.USER_WALLET:
+        # A wallet can't spend what it doesn't have (or has on hold);
+        # the savings pool can't hand back more than was set aside.
+        if account.kind in _NEVER_NEGATIVE:
             available_after = balance.balance_minor + delta - balance.held_minor
             if available_after < 0:
                 raise InsufficientFundsError(f"account {account_id} would go negative")

@@ -253,6 +253,29 @@ export const saveTemplate = (body: Payment["CreateTemplateRequest"]) =>
 export const deleteTemplate = (templateId: string) =>
   apiRequest<void>(`/api/v1/templates/${templateId}`, { method: "DELETE" });
 
+// Savings goals: money set aside, moved between a wallet and the goal.
+export type SavingsGoal = Payment["GoalResponse"];
+export type SavingsMovement = Payment["MovementResponse"];
+export const listGoals = () => apiRequest<SavingsGoal[]>("/api/v1/savings-goals");
+export const createGoal = (body: Payment["CreateGoalRequest"]) =>
+  apiRequest<SavingsGoal>("/api/v1/savings-goals", { method: "POST", body });
+export const closeGoal = (goalId: string) =>
+  apiRequest<void>(`/api/v1/savings-goals/${goalId}`, { method: "DELETE" });
+export const moveSavings = (
+  goalId: string,
+  direction: SavingsMovement["direction"],
+  body: Payment["MoveRequest"],
+  idempotencyKey: string,
+) =>
+  apiRequest<SavingsMovement>(
+    `/api/v1/savings-goals/${goalId}/${direction === "DEPOSIT" ? "deposit" : "withdraw"}`,
+    { method: "POST", body, idempotencyKey },
+  );
+export const listGoalMovements = (goalId: string) =>
+  apiRequest<SavingsMovement[]>(`/api/v1/savings-goals/${goalId}/movements`, {
+    query: { limit: 5 },
+  });
+
 // Payments FinCore makes for the customer every week or month.
 export type ScheduledPayment = Payment["ScheduledPaymentResponse"];
 export const listScheduledPayments = () =>

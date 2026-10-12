@@ -416,6 +416,17 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
   **FinCore is not connected to any provider**: the payment is taken
   and recorded and delivered nowhere, and the web app says so.
   Delivering it would be a consumer of `payment.completed`.
+* **Savings goals** ([ADR-0010](docs/adr/0010-savings-goals.md)):
+  `GET` / `POST /api/v1/savings-goals`, `POST .../{id}/deposit`,
+  `.../withdraw`, `GET .../{id}/movements`, `DELETE .../{id}`. Money
+  set aside really leaves the wallet, for a pooled `SAVINGS` account
+  per currency in the ledger (which may never go negative); which goal
+  holds how much is recorded here and changes only in the transaction
+  that settles a movement. A withdrawal takes its amount off the goal
+  first, by compare-and-set, so two at once can't both take the last
+  of it; an unanswered posting leaves the movement `PENDING` for the
+  recovery worker, never `FAILED`. A goal closes only when empty with
+  nothing in flight.
 * **Merchant QR codes**: `GET /api/v1/merchants/{id}/public` gives a
   signed-in customer the name behind a merchant id (and whether it can
   be paid), nothing about its owner. A merchant's page draws a QR code
@@ -1494,7 +1505,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 221 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 228 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1543,7 +1554,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-83 tests that run against a live `docker compose` stack, through the
+84 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit
@@ -1688,6 +1699,9 @@ problem, the decision, and what was rejected and why:
   and looking up a transfer's recipient by one.
 * [ADR-0009](docs/adr/0009-currency-exchange.md) — currency exchange as
   two single-currency postings and a saga.
+* [ADR-0010](docs/adr/0010-savings-goals.md) — savings goals as one
+  pooled ledger account per currency, with each goal's share kept by
+  payment-service.
 
 Plus [`docs/glossary.md`](docs/glossary.md) (shared vocabulary),
 [`docs/context-map.md`](docs/context-map.md) (service boundaries and
@@ -1712,6 +1726,12 @@ before `payment-service`'s implementation and matched by it, Phase 3).
 | Database is unreachable | `/ready` returns `503`, not a bare 500 or a hang |
 | A bearer token is missing, malformed, expired, wrong-issuer, or belongs to a blocked user | `401` with a consistent RFC 7807 body (`{"type", "title", "status", "detail", "instance"}`) — the same shape for every error, in every service, via `fincore-common`'s `DomainError` |
 | Login/register are hit with a burst of requests | Nginx rate-limits them (10r/s, burst 20) before they reach identity-service at all |
+| Two withdrawals race for the last money in a savings goal | Exactly one moves it; the others are recorded `FAILED` (`Insufficient Savings`) without the ledger being asked - the goal's figure is reduced by compare-and-set in the transaction that records the withdrawal |
+| The ledger doesn't answer while money moves into or out of a goal | The movement stays `PENDING`, never `FAILED`; a withdrawal's amount is already off the goal, a deposit's not yet on it; the recovery worker asks again and settles each once |
+| A goal is closed at the moment a deposit into it is recorded | Both take the goal's row lock: either the deposit lands and the close is refused (`409 Goal Not Empty`), or the close lands and the deposit moves nothing |
+| A scheduled payment is due and two workers see it, or the worker dies mid-run | It is claimed by one compare-and-set before it is made: made once, or - if the worker died after claiming - not at all for that occurrence, never twice |
+| A scheduled payment is due while ledger-service can't say whose wallet it is | Nothing is claimed; it is still due on the next tick |
+| Someone guesses two-step sign-in codes, several at once | Each wrong code is counted under the challenge's row lock before the answer goes out; after five the challenge is dead even for the right code |
 | A posting's debits don't equal its credits | Rejected before any lock is taken — `422 Unbalanced Posting` |
 | Two transfers move money between the same two wallets in opposite directions, concurrently | Both complete correctly; locks are acquired one account at a time in ascending `account_id` order, so neither transaction can be waiting on a lock the other already holds |
 | The owner blocks a wallet while a payment from it is reserved but not yet captured | The capture still completes — that money was committed before the block — while any new debit or hold is refused with `409 Wallet Blocked`; money sent to the wallet keeps arriving |

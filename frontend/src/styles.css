@@ -2882,3 +2882,62 @@ a.service-tile {
   font-size: 0.9rem;
   font-weight: 600;
 }
+
+/* --- savings goals ----------------------------------------------------- */
+
+.goal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.goal-percent {
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.goal-track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.goal-bar {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--accent);
+}
+
+.goal-move {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 420px;
+}
+
+.goal-move label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+
+.goal-history ul {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.goal-history li + li {
+  border-top: 1px solid var(--hairline, var(--border));
+}

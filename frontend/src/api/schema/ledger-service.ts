@@ -389,9 +389,10 @@ export interface components {
          *     EXTERNAL_PAYOUT                           -> CREDIT-normal (clearing)
          *     SUSPENSE                                  -> no normal side; must net to zero
          *     EXCHANGE                                  -> CREDIT-normal; may be negative
+         *     SAVINGS                                   -> CREDIT-normal; never negative
          * @enum {string}
          */
-        AccountKind: "USER_WALLET" | "EXTERNAL_FUNDING" | "EXTERNAL_PAYOUT" | "MERCHANT_SETTLEMENT" | "FEES" | "SUSPENSE" | "EXCHANGE";
+        AccountKind: "USER_WALLET" | "EXTERNAL_FUNDING" | "EXTERNAL_PAYOUT" | "MERCHANT_SETTLEMENT" | "FEES" | "SUSPENSE" | "EXCHANGE" | "SAVINGS";
         /**
          * AccountStatus
          * @enum {string}
@@ -548,7 +549,7 @@ export interface components {
          *     capture vs. its later refund).
          * @enum {string}
          */
-        PostingType: "TRANSFER" | "PAYMENT" | "DEPOSIT" | "WITHDRAWAL" | "REFUND" | "EXCHANGE";
+        PostingType: "TRANSFER" | "PAYMENT" | "DEPOSIT" | "WITHDRAWAL" | "REFUND" | "EXCHANGE" | "SAVINGS";
         /** ReconciliationReportResponse */
         ReconciliationReportResponse: {
             /** Balance Mismatches */

@@ -35,6 +35,9 @@ class PostingType(enum.StrEnum):
     # One leg of a currency exchange: a customer's wallet against
     # FinCore's EXCHANGE account in the same currency.
     EXCHANGE = "EXCHANGE"
+    # Money set aside in, or taken back from, a savings goal: a
+    # customer's wallet against the currency's SAVINGS account.
+    SAVINGS = "SAVINGS"
 
 
 class EntryDirection(enum.StrEnum):

@@ -21,6 +21,7 @@ from app.api.v1.limits import router as limits_router
 from app.api.v1.merchants import router as merchants_router
 from app.api.v1.money_requests import router as money_requests_router
 from app.api.v1.payments import router as payments_router
+from app.api.v1.savings import router as savings_router
 from app.api.v1.scheduled_payments import router as scheduled_payments_router
 from app.api.v1.services import router as services_router
 from app.api.v1.templates import router as templates_router
@@ -30,6 +31,7 @@ from app.core import kafka as kafka_module
 from app.core.config import settings
 from app.core.metrics import STUCK_PROCESSING
 from app.db import session as db_session
+from app.services import savings
 from app.services.autopay import run_due
 from app.services.expiration import expire_stale_payments
 from app.services.idempotency import IdempotentReplayResponse
@@ -87,6 +89,14 @@ async def _recovery_worker_loop() -> None:
                     session, stuck_after_seconds=settings.recovery_worker_stuck_after_seconds
                 )
             STUCK_PROCESSING.labels(operation_type="exchange").set(len(continued))
+
+            async with db_session.async_session_factory() as session:
+                settled = await savings.resolve_stuck(
+                    session, stuck_after_seconds=settings.recovery_worker_stuck_after_seconds
+                )
+            STUCK_PROCESSING.labels(operation_type="savings").set(len(settled))
+            if settled:
+                logger.info("recovery worker continued %d savings movement(s)", len(settled))
             if continued:
                 logger.info("recovery worker continued %d stuck exchange(s)", len(continued))
         except Exception:
@@ -189,6 +199,7 @@ app.include_router(limits_router)
 app.include_router(services_router)
 app.include_router(templates_router)
 app.include_router(scheduled_payments_router)
+app.include_router(savings_router)
 app.include_router(admin_router)
 app.include_router(internal_merchants_router)
 
