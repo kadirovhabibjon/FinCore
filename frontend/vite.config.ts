@@ -24,6 +24,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    // Above the 5s that lookups may take (src/test/setup.ts), so a missing
+    // element is reported as that, not as a timeout.
+    testTimeout: 20_000,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
   },

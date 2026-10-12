@@ -349,6 +349,10 @@ export const getSpending = (months: number) =>
   apiRequest<Spending>("/api/v1/transactions/stats/categories", { query: { months } });
 
 export const listMerchants = () => apiRequest<Merchant[]>("/api/v1/merchants");
+export type MerchantToPay = Payment["MerchantPublicResponse"];
+/** The name behind a merchant id, for a customer about to pay it. */
+export const findMerchant = (merchantId: string) =>
+  apiRequest<MerchantToPay>(`/api/v1/merchants/${merchantId}/public`);
 export const getMerchant = (merchantId: string) =>
   apiRequest<Merchant>(`/api/v1/merchants/${merchantId}`);
 export const createMerchant = (name: string) =>

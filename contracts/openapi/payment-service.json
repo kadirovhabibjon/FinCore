@@ -896,6 +896,31 @@
         "title": "MerchantOwnershipResponse",
         "type": "object"
       },
+      "MerchantPublicResponse": {
+        "description": "What someone about to pay a merchant may know of it: its name,\nto check they have the right one, and whether it can be paid.\nNothing about its owner.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "active"
+        ],
+        "title": "MerchantPublicResponse",
+        "type": "object"
+      },
       "MerchantResponse": {
         "properties": {
           "created_at": {
@@ -3044,6 +3069,55 @@
           }
         ],
         "summary": "List Merchant Payments",
+        "tags": [
+          "merchants"
+        ]
+      }
+    },
+    "/api/v1/merchants/{merchant_id}/public": {
+      "get": {
+        "description": "The name behind a merchant id, for a customer about to pay it -\ntyped, or read from the merchant's QR code - to confirm before any\nmoney moves. Signed-in customers only. A service provider's merchant\nis not found here: it is paid through /api/v1/services.",
+        "operationId": "get_merchant_to_pay_api_v1_merchants__merchant_id__public_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "merchant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Merchant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantPublicResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Merchant To Pay",
         "tags": [
           "merchants"
         ]

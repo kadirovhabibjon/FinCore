@@ -259,6 +259,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/merchants/{merchant_id}/public": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Merchant To Pay
+         * @description The name behind a merchant id, for a customer about to pay it -
+         *     typed, or read from the merchant's QR code - to confirm before any
+         *     money moves. Signed-in customers only. A service provider's merchant
+         *     is not found here: it is paid through /api/v1/services.
+         */
+        get: operations["get_merchant_to_pay_api_v1_merchants__merchant_id__public_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/money-requests": {
         parameters: {
             query?: never;
@@ -1186,6 +1209,23 @@ export interface components {
              */
             owner_user_id: string;
             status: components["schemas"]["MerchantStatus"];
+        };
+        /**
+         * MerchantPublicResponse
+         * @description What someone about to pay a merchant may know of it: its name,
+         *     to check they have the right one, and whether it can be paid.
+         *     Nothing about its owner.
+         */
+        MerchantPublicResponse: {
+            /** Active */
+            active: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** MerchantResponse */
         MerchantResponse: {
@@ -2160,6 +2200,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaymentResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_merchant_to_pay_api_v1_merchants__merchant_id__public_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                merchant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantPublicResponse"];
                 };
             };
             /** @description Validation Error */

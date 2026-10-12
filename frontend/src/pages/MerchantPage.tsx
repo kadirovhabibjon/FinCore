@@ -18,7 +18,51 @@ import {
 import { validateAmount } from "../lib/money";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
 import { useI18n } from "../i18n";
+import { QrCanvas } from "../components/QrCanvas";
+import { merchantLink } from "../lib/qr";
 import { reasonText } from "../lib/reasons";
+
+/** The shop's QR code for the counter: a customer scans it and the
+ * payment form opens with the shop - and the amount, if one is set
+ * here - filled in. The customer still chooses a card and presses Pay. */
+function PaymentQr({ merchant }: { merchant: api.Merchant }) {
+  const { t } = useI18n();
+  const [shown, setShown] = useState(false);
+  const [amount, setAmount] = useState("");
+  const asked = /^\d{1,12}(\.\d{1,2})?$/.test(amount.trim()) ? amount.trim() : "";
+  return (
+    <div className="receive">
+      <button
+        type="button"
+        className="button button-ghost"
+        aria-expanded={shown}
+        onClick={() => setShown((open) => !open)}
+      >
+        {shown ? t("mqr.hide") : t("mqr.show")}
+      </button>
+      {shown && (
+        <div className="merchant-qr">
+          <label>
+            {t("mqr.amount")}
+            <input
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              inputMode="decimal"
+              placeholder="25000"
+            />
+          </label>
+          <QrCanvas
+            text={merchantLink(window.location.origin, merchant.id, asked)}
+            label={t("mqr.label", { name: merchant.name })}
+          >
+            {t("mqr.caption")}
+            {asked && ` ${t("mqr.captionAmount", { amount: asked })}`}
+          </QrCanvas>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const PAGE_SIZE = 20;
 const REFUNDABLE = new Set(["SUCCESS", "PARTIALLY_REFUNDED"]);
@@ -48,6 +92,7 @@ export function MerchantPage() {
         </div>
         <StatusBadge status={merchant.data.status} />
       </header>
+      <PaymentQr merchant={merchant.data} />
       <ReceivedPayments merchantId={merchantId} />
       <WebhookEndpoints merchantId={merchantId} />
     </section>

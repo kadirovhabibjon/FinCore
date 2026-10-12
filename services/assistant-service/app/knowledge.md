@@ -277,6 +277,13 @@ page, not in History.
   the site; the customer should contact FinCore staff.
   Paying a merchant by its id is still available from the Pay page
   ("Pay a merchant by its id").
+- Paying a shop by QR code: a merchant's own page has "Show payment QR
+  code" (optionally with an amount). The customer scans it with their
+  phone's camera, or with "Scan the merchant's QR code" on the "Pay a
+  merchant" page; the form opens with the shop's name shown and the
+  amount filled in. The customer still chooses a card and presses Pay.
+  If the page says there is no merchant with that id, or that the
+  merchant can't take payments, the payment cannot be made.
 - Templates: after a service payment or a transfer made by card number
   succeeds, "Save as template" keeps it under a name, with or without
   the amount. Saved templates appear as tiles on the Wallets (home)

@@ -416,6 +416,13 @@ distributed transaction — spec Sections 9, 10, 11, and 20.
   **FinCore is not connected to any provider**: the payment is taken
   and recorded and delivered nowhere, and the web app says so.
   Delivering it would be a consumer of `payment.completed`.
+* **Merchant QR codes**: `GET /api/v1/merchants/{id}/public` gives a
+  signed-in customer the name behind a merchant id (and whether it can
+  be paid), nothing about its owner. A merchant's page draws a QR code
+  for the counter - a link to the pay form with the merchant, and
+  optionally an amount, filled in; the pay form reads it with the
+  camera or from the link, shows the name, and still waits for the
+  customer to choose a card and press Pay.
 * **Scheduled payments**: `GET` / `POST /api/v1/scheduled-payments`,
   `PATCH .../{id}` (pause, resume), `DELETE .../{id}` - the same
   service payment or transfer made for the customer every week or
@@ -1487,7 +1494,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 214 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 221 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1536,7 +1543,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-82 tests that run against a live `docker compose` stack, through the
+83 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

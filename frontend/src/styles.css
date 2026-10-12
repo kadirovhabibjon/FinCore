@@ -2863,3 +2863,22 @@ a.service-tile {
   flex-wrap: wrap;
   gap: 0.25rem 1rem;
 }
+
+
+/* --- a merchant's payment QR code -------------------------------------- */
+
+.merchant-qr {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 320px;
+  margin-top: 0.75rem;
+}
+
+.merchant-qr label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}

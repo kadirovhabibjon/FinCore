@@ -78,3 +78,20 @@ def test_a_payment_without_enough_funds_fails_and_holds_nothing(
     wallet_after = api.wallet(user, wallet)
     assert wallet_after["balance_minor"] == 1_000
     assert wallet_after["held_minor"] == 0
+
+
+def test_a_payer_sees_the_merchants_name_before_paying(
+    api: FinCoreClient, user: User, other_user: User
+) -> None:
+    """What a merchant's QR code leads to: the id becomes a name to
+    confirm, for any signed-in customer, and nothing about the owner."""
+    merchant_id = api.create_merchant(other_user, name="Chorsu Coffee")
+
+    seen = api.gateway.get(f"/api/v1/merchants/{merchant_id}/public", headers=user.auth)
+    private = api.gateway.get(f"/api/v1/merchants/{merchant_id}", headers=user.auth)
+    anonymous = api.gateway.get(f"/api/v1/merchants/{merchant_id}/public")
+
+    assert seen.status_code == 200
+    assert seen.json() == {"id": merchant_id, "name": "Chorsu Coffee", "active": True}
+    assert private.status_code == 404
+    assert anonymous.status_code == 401

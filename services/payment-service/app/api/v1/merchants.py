@@ -4,12 +4,18 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import AuthenticatedUser, get_authenticated_user
-from app.api.v1.schemas import CreateMerchantRequest, MerchantResponse, PaymentResponse
+from app.api.v1.schemas import (
+    CreateMerchantRequest,
+    MerchantPublicResponse,
+    MerchantResponse,
+    PaymentResponse,
+)
 from app.core.exceptions import MerchantNotFoundError
 from app.db.session import get_db
-from app.domain.merchant import Merchant
+from app.domain.merchant import Merchant, MerchantStatus
 from app.repositories.merchant_repository import MerchantRepository
 from app.repositories.payment_repository import PaymentRepository
+from app.services.billers import SYSTEM_OWNER_ID
 
 router = APIRouter(prefix="/api/v1/merchants", tags=["merchants"])
 
@@ -45,6 +51,24 @@ async def _get_owned_merchant(
     if merchant is None or merchant.owner_user_id != owner_user_id:
         raise MerchantNotFoundError(str(merchant_id))
     return merchant
+
+
+@router.get("/{merchant_id}/public", response_model=MerchantPublicResponse)
+async def get_merchant_to_pay(
+    merchant_id: UUID,
+    _: AuthenticatedUser = Depends(get_authenticated_user),
+    session: AsyncSession = Depends(get_db),
+) -> MerchantPublicResponse:
+    """The name behind a merchant id, for a customer about to pay it -
+    typed, or read from the merchant's QR code - to confirm before any
+    money moves. Signed-in customers only. A service provider's merchant
+    is not found here: it is paid through /api/v1/services."""
+    merchant = await MerchantRepository(session).get(merchant_id)
+    if merchant is None or merchant.owner_user_id == SYSTEM_OWNER_ID:
+        raise MerchantNotFoundError(str(merchant_id))
+    return MerchantPublicResponse(
+        id=merchant.id, name=merchant.name, active=merchant.status == MerchantStatus.ACTIVE
+    )
 
 
 @router.get("/{merchant_id}", response_model=MerchantResponse)

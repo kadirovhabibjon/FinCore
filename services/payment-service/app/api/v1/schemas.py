@@ -77,6 +77,17 @@ class MerchantResponse(BaseModel):
     created_at: datetime
 
 
+class MerchantPublicResponse(BaseModel):
+    """What someone about to pay a merchant may know of it: its name,
+    to check they have the right one, and whether it can be paid.
+    Nothing about its owner."""
+
+    id: UUID
+    name: str
+    # False: suspended - a payment to it would be refused.
+    active: bool
+
+
 class CreatePaymentRequest(BaseModel):
     source_wallet_id: UUID
     merchant_id: UUID

@@ -2,14 +2,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import { ApiError } from "../api/client";
 import * as api from "../api/endpoints";
 import { OperationOutcome } from "../components/OperationOutcome";
 import { ErrorAlert, Loading, Money } from "../components/ui";
+import { QrScanner } from "../components/QrScanner";
 import { BlockedNotice } from "../components/WalletSettings";
+import { merchantFromScan } from "../lib/qr";
 import { useDailyLimit } from "../lib/useDailyLimit";
 import { validateAmount, walletLabel } from "../lib/money";
 import { useIdempotencyKey } from "../lib/useIdempotencyKey";
 import { useI18n } from "../i18n";
+
+const MERCHANT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function PayPage() {
   const [params] = useSearchParams();
@@ -17,8 +22,27 @@ export function PayPage() {
   const queryClient = useQueryClient();
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: api.listWallets });
   const [sourceId, setSourceId] = useState("");
+  // ?merchant= (and ?amount=) is what a merchant's QR code links to.
   const [merchantId, setMerchantId] = useState(params.get("merchant") ?? "");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(params.get("amount") ?? "");
+  const [scanning, setScanning] = useState(false);
+  const [scanProblem, setScanProblem] = useState(false);
+
+  // Whose id it is, as soon as it is a whole one: the customer sees a
+  // name before paying. A lookup that fails doesn't stop the payment -
+  // the server decides that - it only can't show the name.
+  const wellFormed = MERCHANT_ID.test(merchantId.trim());
+  const lookup = useQuery({
+    queryKey: ["merchant-to-pay", merchantId.trim().toLowerCase()],
+    queryFn: () => api.findMerchant(merchantId.trim()),
+    enabled: wellFormed,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const found = wellFormed ? lookup.data : undefined;
+  const unknown =
+    wellFormed && lookup.error instanceof ApiError && lookup.error.status === 404;
+  const cannotPay = unknown || found?.active === false;
   const [description, setDescription] = useState("");
   const [amountError, setAmountError] = useState<string | null>(null);
   const [idempotencyKey, renewKey] = useIdempotencyKey();
@@ -56,7 +80,7 @@ export function PayPage() {
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!source) return;
-    if (source.blocked) return;
+    if (source.blocked || cannotPay) return;
     const problem = validateAmount(amount, source.currency) ?? dailyLimit.over(amount);
     setAmountError(problem);
     if (!problem) payment.mutate();
@@ -116,16 +140,69 @@ export function PayPage() {
             ))}
           </select>
         </label>
-        <label>
-          {t("pay.merchantId")}
-          <input
-            value={merchantId}
-            onChange={(e) => edited(setMerchantId)(e.target.value)}
-            required
-            pattern="[0-9a-fA-F-]{36}"
-            title={t("pay.merchantHint")}
-          />
-        </label>
+        <div className="field">
+          {scanning && (
+            <QrScanner
+              onRead={(text) => {
+                const scanned = merchantFromScan(text);
+                // Something else's QR code: keep looking, but say so.
+                setScanProblem(scanned === null);
+                if (scanned === null) return;
+                edited(setMerchantId)(scanned.merchantId);
+                if (scanned.amount) setAmount(scanned.amount);
+                setScanning(false);
+              }}
+              onClose={() => {
+                setScanning(false);
+                setScanProblem(false);
+              }}
+            />
+          )}
+          {scanning && scanProblem && (
+            <span className="field-error">{t("pay.notMerchantQr")}</span>
+          )}
+          <label>
+            {t("pay.merchantId")}
+            <input
+              value={merchantId}
+              onChange={(e) => edited(setMerchantId)(e.target.value)}
+              required
+              pattern="[0-9a-fA-F-]{36}"
+              title={t("pay.merchantHint")}
+              aria-invalid={cannotPay}
+              aria-describedby="merchant-status"
+            />
+          </label>
+          {!scanning && (
+            <button
+              type="button"
+              className="button button-small button-ghost scan-button"
+              onClick={() => setScanning(true)}
+            >
+              {t("pay.scan")}
+            </button>
+          )}
+          <span id="merchant-status" aria-live="polite">
+            {unknown ? (
+              <span className="field-error">{t("pay.noSuchMerchant")}</span>
+            ) : found && !found.active ? (
+              <span className="field-error">{t("pay.merchantInactive")}</span>
+            ) : found ? (
+              <span className="recipient">
+                <span className="recipient-avatar" aria-hidden="true">
+                  {found.name.slice(0, 1).toUpperCase()}
+                </span>
+                <strong>{found.name}</strong>
+              </span>
+            ) : wellFormed && lookup.error ? (
+              <span className="muted small">{t("pay.merchantLookupFailed")}</span>
+            ) : wellFormed ? (
+              <span className="muted small">{t("pay.lookingUp")}</span>
+            ) : (
+              <span className="muted small">{t("pay.idHint")}</span>
+            )}
+          </span>
+        </div>
         <label>
           {t("send.amount", { currency: source?.currency ?? "" })}
           <input
@@ -146,7 +223,7 @@ export function PayPage() {
             maxLength={255}
           />
         </label>
-        <button type="submit" className="button" disabled={payment.isPending || !!source?.blocked}>
+        <button type="submit" className="button" disabled={payment.isPending || !!source?.blocked || cannotPay}>
           {payment.isPending ? t("pay.paying") : t("pay.submit")}
         </button>
       </form>

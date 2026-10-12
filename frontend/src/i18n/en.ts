@@ -880,6 +880,19 @@ export const en = {
   "error.Scheduled Payment Not Found": "Scheduled Payment Not Found",
   "error.Too Many Scheduled Payments": "Too Many Scheduled Payments",
   "error.Invalid Schedule": "Invalid Schedule",
+  "mqr.show": "Show payment QR code",
+  "mqr.hide": "Hide QR code",
+  "mqr.amount": "Amount to ask for (optional)",
+  "mqr.label": "QR code to pay {name}",
+  "mqr.caption": "A customer scans this with their phone's camera, or with Scan QR code on FinCore's Pay page, and the payment form opens with your shop filled in.",
+  "mqr.captionAmount": "It asks for {amount}; the customer can still change it.",
+  "pay.scan": "Scan the merchant's QR code",
+  "pay.notMerchantQr": "That is not a FinCore merchant's QR code.",
+  "pay.lookingUp": "Looking up the merchant…",
+  "pay.noSuchMerchant": "There is no merchant with this id.",
+  "pay.merchantInactive": "This merchant can't take payments right now.",
+  "pay.merchantLookupFailed": "Couldn't look up this merchant right now. You can still pay if the id is right.",
+  "pay.idHint": "The id the merchant gave you, or scan their QR code.",
 } as const;
 
 export type MessageKey = keyof typeof en;
