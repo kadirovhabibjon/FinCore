@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import type { TwoFactorChallenge } from "../api/endpoints";
 import { useAuth } from "../auth/context";
 import { ErrorAlert, Notice } from "../components/ui";
 import { PasswordInput } from "../components/PasswordInput";
@@ -12,7 +13,10 @@ import { useI18n } from "../i18n";
  * operator, ADR-0006). */
 export function LoginPage({ admin = false }: { admin?: boolean }) {
   const { t } = useI18n();
-  const { login } = useAuth();
+  const { login, verifyLogin } = useAuth();
+  // Set once the password was right on an account with two-step
+  // sign-in: the page then asks for the emailed code instead.
+  const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null);
   const location = useLocation();
   const state = location.state as { registered?: boolean; passwordReset?: boolean } | null;
   const [error, setError] = useState<unknown>(null);
@@ -26,17 +30,76 @@ export function LoginPage({ admin = false }: { admin?: boolean }) {
     try {
       // On success RedirectIfAuthenticated moves the user on; this
       // component unmounts, so there is no state left to reset.
-      await login(String(form.get("identifier")), String(form.get("password")));
+      const pending = await login(String(form.get("identifier")), String(form.get("password")));
+      if (pending) {
+        setChallenge(pending);
+        setSubmitting(false);
+      }
     } catch (caught) {
       setError(caught);
       setSubmitting(false);
     }
   }
 
+  async function onVerify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!challenge) return;
+    const code = String(new FormData(event.currentTarget).get("code")).trim();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await verifyLogin(challenge.challenge_id, code);
+    } catch (caught) {
+      setError(caught);
+      setSubmitting(false);
+    }
+  }
+
+  if (challenge) {
+    return (
+      <div className="auth-page">
+        <LanguageSwitch className="auth-lang" />
+        {/* Keyed: without it React reuses the password form's inputs. */}
+        <form key="code" className="card auth-card" onSubmit={onVerify}>
+          <h1>{t("twofa.codeTitle")}</h1>
+          <Notice>{t("twofa.codeSent", { email: challenge.email_hint })}</Notice>
+          <ErrorAlert error={error} />
+          <label>
+            {t("twofa.code")}
+            <input
+              name="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              placeholder="000000"
+              required
+              autoFocus
+            />
+          </label>
+          <button type="submit" className="button" disabled={submitting}>
+            {submitting ? t("twofa.verifying") : t("twofa.verify")}
+          </button>
+          <button
+            type="button"
+            className="button button-ghost"
+            onClick={() => {
+              // A code that failed is gone; the password step makes a new one.
+              setChallenge(null);
+              setError(null);
+            }}
+          >
+            {t("twofa.back")}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="auth-page">
       <LanguageSwitch className="auth-lang" />
-      <form className="card auth-card" onSubmit={onSubmit}>
+      <form key="password" className="card auth-card" onSubmit={onSubmit}>
         <h1>{admin ? t("admin.login.title") : t("login.title")}</h1>
         {admin && <p className="muted">{t("admin.login.note")}</p>}
         {state?.registered && <Notice>{t("login.registered")}</Notice>}

@@ -119,3 +119,37 @@ async def send_new_device(*, to: str, first_name: str, device: str, ip_address: 
         await asyncio.to_thread(_send, message)
     except Exception as exc:
         logger.error("new device email could not be sent: %s", type(exc).__name__)
+
+
+async def send_login_code(*, to: str, first_name: str, code: str, enabling: bool = False) -> None:
+    """Emails a two-step sign-in code. Called in the background after
+    the response has gone out, so it never raises: a failure is logged
+    (without the code or the address) and the customer can sign in
+    again for another code."""
+    minutes = settings.login_code_ttl_seconds // 60
+    purpose = (
+        "Enter it on the Account page to turn on two-step sign-in."
+        if enabling
+        else "Enter it on the sign-in page to finish signing in."
+    )
+    warning = (
+        "If you did not ask to turn on two-step sign-in, someone is using your "
+        "account: change your password."
+        if enabling
+        else "If you are not signing in right now, someone knows your password: "
+        "change it, and do not give this code to anyone."
+    )
+    message = EmailMessage()
+    message["Subject"] = "Your FinCore sign-in code"
+    message["From"] = settings.smtp_from or settings.smtp_username
+    message["To"] = to
+    message.set_content(
+        f"Hello {first_name},\n\n"
+        f"Your FinCore code is: {code}\n\n"
+        f"It works once and expires in {minutes} minutes. {purpose}\n\n"
+        f"{warning} FinCore staff will never ask for this code.\n"
+    )
+    try:
+        await asyncio.to_thread(_send, message)
+    except Exception as exc:
+        logger.error("sign-in code email could not be sent: %s", type(exc).__name__)

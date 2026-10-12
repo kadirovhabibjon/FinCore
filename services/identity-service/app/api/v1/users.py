@@ -8,12 +8,15 @@ from app.api.v1.schemas import (
     ChangePasswordRequest,
     CurrentUserResponse,
     SessionResponse,
+    TwoFactorChallengeResponse,
+    TwoFactorPasswordRequest,
     UpdateProfileRequest,
     UserResponse,
+    VerifyLoginRequest,
 )
 from app.core.exceptions import SessionNotFoundError
 from app.db.session import get_db
-from app.services import mailer
+from app.services import mailer, two_factor
 from app.services.password import change_password
 from app.services.profile import update_profile
 from app.services.sessions import list_active_sessions, revoke_user_session
@@ -25,8 +28,16 @@ router = APIRouter(prefix="/api/v1/users", tags=["users"])
 async def read_current_user(
     context: AuthContext = Depends(get_auth_context),
 ) -> CurrentUserResponse:
+    return _me(context)
+
+
+def _me(context: AuthContext) -> CurrentUserResponse:
     profile = UserResponse.model_validate(context.user).model_dump()
-    return CurrentUserResponse(**profile, roles=sorted(context.roles))
+    return CurrentUserResponse(
+        **profile,
+        roles=sorted(context.roles),
+        two_factor_enabled=context.user.two_factor_enabled,
+    )
 
 
 @router.patch("/me", response_model=CurrentUserResponse)
@@ -62,8 +73,62 @@ async def update_my_profile(
             first_name=context.user.first_name,
             what=what,
         )
-    profile = UserResponse.model_validate(context.user).model_dump()
-    return CurrentUserResponse(**profile, roles=sorted(context.roles))
+    return _me(context)
+
+
+@router.post(
+    "/me/two-factor/enable",
+    response_model=TwoFactorChallengeResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def begin_two_factor(
+    payload: TwoFactorPasswordRequest,
+    background: BackgroundTasks,
+    context: AuthContext = Depends(get_auth_context),
+    session: AsyncSession = Depends(get_db),
+) -> TwoFactorChallengeResponse:
+    """First half of turning two-step sign-in on: checks the password
+    and emails a code. Nothing changes until that code is confirmed -
+    an account is never put behind a mailbox that hasn't been shown to
+    work. `503` if no code can be emailed to this account."""
+    challenge = await two_factor.begin_enabling(session, context.user, payload.current_password)
+    background.add_task(
+        mailer.send_login_code,
+        to=challenge.email,
+        first_name=challenge.first_name,
+        code=challenge.code,
+        enabling=True,
+    )
+    return TwoFactorChallengeResponse(
+        challenge_id=challenge.id,
+        email_hint=two_factor.email_hint(challenge.email),
+        expires_in=challenge.expires_in,
+    )
+
+
+@router.post("/me/two-factor/confirm", response_model=CurrentUserResponse)
+async def confirm_two_factor(
+    payload: VerifyLoginRequest,
+    context: AuthContext = Depends(get_auth_context),
+    session: AsyncSession = Depends(get_db),
+) -> CurrentUserResponse:
+    """Second half: the emailed code turns two-step sign-in on. From
+    the next sign-in, the password alone is not enough."""
+    await two_factor.confirm_enabling(
+        session, context.user, payload.challenge_id, payload.code
+    )
+    return _me(context)
+
+
+@router.post("/me/two-factor/disable", response_model=CurrentUserResponse)
+async def disable_two_factor(
+    payload: TwoFactorPasswordRequest,
+    context: AuthContext = Depends(get_auth_context),
+    session: AsyncSession = Depends(get_db),
+) -> CurrentUserResponse:
+    """Turns two-step sign-in off. Needs the current password."""
+    await two_factor.disable(session, context.user, payload.current_password)
+    return _me(context)
 
 
 @router.get("/me/sessions", response_model=list[SessionResponse])

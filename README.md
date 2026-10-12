@@ -176,6 +176,21 @@ Authentication, users, and RBAC — spec Sections 5 and 19.
   sent sits in the sender's "Sent" folder and bounces come back to it.
   With none configured both customers and
   strangers get `503 Password Reset Unavailable`.
+* **Two-step sign-in**: an account can ask for a 6-digit code, emailed
+  to it, on every sign-in. `POST /api/v1/auth/login` then answers `202`
+  with a *challenge* instead of tokens, and
+  `POST /api/v1/auth/login/verify` takes the challenge and the code.
+  The challenge is the code's own row id - random, given only to
+  whoever just passed the password step - so the six digits are
+  useless on their own; a code lives 10 minutes, dies after 5 wrong
+  tries (counted under a row lock, so guesses made at once don't each
+  get one), and at most 10 are emailed per hour. Turned on from
+  `POST /api/v1/users/me/two-factor/enable` (password) and `.../confirm`
+  (the emailed code): nothing changes until that code comes back, and
+  it can't be started where no code could arrive, so no account is
+  ever locked behind a dead mailbox. `.../disable` takes the password;
+  `python -m app.cli disable-two-factor <email>` is the operator's way
+  back in for someone who lost their mailbox. Every change is audited.
 * `POST /api/v1/auth/logout` — idempotent.
 * Browser mode ([ADR-0006](docs/adr/0006-browser-auth-storage.md)): with
   `X-Refresh-Token-Transport: cookie`, login/refresh return the refresh
@@ -1459,7 +1474,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 200 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 207 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
@@ -1508,7 +1523,7 @@ from both sides:
 
 ### End-to-end tests (`tests/e2e/`)
 
-79 tests that run against a live `docker compose` stack, through the
+81 tests that run against a live `docker compose` stack, through the
 gateway, the way a real client would (spec Section 23: "full flows
 through the gateway"). Only what a client genuinely can't do goes
 direct: funding a wallet (no public deposit API), reading the audit

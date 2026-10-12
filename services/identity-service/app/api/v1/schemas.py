@@ -47,6 +47,31 @@ class CurrentUserResponse(UserResponse):
     decoding the JWT itself. Server-side checks never rely on this."""
 
     roles: list[str]
+    # Whether signing in to this account takes an emailed code as well
+    # as the password.
+    two_factor_enabled: bool = False
+
+
+class TwoFactorChallengeResponse(BaseModel):
+    """The password was right, and a code has been emailed: present it
+    with `challenge_id` to finish (POST /api/v1/auth/login/verify), or
+    to turn two-step sign-in on (.../users/me/two-factor/confirm)."""
+
+    two_factor_required: bool = True
+    challenge_id: UUID
+    # Which mailbox to look in: "az***@gmail.com".
+    email_hint: str
+    # Seconds the code stays valid.
+    expires_in: int
+
+
+class VerifyLoginRequest(BaseModel):
+    challenge_id: UUID
+    code: str = Field(min_length=6, max_length=6, pattern=r"^[0-9]{6}$")
+
+
+class TwoFactorPasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
 
 
 class SessionResponse(BaseModel):

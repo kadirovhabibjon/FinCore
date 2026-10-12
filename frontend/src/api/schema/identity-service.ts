@@ -100,8 +100,35 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Login */
+        /**
+         * Login
+         * @description Signs in with email or phone, and password. An account with
+         *     two-step sign-in gets no tokens here: `202` and a challenge instead,
+         *     and a code by email to present to `/login/verify`.
+         */
         post: operations["login_api_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Login
+         * @description The second step: the challenge from `/login` and the emailed
+         *     code. Any failure is the same `401`; five wrong codes end the
+         *     challenge and the sign-in starts over.
+         */
+        post: operations["verify_login_api_v1_auth_login_verify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -295,6 +322,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me/two-factor/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Two Factor
+         * @description Second half: the emailed code turns two-step sign-in on. From
+         *     the next sign-in, the password alone is not enough.
+         */
+        post: operations["confirm_two_factor_api_v1_users_me_two_factor_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/two-factor/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable Two Factor
+         * @description Turns two-step sign-in off. Needs the current password.
+         */
+        post: operations["disable_two_factor_api_v1_users_me_two_factor_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me/two-factor/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin Two Factor
+         * @description First half of turning two-step sign-in on: checks the password
+         *     and emails a code. Nothing changes until that code is confirmed -
+         *     an account is never put behind a mailbox that hasn't been shown to
+         *     work. `503` if no code can be emailed to this account.
+         */
+        post: operations["begin_two_factor_api_v1_users_me_two_factor_enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -438,6 +529,11 @@ export interface components {
             /** Roles */
             roles: string[];
             status: components["schemas"]["UserStatus"];
+            /**
+             * Two Factor Enabled
+             * @default false
+             */
+            two_factor_enabled: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -569,6 +665,33 @@ export interface components {
             token_type: string;
         };
         /**
+         * TwoFactorChallengeResponse
+         * @description The password was right, and a code has been emailed: present it
+         *     with `challenge_id` to finish (POST /api/v1/auth/login/verify), or
+         *     to turn two-step sign-in on (.../users/me/two-factor/confirm).
+         */
+        TwoFactorChallengeResponse: {
+            /**
+             * Challenge Id
+             * Format: uuid
+             */
+            challenge_id: string;
+            /** Email Hint */
+            email_hint: string;
+            /** Expires In */
+            expires_in: number;
+            /**
+             * Two Factor Required
+             * @default true
+             */
+            two_factor_required: boolean;
+        };
+        /** TwoFactorPasswordRequest */
+        TwoFactorPasswordRequest: {
+            /** Current Password */
+            current_password: string;
+        };
+        /**
          * UpdateProfileRequest
          * @description Only the fields to change. Email and phone are validated and
          *     normalized exactly as at registration.
@@ -639,6 +762,16 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VerifyLoginRequest */
+        VerifyLoginRequest: {
+            /**
+             * Challenge Id
+             * Format: uuid
+             */
+            challenge_id: string;
+            /** Code */
+            code: string;
         };
     };
     responses: never;
@@ -813,6 +946,50 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            /** @description The password was right; a code was emailed to finish signing in. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorChallengeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_login_api_v1_auth_login_verify_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Refresh-Token-Transport"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyLoginRequest"];
             };
         };
         responses: {
@@ -1122,6 +1299,105 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_two_factor_api_v1_users_me_two_factor_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUserResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disable_two_factor_api_v1_users_me_two_factor_disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwoFactorPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentUserResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    begin_two_factor_api_v1_users_me_two_factor_enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwoFactorPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorChallengeResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -386,6 +386,25 @@ page, not in History.
 - Remind customers never to send a password or a code from an email to
   anyone, including operators.
 
+## Two-step sign-in
+
+- On the Account page, "Two-step sign-in" can be turned on: after the
+  password, FinCore emails a 6-digit code to the account's address and
+  asks for it. A stolen password alone then signs nobody in.
+- Turning it on: type the password, press "Turn on", then enter the
+  code that arrives by email. Until that code is entered nothing has
+  changed. If the page says a code can't be emailed, the account's
+  email address can't receive mail (or the server has no mail set up):
+  correct the address under "Your details" first.
+- Signing in with it on: password as usual, then the code from the
+  email. The code works once, for 10 minutes; after five wrong tries
+  sign in again for a new one. At most 10 codes are sent per hour.
+- Turning it off: Account page, the password, "Turn off".
+- Someone who can no longer read that mailbox cannot sign in and must
+  contact FinCore staff (the "Operator" side of the chat needs a
+  signed-in account, so by another channel). Never give the code to
+  anyone: staff do not ask for it.
+
 ## Security notes for customers
 
 - FinCore staff never ask for a password. The assistant never needs one

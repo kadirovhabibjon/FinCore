@@ -47,6 +47,10 @@ class Settings(BaseServiceSettings):
     # The From address; defaults to the username when empty.
     smtp_from: str = ""
     smtp_timeout_seconds: float = 15.0
+    # Two-step sign-in codes (app/services/two_factor.py).
+    login_code_ttl_seconds: int = 600
+    login_code_max_attempts: int = 5
+    login_code_max_requests_per_hour: int = 10
     password_reset_code_ttl_seconds: int = 600
     # Wrong guesses allowed against one code before it stops working.
     password_reset_max_attempts: int = 5

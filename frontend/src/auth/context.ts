@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 
-import type { CurrentUser } from "../api/endpoints";
+import type { CurrentUser, TwoFactorChallenge } from "../api/endpoints";
 
 export type Role = "USER" | "SUPPORT" | "ADMIN";
 
@@ -15,8 +15,12 @@ export type AuthState =
 export type AuthContextValue = AuthState & {
   /** Checks the session again after "unavailable". */
   retry: () => void;
-  /** `identifier` is a phone number or an email address. */
-  login: (identifier: string, password: string) => Promise<void>;
+  /** `identifier` is a phone number or an email address. Resolves to
+   * null once signed in, or - for an account with two-step sign-in -
+   * to the challenge to finish with `verifyLogin`. */
+  login: (identifier: string, password: string) => Promise<TwoFactorChallenge | null>;
+  /** The second step: the challenge and the code from the email. */
+  verifyLogin: (challengeId: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };

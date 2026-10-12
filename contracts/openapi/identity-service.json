@@ -113,6 +113,11 @@
           },
           "status": {
             "$ref": "#/components/schemas/UserStatus"
+          },
+          "two_factor_enabled": {
+            "default": false,
+            "title": "Two Factor Enabled",
+            "type": "boolean"
           }
         },
         "required": [
@@ -475,6 +480,51 @@
         "title": "TokenResponse",
         "type": "object"
       },
+      "TwoFactorChallengeResponse": {
+        "description": "The password was right, and a code has been emailed: present it\nwith `challenge_id` to finish (POST /api/v1/auth/login/verify), or\nto turn two-step sign-in on (.../users/me/two-factor/confirm).",
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "title": "Challenge Id",
+            "type": "string"
+          },
+          "email_hint": {
+            "title": "Email Hint",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "two_factor_required": {
+            "default": true,
+            "title": "Two Factor Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "email_hint",
+          "expires_in"
+        ],
+        "title": "TwoFactorChallengeResponse",
+        "type": "object"
+      },
+      "TwoFactorPasswordRequest": {
+        "properties": {
+          "current_password": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Current Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password"
+        ],
+        "title": "TwoFactorPasswordRequest",
+        "type": "object"
+      },
       "UpdateProfileRequest": {
         "description": "Only the fields to change. Email and phone are validated and\nnormalized exactly as at registration.",
         "properties": {
@@ -678,6 +728,28 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VerifyLoginRequest": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "title": "Challenge Id",
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 6,
+            "minLength": 6,
+            "pattern": "^[0-9]{6}$",
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "code"
+        ],
+        "title": "VerifyLoginRequest",
         "type": "object"
       }
     },
@@ -958,6 +1030,7 @@
     },
     "/api/v1/auth/login": {
       "post": {
+        "description": "Signs in with email or phone, and password. An account with\ntwo-step sign-in gets no tokens here: `202` and a challenge instead,\nand a code by email to present to `/login/verify`.",
         "operationId": "login_api_v1_auth_login_post",
         "parameters": [
           {
@@ -998,6 +1071,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorChallengeResponse"
+                }
+              }
+            },
+            "description": "The password was right; a code was emailed to finish signing in."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1010,6 +1093,66 @@
           }
         },
         "summary": "Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login/verify": {
+      "post": {
+        "description": "The second step: the challenge from `/login` and the emailed\ncode. Any failure is the same `401`; five wrong codes end the\nchallenge and the sign-in starts over.",
+        "operationId": "verify_login_api_v1_auth_login_verify_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Refresh-Token-Transport",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Refresh-Token-Transport"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Login",
         "tags": [
           "auth"
         ]
@@ -1435,6 +1578,147 @@
           }
         ],
         "summary": "Revoke My Session",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/two-factor/confirm": {
+      "post": {
+        "description": "Second half: the emailed code turns two-step sign-in on. From\nthe next sign-in, the password alone is not enough.",
+        "operationId": "confirm_two_factor_api_v1_users_me_two_factor_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Confirm Two Factor",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/two-factor/disable": {
+      "post": {
+        "description": "Turns two-step sign-in off. Needs the current password.",
+        "operationId": "disable_two_factor_api_v1_users_me_two_factor_disable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Disable Two Factor",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/two-factor/enable": {
+      "post": {
+        "description": "First half of turning two-step sign-in on: checks the password\nand emails a code. Nothing changes until that code is confirmed -\nan account is never put behind a mailbox that hasn't been shown to\nwork. `503` if no code can be emailed to this account.",
+        "operationId": "begin_two_factor_api_v1_users_me_two_factor_enable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorChallengeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Begin Two Factor",
         "tags": [
           "users"
         ]

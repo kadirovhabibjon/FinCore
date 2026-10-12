@@ -28,8 +28,8 @@
     },
     "changed_fields": {
       "type": "string",
-      "pattern": "^(first_name|last_name|email|phone)(,(first_name|last_name|email|phone))*$",
-      "description": "Comma-separated names of the fields that changed, in a fixed order."
+      "pattern": "^(first_name|last_name|email|phone|two_factor)(,(first_name|last_name|email|phone|two_factor))*$",
+      "description": "Comma-separated names of the fields that changed, in a fixed order. `two_factor`: two-step sign-in was turned on or off (alone in its event; which way is not said)."
     }
   },
   "examples": [

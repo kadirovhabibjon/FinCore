@@ -6,6 +6,7 @@ import { ChangePasswordForm } from "../components/ChangePasswordForm";
 import { EditProfileForm } from "../components/EditProfileForm";
 import { DateTime, Empty, ErrorAlert, Loading, StatusBadge } from "../components/ui";
 import { ThemeChoice } from "../components/ThemeSwitch";
+import { TwoFactorSettings } from "../components/TwoFactorSettings";
 import { useI18n } from "../i18n";
 
 export function SettingsPage() {
@@ -46,6 +47,9 @@ export function SettingsPage() {
 
       <h2>{t("settings.password")}</h2>
       <ChangePasswordForm />
+
+      <h2>{t("twofa.title")}</h2>
+      <TwoFactorSettings user={user} />
 
       <h2>{t("settings.details")}</h2>
       <EditProfileForm user={user} />

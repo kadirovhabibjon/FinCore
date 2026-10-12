@@ -18,6 +18,7 @@ from sqlalchemy import delete, select
 from app.db import session as db_session
 from app.domain.role import RoleName, UserRole
 from app.repositories.user_repository import UserRepository
+from app.services import two_factor
 from app.services.outbox import user_outbox_event
 
 
@@ -51,6 +52,18 @@ async def _change_role(email: str, role: RoleName, *, grant: bool) -> str:
     return f"{email}: roles now {', '.join(roles) or '(none)'}"
 
 
+async def _disable_two_factor(email: str) -> str:
+    async with db_session.async_session_factory() as session:
+        user = await UserRepository(session).get_by_email(email.strip().lower())
+        if user is None:
+            raise SystemExit(f"no user with email {email!r}")
+        was_on = user.two_factor_enabled
+        # Audited like every other change; no signed-in actor did it.
+        await two_factor.disable_by_operator(session, user)
+    await db_session.engine.dispose()
+    return f"{email}: two-step sign-in {'turned off' if was_on else 'was already off'}"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -58,11 +71,16 @@ def main(argv: list[str] | None = None) -> int:
         command = commands.add_parser(name)
         command.add_argument("email")
         command.add_argument("role", choices=[role.value for role in RoleName])
+    # For someone locked out of their mailbox, after checking who they are.
+    commands.add_parser("disable-two-factor").add_argument("email")
     args = parser.parse_args(argv)
 
-    message = asyncio.run(
-        _change_role(args.email, RoleName(args.role), grant=args.command == "grant-role")
-    )
+    if args.command == "disable-two-factor":
+        message = asyncio.run(_disable_two_factor(args.email))
+    else:
+        message = asyncio.run(
+            _change_role(args.email, RoleName(args.role), grant=args.command == "grant-role")
+        )
     print(message)
     return 0
 

@@ -118,15 +118,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => onSessionEnded(signedOut), [signedOut]);
 
+  // What every completed sign-in does, whichever step completed it.
+  const signedIn = useCallback(async () => {
+    clearSignedOutMark(scope);
+    recordActivity(scope);
+    const user = await api.getMe();
+    setState({ status: "authenticated", user });
+  }, [scope, setState]);
+
   const login = useCallback(
     async (identifier: string, password: string) => {
-      await api.login(identifier, password);
-      clearSignedOutMark(scope);
-      recordActivity(scope);
-      const user = await api.getMe();
-      setState({ status: "authenticated", user });
+      const challenge = await api.login(identifier, password);
+      // Two-step sign-in: nobody is signed in until the code is given.
+      if (challenge) return challenge;
+      await signedIn();
+      return null;
     },
-    [scope, setState],
+    [signedIn],
+  );
+
+  const verifyLogin = useCallback(
+    async (challengeId: string, code: string) => {
+      await api.verifyLogin(challengeId, code);
+      await signedIn();
+    },
+    [signedIn],
   );
 
   const logout = useCallback(async () => {
@@ -182,8 +198,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   const value = useMemo(
-    () => ({ ...state, login, logout, refreshUser, retry }),
-    [state, login, logout, refreshUser, retry],
+    () => ({ ...state, login, verifyLogin, logout, refreshUser, retry }),
+    [state, login, verifyLogin, logout, refreshUser, retry],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

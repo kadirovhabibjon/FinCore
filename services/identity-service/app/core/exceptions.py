@@ -94,6 +94,33 @@ class InvalidResetCodeError(DomainError):
         super().__init__("The code is wrong or has expired. Request a new one and try again.")
 
 
+class InvalidLoginCodeError(DomainError):
+    """The one answer to every failed second step: no such challenge,
+    expired, already used, too many wrong tries, or the wrong digits.
+    401, like a wrong password: the sign-in has not happened."""
+
+    status_code = status.HTTP_401_UNAUTHORIZED
+    title = "Invalid Or Expired Code"
+
+    def __init__(self) -> None:
+        super().__init__("The code is wrong or has expired. Sign in again to get a new one.")
+
+
+class TooManyCodesError(DomainError):
+    """Too many codes were emailed to this account in the last hour."""
+
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    title = "Too Many Codes"
+
+
+class TwoFactorUnavailableError(DomainError):
+    """A code can't be emailed: this deployment has no mail server, or
+    the account's address is one nobody can receive mail at."""
+
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    title = "Two-Step Sign-In Unavailable"
+
+
 class PasswordResetUnavailableError(DomainError):
     """This deployment has no way to send email. Said to everyone alike,
     so it reveals nothing about any account."""

@@ -60,17 +60,57 @@ export interface Page {
 /** Signs in with a phone number or an email address, whichever was typed
  * (anything with an "@" is an email). identity-service normalizes the
  * phone, so any common way of writing it works. */
-export async function login(identifier: string, password: string): Promise<void> {
+export type TwoFactorChallenge = Identity["TwoFactorChallengeResponse"];
+
+/** Signs in - or, for an account with two-step sign-in, returns the
+ * challenge to finish with `verifyLogin` once the emailed code is known. */
+export async function login(
+  identifier: string,
+  password: string,
+): Promise<TwoFactorChallenge | null> {
   const value = identifier.trim();
   const credentials = value.includes("@") ? { email: value } : { phone: value };
-  const tokens = await apiRequest<Identity["TokenResponse"]>("/api/v1/auth/login", {
+  const result = await apiRequest<Identity["TokenResponse"] | TwoFactorChallenge>(
+    "/api/v1/auth/login",
+    {
+      method: "POST",
+      body: { ...credentials, password },
+      headers: refreshTransportHeaders(),
+      authenticated: false,
+    },
+  );
+  if ("challenge_id" in result) return result;
+  setAccessToken(result.access_token);
+  return null;
+}
+
+/** The second step: the challenge from `login` and the emailed code. */
+export async function verifyLogin(challengeId: string, code: string): Promise<void> {
+  const tokens = await apiRequest<Identity["TokenResponse"]>("/api/v1/auth/login/verify", {
     method: "POST",
-    body: { ...credentials, password },
+    body: { challenge_id: challengeId, code },
     headers: refreshTransportHeaders(),
     authenticated: false,
   });
   setAccessToken(tokens.access_token);
 }
+
+// Two-step sign-in, on the caller's own account.
+export const beginTwoFactor = (currentPassword: string) =>
+  apiRequest<TwoFactorChallenge>("/api/v1/users/me/two-factor/enable", {
+    method: "POST",
+    body: { current_password: currentPassword },
+  });
+export const confirmTwoFactor = (challengeId: string, code: string) =>
+  apiRequest<CurrentUser>("/api/v1/users/me/two-factor/confirm", {
+    method: "POST",
+    body: { challenge_id: challengeId, code },
+  });
+export const disableTwoFactor = (currentPassword: string) =>
+  apiRequest<CurrentUser>("/api/v1/users/me/two-factor/disable", {
+    method: "POST",
+    body: { current_password: currentPassword },
+  });
 
 export function register(data: RegisterRequest): Promise<Identity["UserResponse"]> {
   return apiRequest("/api/v1/auth/register", {

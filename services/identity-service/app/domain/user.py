@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, String, func
+from sqlalchemy import Boolean, DateTime, Enum, String, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -34,6 +34,11 @@ class User(Base):
     )
 
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Two-step sign-in: the password alone is not enough, a code emailed
+    # to the account finishes every sign-in (app/services/two_factor.py).
+    two_factor_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
 
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)

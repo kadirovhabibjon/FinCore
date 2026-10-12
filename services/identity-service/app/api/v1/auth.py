@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header, Request, Response, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas import (
@@ -11,7 +13,9 @@ from app.api.v1.schemas import (
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
+    TwoFactorChallengeResponse,
     UserResponse,
+    VerifyLoginRequest,
 )
 from app.core.config import settings
 from app.core.exceptions import (
@@ -21,10 +25,11 @@ from app.core.exceptions import (
 )
 from app.core.tokens import create_access_token
 from app.db.session import get_db
+from app.domain.login_code import CodePurpose
 from app.domain.role import RoleName
 from app.domain.user import User
 from app.repositories.user_repository import UserRepository
-from app.services import mailer
+from app.services import mailer, two_factor
 from app.services.authentication import authenticate_user
 from app.services.devices import describe_device, is_new_device
 from app.services.password_reset import confirm_reset, request_reset
@@ -143,16 +148,16 @@ async def register(
     )
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(
-    payload: LoginRequest,
+async def _sign_in(
+    session: AsyncSession,
+    user: User,
     request: Request,
     response: Response,
     background: BackgroundTasks,
-    session: AsyncSession = Depends(get_db),
-    transport: str | None = Header(default=None, alias="X-Refresh-Token-Transport"),
+    transport: str | None,
 ) -> TokenResponse:
-    user = await authenticate_user(session, payload.email, payload.password, phone=payload.phone)
+    """Starts a session for a user who has proved who they are - by
+    password, and by code where the account asks for one."""
     roles = await UserRepository(session).get_role_names(user.id)
     if transport == _ADMIN_TRANSPORT and _STAFF_ROLES.isdisjoint(roles):
         # Checked before a session exists, so a customer account gets no
@@ -173,6 +178,75 @@ async def login(
             ip_address=ip_address,
         )
     return await _token_response(session, issued, response, _cookie_name(transport), roles)
+
+
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    responses={
+        202: {
+            "model": TwoFactorChallengeResponse,
+            "description": "The password was right; a code was emailed to finish signing in.",
+        }
+    },
+)
+async def login(
+    payload: LoginRequest,
+    request: Request,
+    response: Response,
+    background: BackgroundTasks,
+    session: AsyncSession = Depends(get_db),
+    transport: str | None = Header(default=None, alias="X-Refresh-Token-Transport"),
+) -> TokenResponse | JSONResponse:
+    """Signs in with email or phone, and password. An account with
+    two-step sign-in gets no tokens here: `202` and a challenge instead,
+    and a code by email to present to `/login/verify`."""
+    user = await authenticate_user(session, payload.email, payload.password, phone=payload.phone)
+    if not user.two_factor_enabled:
+        return await _sign_in(session, user, request, response, background, transport)
+
+    if transport == _ADMIN_TRANSPORT:
+        roles = await UserRepository(session).get_role_names(user.id)
+        if _STAFF_ROLES.isdisjoint(roles):
+            # Before a code is sent: a customer account has no business here.
+            raise InsufficientRoleError("the admin console is for staff accounts only")
+    challenge = await two_factor.issue_code(session, user, CodePurpose.LOGIN)
+    # After the response: signing in never waits for a mail server.
+    background.add_task(
+        mailer.send_login_code,
+        to=challenge.email,
+        first_name=challenge.first_name,
+        code=challenge.code,
+    )
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content=jsonable_encoder(
+            TwoFactorChallengeResponse(
+                challenge_id=challenge.id,
+                email_hint=two_factor.email_hint(challenge.email),
+                expires_in=challenge.expires_in,
+            )
+        ),
+        background=background,
+    )
+
+
+@router.post("/login/verify", response_model=TokenResponse)
+async def verify_login(
+    payload: VerifyLoginRequest,
+    request: Request,
+    response: Response,
+    background: BackgroundTasks,
+    session: AsyncSession = Depends(get_db),
+    transport: str | None = Header(default=None, alias="X-Refresh-Token-Transport"),
+) -> TokenResponse:
+    """The second step: the challenge from `/login` and the emailed
+    code. Any failure is the same `401`; five wrong codes end the
+    challenge and the sign-in starts over."""
+    user = await two_factor.redeem_code(
+        session, payload.challenge_id, payload.code, CodePurpose.LOGIN
+    )
+    return await _sign_in(session, user, request, response, background, transport)
 
 
 @router.post("/refresh", response_model=TokenResponse)
