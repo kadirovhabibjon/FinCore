@@ -5,7 +5,8 @@
   --border: #dde2ec;
   --text: #1a2233;
   --text-muted: #5e6b82;
-  --accent: #1f5eff;
+  --accent: #5b3df5;
+  --accent-fill: #5b3df5;
   --accent-text: #ffffff;
   --good: #0f7b48;
   --good-bg: #e2f5ea;
@@ -31,7 +32,8 @@
     --border: #2b3547;
     --text: #e6eaf2;
     --text-muted: #97a3b8;
-    --accent: #5b8cff;
+    --accent: #a594ff;
+    --accent-fill: #6d4aff;
     --good: #5fd49a;
     --good-bg: #133626;
     --warn: #f2c14e;
@@ -50,7 +52,8 @@
   --border: #2b3547;
   --text: #e6eaf2;
   --text-muted: #97a3b8;
-  --accent: #5b8cff;
+  --accent: #a594ff;
+  --accent-fill: #6d4aff;
   --good: #5fd49a;
   --good-bg: #133626;
   --warn: #f2c14e;
@@ -494,8 +497,8 @@ input[aria-invalid="true"] {
 .button {
   font: inherit;
   font-weight: 600;
-  border: 1px solid var(--accent);
-  background: var(--accent);
+  border: 1px solid transparent;
+  background: var(--accent-fill);
   color: var(--accent-text);
   border-radius: 8px;
   padding: 0.5rem 1rem;
@@ -727,7 +730,7 @@ input[aria-invalid="true"] {
   border: none;
   border-radius: 999px;
   padding: 0.75rem 1.25rem;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-text);
   box-shadow: 0 6px 20px rgb(16 24 40 / 25%);
   cursor: pointer;
@@ -778,7 +781,7 @@ input[aria-invalid="true"] {
 
 .chat-user {
   align-self: flex-end;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-text);
 }
 
@@ -893,7 +896,7 @@ body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-text);
   font-size: 0.8rem;
   font-weight: 700;
@@ -1282,53 +1285,74 @@ body {
    their contrast; where backdrop-filter isn't supported the surfaces fall
    back to nearly opaque. */
 
+/* The palette: a warm neutral base (not navy) lit by violet, teal and a
+   little peach, with violet as the one accent. Surfaces are clear glass;
+   text keeps at least 4.5:1 on them. */
 :root {
-  --bg: #eef2fb;
-  --surface: rgb(255 255 255 / 62%);
-  --surface-strong: rgb(255 255 255 / 82%);
-  --surface-muted: rgb(226 232 245 / 62%);
-  --border: rgb(255 255 255 / 75%);
-  --hairline: rgb(30 50 100 / 11%);
-  --radius: 16px;
-  --shadow: 0 8px 28px rgb(31 60 130 / 10%), 0 1px 2px rgb(16 24 40 / 5%);
-  --blur: saturate(170%) blur(18px);
+  --bg: #f4f3f9;
+  --surface: rgb(255 255 255 / 52%);
+  --surface-strong: rgb(255 255 255 / 80%);
+  --surface-muted: rgb(236 233 248 / 58%);
+  --border: rgb(255 255 255 / 70%);
+  --hairline: rgb(40 30 90 / 10%);
+  --text: #17151f;
+  --text-muted: #5f5b74;
+  --info-bg: #ece8ff;
+  --radius: 18px;
+  --tint: 91 61 245;
+  --accent-gradient: linear-gradient(135deg, #7a4dff 0%, #5b3df5 100%);
+  --shadow: 0 10px 30px rgb(60 40 140 / 9%), 0 1px 2px rgb(20 16 40 / 5%);
+  --shadow-lift: 0 18px 44px rgb(60 40 140 / 16%);
+  --blur: saturate(160%) blur(22px);
   --backdrop:
-    radial-gradient(60vmax 60vmax at 8% -5%, rgb(120 160 255 / 55%), transparent 60%),
-    radial-gradient(55vmax 55vmax at 100% 10%, rgb(170 130 255 / 38%), transparent 60%),
-    radial-gradient(60vmax 60vmax at 85% 105%, rgb(90 210 230 / 38%), transparent 60%),
-    radial-gradient(50vmax 50vmax at 0% 100%, rgb(255 170 200 / 28%), transparent 60%);
+    radial-gradient(60vmax 60vmax at 6% -8%, rgb(150 120 255 / 42%), transparent 60%),
+    radial-gradient(55vmax 55vmax at 100% 6%, rgb(80 210 190 / 30%), transparent 60%),
+    radial-gradient(60vmax 60vmax at 88% 108%, rgb(255 185 150 / 34%), transparent 60%),
+    radial-gradient(50vmax 50vmax at -4% 96%, rgb(240 150 220 / 22%), transparent 60%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0a0f1c;
-    --surface: rgb(26 34 54 / 58%);
-    --surface-strong: rgb(22 29 46 / 84%);
-    --surface-muted: rgb(50 62 92 / 50%);
+    --bg: #0b0b10;
+    --surface: rgb(255 255 255 / 5%);
+    --surface-strong: rgb(24 23 32 / 86%);
+    --surface-muted: rgb(255 255 255 / 7%);
     --border: rgb(255 255 255 / 10%);
-    --hairline: rgb(255 255 255 / 9%);
-    --shadow: 0 10px 32px rgb(0 0 0 / 38%);
+    --hairline: rgb(255 255 255 / 8%);
+    --text: #ecebf3;
+    --text-muted: #a3a0b6;
+    --info-bg: rgb(124 92 255 / 16%);
+    --tint: 140 110 255;
+    --accent-gradient: linear-gradient(135deg, #7a4dff 0%, #5b3df5 100%);
+    --shadow: 0 12px 34px rgb(0 0 0 / 42%);
+    --shadow-lift: 0 20px 48px rgb(0 0 0 / 55%);
     --backdrop:
-      radial-gradient(60vmax 60vmax at 8% -5%, rgb(50 90 220 / 42%), transparent 60%),
-      radial-gradient(55vmax 55vmax at 100% 10%, rgb(120 70 220 / 32%), transparent 60%),
-      radial-gradient(60vmax 60vmax at 85% 105%, rgb(20 140 170 / 30%), transparent 60%),
-      radial-gradient(50vmax 50vmax at 0% 100%, rgb(170 50 110 / 20%), transparent 60%);
+      radial-gradient(60vmax 60vmax at 6% -8%, rgb(110 70 255 / 30%), transparent 60%),
+      radial-gradient(55vmax 55vmax at 100% 6%, rgb(20 170 150 / 20%), transparent 60%),
+      radial-gradient(60vmax 60vmax at 88% 108%, rgb(230 110 80 / 16%), transparent 60%),
+      radial-gradient(50vmax 50vmax at -4% 96%, rgb(200 60 160 / 14%), transparent 60%);
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #0a0f1c;
-  --surface: rgb(26 34 54 / 58%);
-  --surface-strong: rgb(22 29 46 / 84%);
-  --surface-muted: rgb(50 62 92 / 50%);
+  --bg: #0b0b10;
+  --surface: rgb(255 255 255 / 5%);
+  --surface-strong: rgb(24 23 32 / 86%);
+  --surface-muted: rgb(255 255 255 / 7%);
   --border: rgb(255 255 255 / 10%);
-  --hairline: rgb(255 255 255 / 9%);
-  --shadow: 0 10px 32px rgb(0 0 0 / 38%);
+  --hairline: rgb(255 255 255 / 8%);
+  --text: #ecebf3;
+  --text-muted: #a3a0b6;
+  --info-bg: rgb(124 92 255 / 16%);
+  --tint: 140 110 255;
+  --accent-gradient: linear-gradient(135deg, #7a4dff 0%, #5b3df5 100%);
+  --shadow: 0 12px 34px rgb(0 0 0 / 42%);
+  --shadow-lift: 0 20px 48px rgb(0 0 0 / 55%);
   --backdrop:
-    radial-gradient(60vmax 60vmax at 8% -5%, rgb(50 90 220 / 42%), transparent 60%),
-    radial-gradient(55vmax 55vmax at 100% 10%, rgb(120 70 220 / 32%), transparent 60%),
-    radial-gradient(60vmax 60vmax at 85% 105%, rgb(20 140 170 / 30%), transparent 60%),
-    radial-gradient(50vmax 50vmax at 0% 100%, rgb(170 50 110 / 20%), transparent 60%);
+    radial-gradient(60vmax 60vmax at 6% -8%, rgb(110 70 255 / 30%), transparent 60%),
+    radial-gradient(55vmax 55vmax at 100% 6%, rgb(20 170 150 / 20%), transparent 60%),
+    radial-gradient(60vmax 60vmax at 88% 108%, rgb(230 110 80 / 16%), transparent 60%),
+    radial-gradient(50vmax 50vmax at -4% 96%, rgb(200 60 160 / 14%), transparent 60%);
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -1380,7 +1404,7 @@ body::before {
 .topbar {
   background: transparent;
   border-bottom: 1px solid var(--hairline);
-  box-shadow: 0 4px 24px rgb(31 60 130 / 6%);
+  box-shadow: 0 4px 24px rgb(var(--tint) / 6%);
 }
 
 .topbar::before {
@@ -1423,7 +1447,8 @@ textarea,
 
 .button {
   border-radius: 12px;
-  box-shadow: 0 6px 16px rgb(31 94 255 / 22%);
+  background: var(--accent-gradient);
+  box-shadow: 0 6px 18px rgb(var(--tint) / 28%), inset 0 1px 0 rgb(255 255 255 / 18%);
   transition:
     transform 0.12s ease,
     box-shadow 0.12s ease,
@@ -1469,7 +1494,7 @@ textarea,
 
 .wallet-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 36px rgb(31 60 130 / 16%);
+  box-shadow: var(--shadow-lift);
 }
 
 .wallet-balance {
@@ -1490,14 +1515,15 @@ textarea,
 }
 
 .chat-launcher {
-  box-shadow: 0 10px 28px rgb(31 94 255 / 35%);
+  background: var(--accent-gradient);
+  box-shadow: 0 10px 28px rgb(var(--tint) / 38%);
 }
 
 .auth-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 22px;
-  box-shadow: 0 20px 60px rgb(31 60 130 / 16%);
+  box-shadow: var(--shadow-lift);
 }
 
 .secret,
@@ -1512,7 +1538,7 @@ textarea,
     -webkit-backdrop-filter: var(--blur);
     backdrop-filter: var(--blur);
     border-top: 1px solid var(--hairline);
-    box-shadow: 0 -4px 24px rgb(31 60 130 / 8%);
+    box-shadow: 0 -4px 24px rgb(var(--tint) / 8%);
   }
 
   .nav .nav-link.active {
@@ -1541,10 +1567,99 @@ textarea,
   }
 }
 
+/* Wallets read as cards: a sheen of the accent across the glass, the main
+   one a little stronger. */
+.wallet-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgb(var(--tint) / 16%) 0%, transparent 55%),
+    var(--surface);
+}
+
+.wallet-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -30% -60% auto;
+  width: 70%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(var(--tint) / 18%), transparent);
+  pointer-events: none;
+}
+
+.wallet-card:has(.badge-main) {
+  background:
+    linear-gradient(135deg, rgb(var(--tint) / 30%) 0%, rgb(var(--tint) / 6%) 60%),
+    var(--surface);
+  border-color: rgb(var(--tint) / 35%);
+}
+
+.button-ghost,
+.button-danger {
+  background: var(--surface);
+}
+
+.button-danger {
+  background: var(--bad);
+  box-shadow: 0 6px 16px rgb(180 35 24 / 22%);
+}
+
+.button-ghost {
+  box-shadow: none;
+}
+
+.avatar,
+.recipient-avatar,
+.chat-user {
+  background: var(--accent-gradient);
+}
+
+.goal-bar {
+  background: var(--accent-gradient);
+}
+
+.quick-action {
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.quick-action:hover,
+.quick-action:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgb(var(--tint) / 45%);
+  box-shadow: var(--shadow-lift);
+}
+
+.brand {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+::selection {
+  background: rgb(var(--tint) / 28%);
+}
+
+/* On the dark backdrop the wordmark needs the lighter end of the violet. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand {
+    background-image: linear-gradient(135deg, #c9bfff 0%, #8f7bff 100%);
+  }
+}
+
+:root[data-theme="dark"] .brand {
+  background-image: linear-gradient(135deg, #c9bfff 0%, #8f7bff 100%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .button,
   .nav-link,
-  .wallet-card {
+  .wallet-card,
+  .quick-action {
     transition: none;
   }
 }
@@ -1666,7 +1781,7 @@ textarea,
   width: 1.9rem;
   height: 1.9rem;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-text);
   font-weight: 600;
 }

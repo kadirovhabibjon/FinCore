@@ -103,7 +103,7 @@ export function WalletsPage() {
                   <ShortId id={wallet.id} />
                 </span>
                 <span className="wallet-flags">
-                  {wallet.is_primary && <span className="badge">{t("card.main")}</span>}
+                  {wallet.is_primary && <span className="badge badge-main">{t("card.main")}</span>}
                   {wallet.blocked ? (
                     <span className="badge badge-bad">{t("card.blocked")}</span>
                   ) : (
