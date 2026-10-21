@@ -1005,7 +1005,9 @@ money or change anything.
 | ![Merchant](docs/screenshots/merchant.png) | ![Review queue](docs/screenshots/admin-reviews.png) |
 
 More: [home](docs/screenshots/wallets.png) and the same in
-[dark mode](docs/screenshots/wallets-dark.png),
+[dark mode](docs/screenshots/wallets-dark.png) and
+[on a phone](docs/screenshots/phone.png),
+[savings goals](docs/screenshots/goals.png),
 [service payments](docs/screenshots/pay.png),
 [statistics](docs/screenshots/stats.png),
 [wallet ledger entries](docs/screenshots/wallet.png),
@@ -1013,7 +1015,7 @@ More: [home](docs/screenshots/wallets.png) and the same in
 [admin dashboard](docs/screenshots/admin-dashboard.png),
 [all transactions](docs/screenshots/admin-transactions.png),
 [user search](docs/screenshots/admin-users.png). Captured from the
-running stack with demo data.
+running stack with demo data (made-up people and amounts).
 
 React 19 + TypeScript + Vite single-page app
 ([ADR-0005](docs/adr/0005-frontend-addition.md)), served by its own

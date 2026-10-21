@@ -3342,6 +3342,49 @@ h2 {
   }
 }
 
+/* The chat button: icon and words on a wide screen; on a phone just a
+   round icon, so it covers as little of the page as possible (the words
+   stay as its accessible name). The page leaves room under its last line
+   so nothing ends up hidden beneath it. */
+.chat-launcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chat-launch-icon {
+  flex: none;
+}
+
+@media (max-width: 760px) {
+  .chat-launcher {
+    width: 3.25rem;
+    height: 3.25rem;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .chat-launch-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .chat-launcher .chat-badge {
+    position: absolute;
+    top: -0.2rem;
+    right: -0.2rem;
+    margin: 0;
+  }
+
+  .content {
+    padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
+  }
+}
+
 /* --- narrow pages sit in the middle, not against the left edge -------- */
 
 .page.narrow {

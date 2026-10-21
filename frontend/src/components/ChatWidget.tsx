@@ -6,6 +6,7 @@ import * as api from "../api/endpoints";
 import { MAX_CHARS, conversationToSend } from "../lib/chat";
 import { useI18n, type I18n } from "../i18n";
 import { onOpenSupportChat } from "../lib/support";
+import { ChatIcon } from "./icons";
 import { OperatorChat } from "./OperatorChat";
 
 // How often to ask whether staff have replied while the chat is shut.
@@ -111,7 +112,8 @@ export function ChatWidget() {
           setOpen(true);
         }}
       >
-        {t("chat.launch")}
+        <ChatIcon size={20} className="chat-launch-icon" />
+        <span className="chat-launch-text">{t("chat.launch")}</span>
         {unreadReplies > 0 && (
           <span className="chat-badge" aria-label={t("operator.unread", { count: unreadReplies })}>
             {unreadReplies > 9 ? "9+" : unreadReplies}

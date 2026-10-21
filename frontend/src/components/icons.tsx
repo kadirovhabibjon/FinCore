@@ -117,3 +117,10 @@ export const SignOutIcon = (props: IconProps) => (
     <path d="M15 8l4 4-4 4M19 12H9" />
   </Svg>
 );
+
+export const ChatIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M20 11.5a7.5 7.5 0 0 1-11 6.6L4 19.5l1.4-4.6A7.5 7.5 0 1 1 20 11.5Z" />
+    <path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" strokeWidth="2.6" />
+  </Svg>
+);
