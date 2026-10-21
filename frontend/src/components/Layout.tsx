@@ -1,86 +1,41 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../auth/context";
+import { PageSkeleton } from "./Skeleton";
 import { ChatWidget } from "./ChatWidget";
+import { HistoryIcon, PayIcon, SendIcon, ShopIcon, SignOutIcon, WalletIcon } from "./icons";
 import { NotificationBell } from "./NotificationBell";
 import { useI18n, type MessageKey } from "../i18n";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { ThemeButton } from "./ThemeSwitch";
-
-function Icon({ children }: { children: ReactNode }) {
-  return (
-    <svg
-      className="nav-icon"
-      viewBox="0 0 24 24"
-      width="22"
-      height="22"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      {children}
-    </svg>
-  );
-}
 
 const USER_LINKS: { to: string; label: MessageKey; end?: boolean; icon: ReactNode }[] = [
   {
     to: "/",
     label: "nav.wallets",
     end: true,
-    icon: (
-      <Icon>
-        <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H18a2 2 0 0 1 2 2v1" />
-        <path d="M3 7.5V17a3 3 0 0 0 3 3h13a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2H5.5A2.5 2.5 0 0 1 3 7.5Z" />
-        <circle cx="16.5" cy="14" r="1.2" fill="currentColor" stroke="none" />
-      </Icon>
-    ),
+    icon: <WalletIcon className="nav-icon" />,
   },
   {
     to: "/transfer",
     label: "nav.send",
-    icon: (
-      <Icon>
-        <path d="M21 3 10.5 13.5" />
-        <path d="M21 3 14.5 21l-4-7.5L3 9.5 21 3Z" />
-      </Icon>
-    ),
+    icon: <SendIcon className="nav-icon" />,
   },
   {
     to: "/pay",
     label: "nav.pay",
-    icon: (
-      <Icon>
-        <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
-        <path d="M2.5 10h19M6.5 15h4" />
-      </Icon>
-    ),
+    icon: <PayIcon className="nav-icon" />,
   },
   {
     to: "/transactions",
     label: "nav.history",
-    icon: (
-      <Icon>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3.5 2" />
-      </Icon>
-    ),
+    icon: <HistoryIcon className="nav-icon" />,
   },
   {
     to: "/merchants",
     label: "nav.merchants",
-    icon: (
-      <Icon>
-        <path d="M4 9.5 5.2 4h13.6L20 9.5" />
-        <path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0" />
-        <path d="M5.5 12.5V20h13v-7.5M10 20v-4.5h4V20" />
-      </Icon>
-    ),
+    icon: <ShopIcon className="nav-icon" />,
   },
 ];
 
@@ -125,28 +80,15 @@ export function Layout() {
             className="button button-ghost signout"
             onClick={() => void logout()}
           >
-            <svg
-              className="signout-icon"
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" />
-              <path d="M15 8l4 4-4 4M19 12H9" />
-            </svg>
+            <SignOutIcon size={20} className="signout-icon" />
             <span className="signout-text">{t("common.signOut")}</span>
           </button>
         </div>
       </header>
       <main className="content">
-        <Outlet />
+        <Suspense fallback={<PageSkeleton />}>
+          <Outlet />
+        </Suspense>
       </main>
       <ChatWidget />
     </div>

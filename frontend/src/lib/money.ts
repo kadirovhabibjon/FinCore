@@ -16,19 +16,35 @@ function exponentOf(currency: string): number {
   return exponent;
 }
 
-function groupThousands(digits: string): string {
-  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
+/** How an amount is written in each language the site speaks: English as
+ * "1,234.56 UZS"; Uzbek and Russian the way people there write it, with
+ * spaces between thousands, a decimal comma and the sum's local name. */
+const STYLES: Record<string, { group: string; decimal: string; names: Record<string, string> }> = {
+  en: { group: ",", decimal: ".", names: {} },
+  uz: { group: "\u00a0", decimal: ",", names: { UZS: "so‘m" } },
+  ru: { group: "\u00a0", decimal: ",", names: { UZS: "сум" } },
+};
 
-/** 123456 UZS -> "1,234.56 UZS" */
-export function formatMinor(amountMinor: number, currency: string): string {
+function splitMinor(amountMinor: number, currency: string) {
   const exponent = exponentOf(currency);
   const value = BigInt(amountMinor);
   const negative = value < 0n;
   const digits = (negative ? -value : value).toString().padStart(exponent + 1, "0");
-  const whole = digits.slice(0, digits.length - exponent);
-  const fraction = exponent > 0 ? `.${digits.slice(digits.length - exponent)}` : "";
-  return `${negative ? "-" : ""}${groupThousands(whole)}${fraction} ${currency}`;
+  return {
+    negative,
+    whole: digits.slice(0, digits.length - exponent),
+    fraction: exponent > 0 ? digits.slice(digits.length - exponent) : "",
+  };
+}
+
+/** 123456 UZS -> "1,234.56 UZS" in English, "1 234,56 so‘m" in Uzbek.
+ * In the language the site is showing unless one is given. */
+export function formatMinor(amountMinor: number, currency: string, lang?: string): string {
+  const style = STYLES[lang ?? i18n().lang] ?? STYLES.en!;
+  const { negative, whole, fraction } = splitMinor(amountMinor, currency);
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, style.group);
+  const decimals = fraction ? `${style.decimal}${fraction}` : "";
+  return `${negative ? "-" : ""}${grouped}${decimals} ${style.names[currency] ?? currency}`;
 }
 
 /** A wallet as one line of text, for <option>s:
@@ -55,7 +71,8 @@ export function walletLabel(wallet: {
 /** Minor units as the decimal string an amount field takes and the API
  * accepts: 5000000 UZS -> "50000.00". No grouping, no currency. */
 export function minorToInput(amountMinor: number, currency: string): string {
-  return formatMinor(amountMinor, currency).split(" ")[0]!.replace(/,/g, "");
+  const { negative, whole, fraction } = splitMinor(amountMinor, currency);
+  return `${negative ? "-" : ""}${whole}${fraction ? `.${fraction}` : ""}`;
 }
 
 /** A valid amount string as integer minor units: "12.5" UZS -> 1250.

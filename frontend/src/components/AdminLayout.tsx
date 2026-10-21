@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { Suspense } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import * as api from "../api/endpoints";
 import { useAuth } from "../auth/context";
+import { PageSkeleton } from "./Skeleton";
 import { useI18n, type MessageKey } from "../i18n";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { ThemeButton } from "./ThemeSwitch";
@@ -87,7 +89,9 @@ export function AdminLayout() {
         </div>
       </aside>
       <main className="admin-content">
-        <Outlet />
+        <Suspense fallback={<PageSkeleton />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );

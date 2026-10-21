@@ -125,7 +125,8 @@ describe("savings goals", () => {
     await userEvent.click(screen.getByRole("button", { name: "Pul qo‘shish" }));
     await userEvent.type(screen.getByLabelText("Summa (UZS)"), "300");
     await userEvent.click(screen.getByRole("button", { name: "Qo‘shish" }));
-    expect(await screen.findByText(/300.00 UZS yo‘lda/)).toBeInTheDocument();
+    // In Uzbek an amount is written the local way.
+    expect(await screen.findByText(/300,00 so‘m yo‘lda/)).toBeInTheDocument();
   });
 
   it("creates a goal, checking the target first", async () => {

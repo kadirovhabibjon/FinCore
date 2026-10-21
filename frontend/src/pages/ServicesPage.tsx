@@ -6,6 +6,7 @@ import * as api from "../api/endpoints";
 import { OperationOutcome } from "../components/OperationOutcome";
 import { SaveTemplate } from "../components/SaveTemplate";
 import { BlockedNotice } from "../components/WalletSettings";
+import { BoltIcon, GlobeIcon, PhoneIcon, TvIcon } from "../components/icons";
 import { ErrorAlert, Loading, Money, Notice } from "../components/ui";
 import { useI18n, type I18n } from "../i18n";
 import { formatMinor, minorToInput, toMinor, validateAmount, walletLabel } from "../lib/money";
@@ -17,6 +18,8 @@ import { useIdempotencyKey } from "../lib/useIdempotencyKey";
 function serviceName(service: api.Service, i18n: I18n): string {
   return i18n.maybe(`provider.${service.code}`) ?? service.name;
 }
+
+const CATEGORY_ICONS = { MOBILE: PhoneIcon, INTERNET: GlobeIcon, UTILITIES: BoltIcon, TV: TvIcon };
 
 /** Paying for services: a catalogue of providers, then one form. Which
  * provider is chosen lives in the URL (?service=), so the browser's
@@ -66,6 +69,7 @@ export function ServicesPage() {
       {CATEGORY_ORDER.map((category) => {
         const inCategory = (services.data ?? []).filter((item) => item.category === category);
         if (inCategory.length === 0) return null;
+        const CategoryIcon = CATEGORY_ICONS[category];
         return (
           <section key={category} aria-labelledby={`category-${category}`}>
             <h2 id={`category-${category}`}>{t(`category.${category}`)}</h2>
@@ -77,8 +81,8 @@ export function ServicesPage() {
                   className="card service-tile"
                   onClick={() => setParams({ service: service.code })}
                 >
-                  <span className="recipient-avatar" aria-hidden="true">
-                    {serviceName(service, i18n).slice(0, 1).toUpperCase()}
+                  <span className={`service-icon service-icon-${category.toLowerCase()}`}>
+                    <CategoryIcon size={20} />
                   </span>
                   <span>{serviceName(service, i18n)}</span>
                 </button>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatMinor, validateAmount, walletLabel } from "./money";
+import { formatMinor, minorToInput, validateAmount, walletLabel } from "./money";
 
 describe("formatMinor", () => {
   it.each([
@@ -14,9 +14,21 @@ describe("formatMinor", () => {
     expect(formatMinor(minor, "UZS")).toBe(expected);
   });
 
+  it("writes amounts the local way in Uzbek and Russian", () => {
+    expect(formatMinor(182_000_000, "UZS", "uz")).toBe("1\u00a0820\u00a0000,00 so‘m");
+    expect(formatMinor(182_000_000, "UZS", "ru")).toBe("1\u00a0820\u00a0000,00 сум");
+    expect(formatMinor(-1_696, "USD", "uz")).toBe("-16,96 USD");
+    expect(formatMinor(123_456, "UZS", "en")).toBe("1,234.56 UZS");
+  });
+
   it("rejects currencies the backend doesn't support", () => {
     expect(() => formatMinor(1, "EUR")).toThrow("unsupported currency EUR");
   });
+});
+
+it("fills an amount field the same in every language", () => {
+  expect(minorToInput(5_000_000, "UZS")).toBe("50000.00");
+  expect(minorToInput(5, "USD")).toBe("0.05");
 });
 
 describe("validateAmount", () => {

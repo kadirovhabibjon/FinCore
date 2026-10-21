@@ -35,7 +35,8 @@ export function Notice({ children }: { children: ReactNode }) {
 }
 
 export function Money({ minor, currency }: { minor: number; currency: string }) {
-  return <span className="money">{formatMinor(minor, currency)}</span>;
+  const { lang } = useI18n();
+  return <span className="money">{formatMinor(minor, currency, lang)}</span>;
 }
 
 const STATUS_TONES: Record<string, string> = {
@@ -105,12 +106,17 @@ export function CopyButton({ text, label }: { text: string; label?: string }) {
   );
 }
 
+/** Shimmering placeholder lines while something loads. What is loading
+ * is still said, for screen readers, just not drawn. */
 export function Loading({ what }: { what?: string }) {
   const { t } = useI18n();
   return (
-    <p className="muted" role="status">
-      {what ?? t("common.loading")}…
-    </p>
+    <div className="loading" role="status">
+      <span className="visually-hidden">{what ?? t("common.loading")}…</span>
+      <span className="skeleton" aria-hidden="true" style={{ width: "60%" }} />
+      <span className="skeleton" aria-hidden="true" style={{ width: "85%" }} />
+      <span className="skeleton" aria-hidden="true" style={{ width: "40%" }} />
+    </div>
   );
 }
 

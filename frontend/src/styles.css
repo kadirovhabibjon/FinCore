@@ -18,7 +18,7 @@
   --radius: 10px;
   --shadow: 0 1px 2px rgb(16 24 40 / 6%);
   font-family:
-    Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: var(--text);
   background: var(--bg);
   line-height: 1.5;
@@ -3066,3 +3066,296 @@ a.service-tile {
   border-color: #374151;
   box-shadow: none;
 }
+
+/* === finish ================================================================ */
+
+body {
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1 {
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  letter-spacing: -0.01em;
+}
+
+.money,
+.wallet-balance,
+.stat-number {
+  font-variant-numeric: tabular-nums;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- skeletons: where content is about to be -------------------------- */
+
+.skeleton {
+  display: block;
+  height: 1rem;
+  border-radius: 8px;
+  background: linear-gradient(
+      100deg,
+      transparent 20%,
+      rgb(255 255 255 / 45%) 50%,
+      transparent 80%
+    )
+    0 0 / 200% 100%,
+    var(--surface-muted);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+:root[data-theme="dark"] .skeleton {
+  background-image: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 7%) 50%, transparent 80%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .skeleton {
+    background-image: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 7%) 50%, transparent 80%);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.loading,
+.skeleton-card,
+.page-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.loading {
+  padding: 0.5rem 0;
+}
+
+.page-skeleton .skeleton-card {
+  margin-top: 1rem;
+}
+
+/* --- icons in the navigation and the quick actions -------------------- */
+
+@media (min-width: 761px) {
+  .nav .nav-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+    opacity: 0.85;
+  }
+}
+
+.quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.quick-icon {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0.6rem;
+  border-radius: 14px;
+  color: #fff;
+  background: var(--accent-gradient);
+  box-shadow: 0 6px 16px rgb(var(--tint) / 30%);
+}
+
+.service-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 12px;
+  color: #fff;
+}
+
+.service-icon-mobile {
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+}
+
+.service-icon-internet {
+  background: linear-gradient(135deg, #0d9488, #115e59);
+}
+
+.service-icon-utilities {
+  background: linear-gradient(135deg, #d97706, #92400e);
+}
+
+.service-icon-tv {
+  background: linear-gradient(135deg, #e11d48, #9f1239);
+}
+
+.service-tile {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.service-tile:hover,
+.service-tile:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgb(var(--tint) / 45%);
+  box-shadow: var(--shadow-lift);
+}
+
+/* --- wallets as bank cards --------------------------------------------- */
+
+/* Each currency its own card colour; white text on all of them (the
+   darkest-to-lightest stops all keep 4.5:1 or more). */
+.bank-card {
+  --card-from: #6d4aff;
+  --card-to: #3b1fb8;
+  aspect-ratio: 1.586;
+  max-width: 420px;
+  padding: 1.25rem 1.4rem;
+  justify-content: space-between;
+  color: #fff;
+  border: 1px solid rgb(255 255 255 / 18%);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgb(255 255 255 / 14%), transparent 55%),
+    radial-gradient(80% 80% at 0% 100%, rgb(0 0 0 / 22%), transparent 60%),
+    linear-gradient(135deg, var(--card-from), var(--card-to));
+  box-shadow: 0 14px 34px rgb(var(--tint) / 28%);
+}
+
+.bank-card.wallet-card:has(.badge-main) {
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgb(255 255 255 / 14%), transparent 55%),
+    radial-gradient(80% 80% at 0% 100%, rgb(0 0 0 / 22%), transparent 60%),
+    linear-gradient(135deg, var(--card-from), var(--card-to));
+  border-color: rgb(255 255 255 / 30%);
+}
+
+.bank-card-usd {
+  --card-from: #0b7363;
+  --card-to: #0b4f5c;
+}
+
+.bank-card-blocked {
+  filter: grayscale(1) brightness(0.85);
+}
+
+.bank-card::after {
+  display: none;
+}
+
+.bank-card .muted,
+.bank-card .card-number,
+.bank-card .short-id {
+  color: rgb(255 255 255 / 92%);
+}
+
+.bank-card .card-number {
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+}
+
+.bank-card .wallet-balance {
+  font-size: 1.65rem;
+}
+
+.bank-card .badge {
+  color: #fff;
+  background: rgb(255 255 255 / 18%);
+  border-color: rgb(255 255 255 / 28%);
+}
+
+.bank-card .badge-bad {
+  background: rgb(180 35 24 / 70%);
+}
+
+.bank-card-chip {
+  width: 2.4rem;
+  height: 1.8rem;
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, transparent 45%, rgb(120 80 0 / 35%) 45% 55%, transparent 55%),
+    linear-gradient(0deg, transparent 30%, rgb(120 80 0 / 30%) 30% 36%, transparent 36% 64%, rgb(120 80 0 / 30%) 64% 70%, transparent 70%),
+    linear-gradient(135deg, #f6dd9a, #c99a3c);
+  box-shadow: inset 0 0 0 1px rgb(90 60 0 / 35%);
+}
+
+.bank-card-brand {
+  position: absolute;
+  right: 1.4rem;
+  bottom: 1.1rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  color: rgb(255 255 255 / 90%);
+}
+
+.bank-card:hover {
+  box-shadow: 0 20px 44px rgb(var(--tint) / 38%);
+}
+
+/* On a phone the quick actions are one row of icons, as in a bank app,
+   not a column of tall cards. */
+@media (max-width: 760px) {
+  .quick-actions {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
+
+  .quick-action {
+    padding: 0.5rem 0.1rem;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .quick-action:hover,
+  .quick-action:focus-visible {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* --- narrow pages sit in the middle, not against the left edge -------- */
+
+.page.narrow {
+  margin-inline: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+
+  .service-tile,
+  .quick-action {
+    transition: none;
+  }
+}
+

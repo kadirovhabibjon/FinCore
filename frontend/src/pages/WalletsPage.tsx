@@ -5,12 +5,13 @@ import { Link } from "react-router-dom";
 import * as api from "../api/endpoints";
 import { useAuth } from "../auth/context";
 import { ExchangeRates } from "../components/ExchangeRates";
+import { ExchangeIcon, GoalIcon, PayIcon, RequestIcon, SendIcon } from "../components/icons";
+import { SkeletonCards } from "../components/Skeleton";
 import { TemplateTiles } from "../components/TemplateTiles";
 import {
   DateTime,
   Empty,
   ErrorAlert,
-  Loading,
   Money,
   ShortId,
   StatusBadge,
@@ -90,13 +91,19 @@ export function WalletsPage() {
         </p>
       )}
       {wallets.isPending ? (
-        <Loading what={t("wallets.loading")} />
+        <SkeletonCards />
       ) : wallets.data?.length === 0 ? (
         <Empty>{t("wallets.empty")}</Empty>
       ) : (
         <div className="grid">
           {wallets.data?.map((wallet) => (
-            <Link key={wallet.id} to={`/wallets/${wallet.id}`} className="card wallet-card">
+            <Link
+              key={wallet.id}
+              to={`/wallets/${wallet.id}`}
+              className={`card wallet-card bank-card bank-card-${wallet.currency.toLowerCase()}${
+                wallet.blocked ? " bank-card-blocked" : ""
+              }`}
+            >
               <div className="wallet-card-head">
                 <span className="muted">
                   {wallet.name ?? t("wallet.name", { currency: wallet.currency })}{" "}
@@ -111,6 +118,7 @@ export function WalletsPage() {
                   )}
                 </span>
               </div>
+              <span className="bank-card-chip" aria-hidden="true" />
               <div className="card-number" aria-label={t("wallet.cardNumber")}>
                 {formatCardNumber(wallet.card_number)}
               </div>
@@ -129,6 +137,9 @@ export function WalletsPage() {
                   </>
                 )}
               </div>
+              <span className="bank-card-brand" aria-hidden="true">
+                FinCore
+              </span>
             </Link>
           ))}
         </div>
@@ -136,20 +147,25 @@ export function WalletsPage() {
       {(wallets.data?.length ?? 0) > 0 && (
         <nav className="quick-actions" aria-label={t("home.quick")}>
           <Link to="/transfer" className="card quick-action">
-            {t("home.send")}
+            <SendIcon className="quick-icon" />
+            <span>{t("home.send")}</span>
           </Link>
           <Link to="/pay" className="card quick-action">
-            {t("home.pay")}
+            <PayIcon className="quick-icon" />
+            <span>{t("home.pay")}</span>
           </Link>
           <Link to="/goals" className="card quick-action">
-            {t("home.goals")}
+            <GoalIcon className="quick-icon" />
+            <span>{t("home.goals")}</span>
           </Link>
           <Link to="/requests" className="card quick-action" title={t("wallets.request")}>
-            {t("home.request")}
+            <RequestIcon className="quick-icon" />
+            <span>{t("home.request")}</span>
           </Link>
           {(wallets.data?.length ?? 0) > 1 && (
             <Link to="/exchange" className="card quick-action" title={t("wallets.exchange")}>
-              {t("home.exchange")}
+              <ExchangeIcon className="quick-icon" />
+              <span>{t("home.exchange")}</span>
             </Link>
           )}
         </nav>

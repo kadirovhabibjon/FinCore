@@ -1545,7 +1545,7 @@ The web app has its own toolchain (Node 22):
 
 ```bash
 cd frontend && npm ci
-npm run lint && npm run typecheck && npm test && npm run build   # 228 vitest tests
+npm run lint && npm run typecheck && npm test && npm run build   # 230 vitest tests
 npm run dev    # Vite on :5173, proxying /api to the gateway on :8180
 ```
 
