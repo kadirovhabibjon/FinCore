@@ -126,6 +126,7 @@ export function ChatWidget() {
   return (
     <section
       className="chat-panel"
+      role="dialog"
       aria-label={tab === "assistant" ? t("chat.title") : t("operator.title")}
     >
       <header className="chat-header">

@@ -115,12 +115,16 @@ export function NotificationBell() {
 
   const items = notifications.data?.items ?? [];
   const newsItems = news.data?.items ?? [];
+  const badge = total > 9 ? "9+" : String(total);
+
   return (
     <div className="bell" ref={container}>
       <button
         type="button"
         className="button button-ghost bell-button"
-        aria-label={total > 0 ? t("bell.labelUnread", { count: total }) : t("bell.label")}
+        // The name says the count as the badge shows it ("9+"), so what a
+        // sighted voice-control user reads is what they can say (WCAG 2.5.3).
+        aria-label={total > 0 ? t("bell.labelUnread", { count: badge }) : t("bell.label")}
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={toggle}
@@ -142,7 +146,7 @@ export function NotificationBell() {
         </svg>
         {total > 0 && (
           <span className="bell-badge" aria-hidden="true">
-            {total > 9 ? "9+" : total}
+            {badge}
           </span>
         )}
       </button>

@@ -444,6 +444,36 @@ jobs:
         working-directory: tests/e2e
         run: pytest -v
 
+      # The web app in a real browser against the same stack: routing and
+      # code-split pages, the CSP, phone layout, accessibility (axe).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/browser/package-lock.json
+
+      - name: Install browser tests
+        working-directory: tests/browser
+        run: npm ci && npx playwright install --with-deps chromium
+
+      - name: Type check browser tests
+        working-directory: tests/browser
+        run: npm run typecheck
+
+      - name: Run browser tests (Playwright, against the live stack)
+        working-directory: tests/browser
+        run: npx playwright test
+
+      - name: Browser test report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            tests/browser/playwright-report
+            tests/browser/test-results
+          retention-days: 7
+
       - name: Service logs (on failure)
         if: failure()
         run: docker compose logs --no-color --tail 200

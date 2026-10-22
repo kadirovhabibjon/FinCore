@@ -69,7 +69,8 @@ Prometheus and Grafana, plus a React + TypeScript web app (customer
 site and admin console) served through the same gateway. Every package
 has unit and integration tests against real PostgreSQL/Kafka, every API
 and event is covered by a committed contract, an 84-test end-to-end
-suite runs against the live stack in CI, and a load test gates on
+suite and 18 Playwright browser tests (accessibility checked with axe)
+run against the live stack in CI, and a load test gates on
 ledger reconciliation. Service payments are a demonstration: FinCore is
 not connected to any provider. Integrations designed but not yet built
 are listed in [`docs/context-map.md`](docs/context-map.md); the table in
@@ -1635,6 +1636,34 @@ topic; a password change signing out the other device and being
 audited. The webhook delivery test is
 marked `external_network` and skips (never fails) if the stack has no
 internet access or the public receiver itself is down.
+
+### Browser tests (`tests/browser/`)
+
+18 Playwright tests that drive the web app in a real Chromium against
+the same live stack, covering what neither vitest (a simulated DOM and
+a fake API) nor the API suite can see. Set-up goes straight through the
+API (a fresh customer per test, funded through the ledger's internal
+postings API); everything the test is about goes through the screen.
+
+```bash
+cd tests/browser && npm ci && npx playwright install chromium
+npx playwright test              # or PW_CHANNEL=chrome to use an installed Chrome
+```
+
+Covered: signing up, signing in and opening a card; a wrong password;
+signing out, with the back button not bringing a page back; sending
+money by card number (the recipient named first, both balances checked
+through the API, the row in the history); a too-precise amount refused
+before the server is asked; paying a mobile operator; the language and
+theme surviving a reload, with amounts in the Uzbek format; a customer
+never downloading the admin console's code-split chunks; an unknown
+address; and, at Pixel 7 size, the tab bar at the bottom, no page wider
+than the screen, and the chat button. Every test also fails on any
+script error, failed request or CSP violation the browser reports, and
+axe-core checks seven pages against WCAG 2.1 A/AA, failing on serious
+or critical findings (its first run found two, both fixed: the bell's
+name didn't contain its visible "9+", and the chat panel had no dialog
+role).
 
 ### Load testing (`tests/load/`)
 
